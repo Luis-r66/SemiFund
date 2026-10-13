@@ -1,0 +1,192 @@
+{
+  "info": {
+    "name": "Semillero Tesoreria API",
+    "_postman_id": "semillero-tesoreria-2026",
+    "description": "Colección de pruebas del backend (Etapa 3). Importar en Postman o Insomnia. Flujo sugerido: ejecutar en orden. Los requests de crear guardan ids en variables automáticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "memberId", "value": "" },
+    { "key": "contributionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "API viva",
+          "request": { "method": "GET", "url": "http://localhost:3000/health" }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "Crear integrante (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j.id || j._id) pm.collectionVariables.set('memberId', j.id || j._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/members",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana Torres\",\n  \"programa\": \"Ingeniería de Software\",\n  \"semestre\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Crear integrante sin nombre (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/members",
+            "body": { "mode": "raw", "raw": "{\n  \"programa\": \"Ingeniería de Software\",\n  \"semestre\": 3\n}" }
+          }
+        },
+        {
+          "name": "Listar integrantes",
+          "request": { "method": "GET", "url": "{{baseUrl}}/members" }
+        },
+        {
+          "name": "Listar solo activos",
+          "request": { "method": "GET", "url": "{{baseUrl}}/members?activo=true" }
+        },
+        {
+          "name": "Detalle integrante",
+          "request": { "method": "GET", "url": "{{baseUrl}}/members/{{memberId}}" }
+        },
+        {
+          "name": "Detalle inexistente (404)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/members/000000000000000000000000" }
+        },
+        {
+          "name": "Editar integrante",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/members/{{memberId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"semestre\": 6\n}" }
+          }
+        },
+        {
+          "name": "Desactivar integrante (204)",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/members/{{memberId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Contributions",
+      "item": [
+        {
+          "name": "Registrar aporte (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j.id || j._id) pm.collectionVariables.set('contributionId', j.id || j._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/contributions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integranteId\": \"{{memberId}}\",\n  \"monto\": 50000,\n  \"mes\": \"2026-09\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Aporte con integrante falso (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/contributions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integranteId\": \"000000000000000000000000\",\n  \"monto\": 1000,\n  \"mes\": \"2026-09\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar aportes",
+          "request": { "method": "GET", "url": "{{baseUrl}}/contributions" }
+        },
+        {
+          "name": "Filtrar pendientes por miembro",
+          "request": { "method": "GET", "url": "{{baseUrl}}/contributions?status=pending&memberId={{memberId}}" }
+        },
+        {
+          "name": "Pagar aporte (200)",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" }
+        },
+        {
+          "name": "Pagar de nuevo (409)",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" }
+        }
+      ]
+    },
+    {
+      "name": "Expenses",
+      "item": [
+        {
+          "name": "Registrar gasto (201)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descripcion\": \"Bus evento Cali\",\n  \"categoria\": \"transporte\",\n  \"monto\": 20000\n}"
+            }
+          }
+        },
+        {
+          "name": "Gasto sin saldo (409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descripcion\": \"Licencias imposibles\",\n  \"categoria\": \"licencias\",\n  \"monto\": 999999999\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar gastos",
+          "request": { "method": "GET", "url": "{{baseUrl}}/expenses" }
+        },
+        {
+          "name": "Filtrar por categoria y mes",
+          "request": { "method": "GET", "url": "{{baseUrl}}/expenses?category=transporte&month=2026-10" }
+        }
+      ]
+    },
+    {
+      "name": "Balance",
+      "item": [
+        {
+          "name": "Consultar saldo",
+          "request": { "method": "GET", "url": "{{baseUrl}}/balance" }
+        }
+      ]
+    }
+  ]
+}
