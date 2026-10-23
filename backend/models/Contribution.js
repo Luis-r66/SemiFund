@@ -9,6 +9,7 @@ const contributionSchema = new mongoose.Schema(
       ref: 'Member',
       required: [true, 'integranteId es requerido']
     },
+    semilleroId: { type: mongoose.Schema.Types.ObjectId, ref: 'Semillero', required: true },
     monto: { type: Number, required: [true, 'El monto es requerido'], min: [0.01, 'El monto debe ser mayor a 0'] },
     mes: {
       type: String,

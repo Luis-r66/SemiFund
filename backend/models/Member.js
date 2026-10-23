@@ -6,7 +6,8 @@ const memberSchema = new mongoose.Schema(
     programa: { type: String, required: [true, 'El programa es requerido'], trim: true },
     semestre: { type: Number, required: [true, 'El semestre es requerido'], min: [1, 'Semestre mínimo 1'], max: [10, 'Semestre máximo 10'] },
     activo: { type: Boolean, default: true },
-    fechaIngreso: { type: Date, default: Date.now }
+    fechaIngreso: { type: Date, default: Date.now },
+    semilleroId: { type: mongoose.Schema.Types.ObjectId, ref: 'Semillero', required: true }
   },
   { collection: 'members', timestamps: false }
 );

@@ -2,9 +2,9 @@ const Expense = require('../models/Expense');
 const asyncHandler = require('../middleware/asyncHandler');
 const { getBalance } = require('../utils/balance');
 
-// GET /api/expenses?category=&month=YYYY-MM
+// GET /api/expenses?category=&month=YYYY-MM  (filtrado por semillero activo)
 const list = asyncHandler(async (req, res) => {
-  const filter = {};
+  const filter = { semilleroId: req.semilleroId };
   if (req.query.category) filter.categoria = String(req.query.category).toLowerCase();
 
   if (req.query.month) {
@@ -30,12 +30,12 @@ const create = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'descripcion, categoria y monto son requeridos' });
   }
 
-  const { saldoDisponible } = await getBalance();
+  const { saldoDisponible } = await getBalance(req.semilleroId);
   if (Number(monto) > saldoDisponible) {
     return res.status(409).json({ error: 'Saldo insuficiente' });
   }
 
-  const expense = await Expense.create({ descripcion, categoria, monto, ...(fecha ? { fecha } : {}) });
+  const expense = await Expense.create({ descripcion, categoria, monto, semilleroId: req.semilleroId, ...(fecha ? { fecha } : {}) });
   res.status(201).json(expense);
 });
 

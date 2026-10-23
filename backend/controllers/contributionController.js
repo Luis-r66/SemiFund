@@ -6,9 +6,9 @@ const asyncHandler = require('../middleware/asyncHandler');
 // Mapea el filtro en inglés de la spec a los estados en español de la DB
 const STATUS_MAP = { pending: 'pendiente', paid: 'pagado', overdue: 'vencido' };
 
-// GET /api/contributions?status=pending&memberId=
+// GET /api/contributions?status=pending&memberId=  (filtrado por semillero activo)
 const list = asyncHandler(async (req, res) => {
-  const filter = {};
+  const filter = { semilleroId: req.semilleroId };
   if (req.query.status) {
     const estado = STATUS_MAP[req.query.status];
     if (!estado) {
@@ -35,22 +35,20 @@ const create = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(integranteId)) {
     return res.status(400).json({ error: 'integranteId no es válido' });
   }
-  const member = await Member.findById(integranteId);
+  const member = await Member.findOne({ _id: integranteId, semilleroId: req.semilleroId });
   if (!member) return res.status(400).json({ error: 'El integrante no existe' });
 
-  const contribution = await Contribution.create({ integranteId, monto, mes });
+  const contribution = await Contribution.create({ integranteId, monto, mes, semilleroId: req.semilleroId });
   res.status(201).json(contribution);
 });
 
-// PATCH /api/contributions/:id/pay
-// Regla: pendiente->pagado, vencido->pagado. Un pagado no se modifica (409).
+// PATCH /api/contributions/:id/pay  (solo si pertenece al semillero activo)
 const pay = asyncHandler(async (req, res) => {
-  const item = await Contribution.findById(req.params.id);
+  const item = await Contribution.findOne({ _id: req.params.id, semilleroId: req.semilleroId });
   if (!item) return res.status(404).json({ error: 'Aporte no encontrado' });
   if (item.estado === 'pagado') {
     return res.status(409).json({ error: 'El aporte ya fue pagado' });
   }
-  // Solo pendiente o vencido pueden pasar a pagado
   item.estado = 'pagado';
   item.fechaPago = new Date();
   await item.save();
