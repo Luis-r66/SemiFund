@@ -30,6 +30,17 @@ const create = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'descripcion, categoria y monto son requeridos' });
   }
 
+  if (fecha !== undefined) {
+    const fechaGasto = new Date(fecha);
+    if (Number.isNaN(fechaGasto.getTime())) {
+      return res.status(400).json({ error: 'fecha no es una fecha válida' });
+    }
+    // Margen de un día por diferencias de zona horaria
+    if (fechaGasto.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+      return res.status(400).json({ error: 'La fecha del gasto no puede ser futura' });
+    }
+  }
+
   const { saldoDisponible } = await getBalance(req.semilleroId);
   if (Number(monto) > saldoDisponible) {
     return res.status(409).json({ error: 'Saldo insuficiente' });

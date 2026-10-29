@@ -45,13 +45,13 @@ Verificar: `GET http://localhost:3000/health` → `{ "ok": true }`.
 | GET | `/members?activo=true` | 200 lista | 400 filtro inválido |
 | GET | `/members/:id` | 200 | 404 |
 | POST | `/members` `{nombre, programa, semestre}` | 201 | 400 |
-| PUT | `/members/:id` | 200 | 400, 404 |
+| PUT | `/members/:id` (solo nombre, programa, semestre, activo) | 200 | 400, 404 |
 | DELETE | `/members/:id` (soft, `activo=false`) | 204 | 404 |
 | GET | `/contributions?status=pending&memberId=` | 200 | 400 |
-| POST | `/contributions` `{integranteId, monto, mes}` | 201 | 400 (incluye integrante inexistente) |
+| POST | `/contributions` `{integranteId, monto, mes, concepto}` | 201 | 400 (incluye integrante inexistente o concepto faltante) |
 | PATCH | `/contributions/:id/pay` | 200 | 404, 409 ya pagado |
 | GET | `/expenses?category=&month=YYYY-MM` | 200 | 400 |
-| POST | `/expenses` `{descripcion, categoria, monto, fecha?}` | 201 | 400, 409 saldo insuficiente |
+| POST | `/expenses` `{descripcion, categoria, monto, fecha?}` (sin fecha futura) | 201 | 400, 409 saldo insuficiente |
 | GET | `/balance` → `{totalAportado, totalGastado, saldoDisponible}` | 200 | — |
 
 `status` en query: `pending|paid|overdue` → `pendiente|pagado|vencido` en DB.

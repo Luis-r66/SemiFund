@@ -1,0 +1,10 @@
+{
+  "description": "Manage university software group finances with a clean app to track members, contributions, expenses, and balances using clear status indicators.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

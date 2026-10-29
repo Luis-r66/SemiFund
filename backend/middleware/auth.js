@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'semillero-dev-secret-cambiar-en-produccion';
+const JWT_SECRET = require('../config/jwt');
 
 // Middleware: valida el token Bearer y setea req.userId
 function requireAuth(req, res, next) {

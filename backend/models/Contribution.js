@@ -16,6 +16,12 @@ const contributionSchema = new mongoose.Schema(
       required: [true, 'El mes es requerido'],
       match: [/^\d{4}-(0[1-9]|1[0-2])$/, 'El mes debe tener formato YYYY-MM, ej. 2026-09']
     },
+    concepto: {
+      type: String,
+      required: [true, 'El concepto es requerido'],
+      trim: true,
+      maxlength: [200, 'El concepto no puede superar 200 caracteres']
+    },
     estado: { type: String, enum: ESTADOS, default: 'pendiente' },
     fechaPago: { type: Date, default: null }
   },

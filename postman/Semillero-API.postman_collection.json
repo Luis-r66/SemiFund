@@ -2,12 +2,18 @@
   "info": {
     "name": "Semillero Tesoreria API",
     "_postman_id": "semillero-tesoreria-2026",
-    "description": "Colección de pruebas del backend (Etapa 3). Importar en Postman o Insomnia. Flujo sugerido: ejecutar en orden. Los requests de crear guardan ids en variables automáticamente.",
+    "description": "Colección de pruebas del backend (Fase 2). Importar en Postman o Insomnia. Flujo sugerido: ejecutar en orden (Auth -> Semilleros -> Miembros/Aportes/Gastos). Los requests de crear guardan ids en variables de colección automáticamente. Requiere .env con MONGODB_URI y JWT_SECRET.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "token", "value": "" },
+    { "key": "tokenA", "value": "" },
+    { "key": "tokenB", "value": "" },
+    { "key": "semilleroId", "value": "" },
+    { "key": "codigo", "value": "" },
     { "key": "memberId", "value": "" },
+    { "key": "membershipId", "value": "" },
     { "key": "contributionId", "value": "" }
   ],
   "item": [
@@ -21,17 +27,53 @@
       ]
     },
     {
-      "name": "Members",
+      "name": "Auth",
       "item": [
         {
-          "name": "Crear integrante (201)",
+          "name": "Registrar usuario (201)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana Tesorero\",\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"Test1234!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Registrar correo duplicado (409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana Duplicado\",\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"Test1234!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Contraseña corta (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Corto\",\n  \"email\": \"corto@test.com\",\n  \"password\": \"123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Iniciar sesión (200) -> guarda token",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
                   "var j = pm.response.json();",
-                  "if (j.id || j._id) pm.collectionVariables.set('memberId', j.id || j._id);"
+                  "if (j.token) { pm.collectionVariables.set('token', j.token); pm.collectionVariables.set('tokenA', j.token); }"
                 ]
               }
             }
@@ -39,6 +81,337 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"Test1234!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Registro con tipos invalidos (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": 123,\n  \"email\": [\"invalido\"],\n  \"password\": {\"valor\": \"no\"}\n}"
+            }
+          }
+        },
+        {
+          "name": "Login con tipos invalidos (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": 123,\n  \"password\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Iniciar sesión B (200) -> guarda tokenB",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j.token) pm.collectionVariables.set('tokenB', j.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"b.integrante@test.com\",\n  \"password\": \"Test1234!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Credenciales invalidas (401)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"mal\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Perfil autenticado (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Semilleros",
+      "item": [
+        {
+          "name": "Listar mis semilleros (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros"
+          }
+        },
+        {
+          "name": "Crear semillero (201) -> guarda semilleroId y codigo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j.semillero && j.semillero.id) pm.collectionVariables.set('semilleroId', j.semillero.id);",
+                  "if (j.semillero && j.semillero.codigo) pm.collectionVariables.set('codigo', j.semillero.codigo);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Semillero Prueba\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Crear sin nombre (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros",
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "Unirse con codigo valido (201 pendiente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenB}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/join",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"{{codigo}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Unirse codigo invalido (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/join",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"INVALIDO\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Detalle semillero activo (200) -> tesorero ve codigo",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me"
+          }
+        },
+        {
+          "name": "Renombrar semillero (200) - solo tesorero",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Semillero Prueba Renombrado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Rotar codigo (200) - solo tesorero",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me/code/rotate"
+          }
+        },
+        {
+          "name": "Listar cuentas del semillero (200) -> guarda membershipId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j && j.length > 0) pm.collectionVariables.set('membershipId', j[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me/accounts"
+          }
+        },
+        {
+          "name": "Aprobar cuenta (200) - solo tesorero",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"activo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Rechazar cuenta (200) - solo tesorero",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"rechazado\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Hacer tesorero (200) - solo tesorero",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"esTesorero\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Quitar ultimo tesorero (409)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"esTesorero\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Sin token (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/semilleros/me"
+          }
+        },
+        {
+          "name": "Sin X-Semillero-Id (400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/semilleros/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "Listar integrantes (200) - requiere token y semillero",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/members"
+          }
+        },
+        {
+          "name": "Crear integrante (201) - solo tesorero",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
             "url": "{{baseUrl}}/members",
             "body": {
               "mode": "raw",
@@ -50,39 +423,71 @@
           "name": "Crear integrante sin nombre (400)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
             "url": "{{baseUrl}}/members",
             "body": { "mode": "raw", "raw": "{\n  \"programa\": \"Ingeniería de Software\",\n  \"semestre\": 3\n}" }
           }
         },
         {
-          "name": "Listar integrantes",
-          "request": { "method": "GET", "url": "{{baseUrl}}/members" }
-        },
-        {
-          "name": "Listar solo activos",
-          "request": { "method": "GET", "url": "{{baseUrl}}/members?activo=true" }
-        },
-        {
-          "name": "Detalle integrante",
-          "request": { "method": "GET", "url": "{{baseUrl}}/members/{{memberId}}" }
+          "name": "Detalle integrante (200)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/members/{{memberId}}" },
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{token}}" },
+            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+          ]
         },
         {
           "name": "Detalle inexistente (404)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/members/000000000000000000000000" }
+          "request": { "method": "GET", "url": "{{baseUrl}}/members/000000000000000000000000" },
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{token}}" },
+            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+          ]
         },
         {
-          "name": "Editar integrante",
+          "name": "Editar integrante (200) - solo tesorero",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
             "url": "{{baseUrl}}/members/{{memberId}}",
             "body": { "mode": "raw", "raw": "{\n  \"semestre\": 6\n}" }
           }
         },
         {
-          "name": "Desactivar integrante (204)",
-          "request": { "method": "DELETE", "url": "{{baseUrl}}/members/{{memberId}}" }
+          "name": "Desactivar integrante (204) - solo tesorero",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/members/{{memberId}}"
+          }
+        },
+        {
+          "name": "Integrante escribe crear miembro (403)",
+          "description": "Un integrante sin rol tesorero no puede crear miembros.",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenB}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/members",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Intruso\",\n  \"programa\": \"X\",\n  \"semestre\": 1\n}"
+            }
+          }
         }
       ]
     },
@@ -90,25 +495,29 @@
       "name": "Contributions",
       "item": [
         {
-          "name": "Registrar aporte (201)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var j = pm.response.json();",
-                  "if (j.id || j._id) pm.collectionVariables.set('contributionId', j.id || j._id);"
-                ]
-              }
-            }
-          ],
+          "name": "Listar aportes (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/contributions"
+          }
+        },
+        {
+          "name": "Registrar aporte (201) - solo tesorero",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
             "url": "{{baseUrl}}/contributions",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"integranteId\": \"{{memberId}}\",\n  \"monto\": 50000,\n  \"mes\": \"2026-09\"\n}"
+              "raw": "{\n  \"integranteId\": \"{{memberId}}\",\n  \"monto\": 50000,\n  \"mes\": \"2026-09\",\n  \"concepto\": \"Cuota mensual\"\n}"
             }
           }
         },
@@ -116,29 +525,44 @@
           "name": "Aporte con integrante falso (400)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
             "url": "{{baseUrl}}/contributions",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"integranteId\": \"000000000000000000000000\",\n  \"monto\": 1000,\n  \"mes\": \"2026-09\"\n}"
+              "raw": "{\n  \"integranteId\": \"000000000000000000000000\",\n  \"monto\": 1000,\n  \"mes\": \"2026-09\",\n  \"concepto\": \"Cuota mensual\"\n}"
             }
           }
         },
         {
-          "name": "Listar aportes",
-          "request": { "method": "GET", "url": "{{baseUrl}}/contributions" }
-        },
-        {
           "name": "Filtrar pendientes por miembro",
-          "request": { "method": "GET", "url": "{{baseUrl}}/contributions?status=pending&memberId={{memberId}}" }
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/contributions?status=pending&memberId={{memberId}}"
+          }
         },
         {
-          "name": "Pagar aporte (200)",
-          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" }
+          "name": "Pagar aporte (200) - solo tesorero",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" },
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{token}}" },
+            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+          ]
         },
         {
           "name": "Pagar de nuevo (409)",
-          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" }
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" },
+          "header": [
+            { "key": "Authorization", "value": "Bearer {{token}}" },
+            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+          ]
         }
       ]
     },
@@ -146,10 +570,25 @@
       "name": "Expenses",
       "item": [
         {
-          "name": "Registrar gasto (201)",
+          "name": "Listar gastos (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/expenses"
+          }
+        },
+        {
+          "name": "Registrar gasto (201) - solo tesorero",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
             "url": "{{baseUrl}}/expenses",
             "body": {
               "mode": "raw",
@@ -161,7 +600,11 @@
           "name": "Gasto sin saldo (409)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
             "url": "{{baseUrl}}/expenses",
             "body": {
               "mode": "raw",
@@ -170,12 +613,15 @@
           }
         },
         {
-          "name": "Listar gastos",
-          "request": { "method": "GET", "url": "{{baseUrl}}/expenses" }
-        },
-        {
           "name": "Filtrar por categoria y mes",
-          "request": { "method": "GET", "url": "{{baseUrl}}/expenses?category=transporte&month=2026-10" }
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/expenses?category=transporte&month=2026-10"
+          }
         }
       ]
     },
@@ -183,8 +629,15 @@
       "name": "Balance",
       "item": [
         {
-          "name": "Consultar saldo",
-          "request": { "method": "GET", "url": "{{baseUrl}}/balance" }
+          "name": "Consultar saldo (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            ],
+            "url": "{{baseUrl}}/balance"
+          }
         }
       ]
     }

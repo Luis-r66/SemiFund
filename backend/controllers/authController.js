@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Semillero = require('../models/Semillero');
@@ -7,7 +6,7 @@ const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'semillero-dev-secret-cambiar-en-produccion';
+const JWT_SECRET = require('../config/jwt');
 const JWT_EXPIRES_IN = '7d';
 
 function firmarToken(userId) {
@@ -16,8 +15,16 @@ function firmarToken(userId) {
 
 // POST /api/auth/register
 const register = asyncHandler(async (req, res) => {
-  const { nombre, email, password } = req.body;
-  if (!nombre || !email || !password) {
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const { nombre, email, password } = body;
+  if (
+    typeof nombre !== 'string' ||
+    typeof email !== 'string' ||
+    typeof password !== 'string' ||
+    !nombre.trim() ||
+    !email.trim() ||
+    !password
+  ) {
     return res.status(400).json({ error: 'nombre, email y contraseña son requeridos' });
   }
   if (password.length < 8) {
@@ -38,8 +45,9 @@ const register = asyncHandler(async (req, res) => {
 
 // POST /api/auth/login
 const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const { email, password } = body;
+  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
     return res.status(400).json({ error: 'Correo y contraseña son requeridos' });
   }
   const user = await User.findOne({ email: email.toLowerCase().trim() });
@@ -65,17 +73,20 @@ const me = asyncHandler(async (req, res) => {
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
   const membresias = await Membership.find({ userId: user._id, estado: 'activo' })
     .populate('semilleroId', 'nombre codigo');
+  const semilleros = membresias
+    .filter((m) => m.semilleroId)
+    .map((m) => ({
+      semilleroId: m.semilleroId._id,
+      semilleroNombre: m.semilleroId.nombre,
+      semilleroCodigo: m.esTesorero ? m.semilleroId.codigo : null,
+      esTesorero: m.esTesorero,
+      estado: m.estado
+    }));
   res.status(200).json({
     id: user.id,
     nombre: user.nombre,
     email: user.email,
-      semilleros: membresias.map(m => ({
-        semilleroId: m.semilleroId._id,
-        semilleroNombre: m.semilleroId.nombre,
-        semilleroCodigo: m.esTesorero ? m.semilleroId.codigo : null,
-        esTesorero: m.esTesorero,
-        estado: m.estado
-      }))
+    semilleros
   });
 });
 

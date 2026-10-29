@@ -38,10 +38,38 @@ const create = asyncHandler(async (req, res) => {
 });
 
 // PUT /api/members/:id  (solo si pertenece al semillero activo)
+// Solo estos campos son editables; evita asignación masiva (semilleroId, _id, etc.)
+const CAMPOS_EDITABLES = ['nombre', 'programa', 'semestre', 'activo'];
+
 const update = asyncHandler(async (req, res) => {
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const cambios = {};
+  for (const campo of CAMPOS_EDITABLES) {
+    if (body[campo] !== undefined) cambios[campo] = body[campo];
+  }
+  if (Object.keys(cambios).length === 0) {
+    return res.status(400).json({ error: 'No hay campos editables en la solicitud' });
+  }
+  if (cambios.nombre !== undefined && (typeof cambios.nombre !== 'string' || !cambios.nombre.trim())) {
+    return res.status(400).json({ error: 'El nombre no puede estar vacío' });
+  }
+  if (cambios.programa !== undefined && (typeof cambios.programa !== 'string' || !cambios.programa.trim())) {
+    return res.status(400).json({ error: 'El programa no puede estar vacío' });
+  }
+  if (cambios.semestre !== undefined) {
+    const semestre = Number(cambios.semestre);
+    if (!Number.isInteger(semestre) || semestre < 1 || semestre > 10) {
+      return res.status(400).json({ error: 'El semestre debe ser un entero entre 1 y 10' });
+    }
+    cambios.semestre = semestre;
+  }
+  if (cambios.activo !== undefined && typeof cambios.activo !== 'boolean') {
+    return res.status(400).json({ error: 'activo debe ser true o false' });
+  }
+
   const member = await Member.findOneAndUpdate(
     { _id: req.params.id, semilleroId: req.semilleroId },
-    req.body,
+    { $set: cambios },
     { returnDocument: 'after', runValidators: true }
   );
   if (!member) return res.status(404).json({ error: 'Integrante no encontrado' });

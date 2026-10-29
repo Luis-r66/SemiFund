@@ -22,6 +22,7 @@ const listarMisSemilleros = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 });
   const items = [];
   for (const m of membresias) {
+    if (!m.semilleroId) continue;
     const miembros = await Member.countDocuments({
       semilleroId: m.semilleroId._id,
       activo: true
@@ -52,26 +53,29 @@ const crear = asyncHandler(async (req, res) => {
   while (await Semillero.findOne({ codigo })) {
     codigo = generarCodigo();
   }
-  const semillero = await Semillero.create({
-    nombre: nombre.trim(),
-    codigo,
-    creadoPor: userId
-  });
-  // El creador queda como tesorero activo y se crea su registro de integrante vinculado
-  const member = await Member.create({
-    nombre: user.nombre,
-    programa: 'Sin definir',
-    semestre: 1,
-    activo: true,
-    semilleroId: semillero._id
-  });
-  await Membership.create({
-    userId,
-    semilleroId: semillero._id,
-    esTesorero: true,
-    estado: 'activo',
-    memberId: member._id
-  });
+  let semillero;
+  let member;
+  try {
+    semillero = await Semillero.create({ nombre: nombre.trim(), codigo, creadoPor: userId });
+    member = await Member.create({
+      nombre: user.nombre,
+      programa: 'Sin definir',
+      semestre: 1,
+      activo: true,
+      semilleroId: semillero._id
+    });
+    await Membership.create({
+      userId,
+      semilleroId: semillero._id,
+      esTesorero: true,
+      estado: 'activo',
+      memberId: member._id
+    });
+  } catch (error) {
+    if (member) await Member.deleteOne({ _id: member._id });
+    if (semillero) await Semillero.deleteOne({ _id: semillero._id });
+    throw error;
+  }
   res.status(201).json({
     semillero: { id: semillero.id, nombre: semillero.nombre, codigo: semillero.codigo },
     memberId: member.id

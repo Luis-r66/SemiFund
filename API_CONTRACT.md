@@ -34,12 +34,13 @@
   "integranteId": "uuid-member",
   "monto": 50000,
   "mes": "2026-09",
+  "concepto": "Cuota mensual",
   "estado": "pendiente",
   "fechaPago": null
 }
 ```
 
-`estado`: `pendiente|pagado|vencido`. `mes`: `YYYY-MM`. `monto` > 0.
+`estado`: `pendiente|pagado|vencido`. `mes`: `YYYY-MM`. `monto` > 0. `concepto`: requerido, no vacío.
 
 ### Expense
 
@@ -70,7 +71,7 @@ GET    /api/members
 GET    /api/members?activo=true|false
 GET    /api/members/:id            -> 200 | 404 {"error":"Integrante no encontrado"}
 POST   /api/members                -> 201 | 400
-PUT    /api/members/:id            -> 200 | 400 | 404
+PUT    /api/members/:id            -> 200 | 400 | 404   (solo: nombre, programa, semestre 1-10, activo boolean; otros campos se ignoran)
 DELETE /api/members/:id            -> 204 (activo=false) | 404
 ```
 
@@ -100,7 +101,7 @@ PATCH /api/contributions/:id/pay    -> 200 | 404 | 409
 Crear:
 
 ```json
-{ "integranteId": "uuid", "monto": 50000, "mes": "2026-09" }
+{ "integranteId": "uuid", "monto": 50000, "mes": "2026-09", "concepto": "Cuota mensual" }
 ```
 
 Pagar: `PATCH` sin body → `estado: "pagado"` + `fechaPago`. Repetir → `409 {"error":"El aporte ya fue pagado"}`.
@@ -110,7 +111,7 @@ Pagar: `PATCH` sin body → `estado: "pagado"` + `fechaPago`. Repetir → `409 {
 ```
 GET  /api/expenses
 GET  /api/expenses?category=transporte&month=2026-10
-POST /api/expenses -> 201 | 400 | 409 {"error":"Saldo insuficiente"}
+POST /api/expenses -> 201 | 400 (fecha futura o inválida) | 409 {"error":"Saldo insuficiente"}
 ```
 
 Crear:
@@ -124,12 +125,62 @@ Crear:
 ```
 GET /api/balance -> 200 { totalAportado, totalGastado, saldoDisponible }
 ```
+## 6. Autenticación y semilleros (Fase 2)
+
+### Auth (públicas)
+
+```
+POST   /api/auth/register  { nombre, email, password }  -> 201 { token, user } | 400 | 409
+POST   /api/auth/login     { email, password }          -> 200 { token, user } | 401
+POST   /api/auth/logout    (requiere Authorization)     -> 200
+GET    /api/auth/me        (requiere Authorization)     -> 200 { id, nombre, email, semilleros[] }
+```
+
+`password` mínimo 8 caracteres. `email` se guarda en minúsculas y debe ser único. El token JWT expira en 7d.
+`nombre`, `email` y `password` deben ser texto; de lo contrario se responde `400`.
+En producción `JWT_SECRET` es obligatorio; en desarrollo, si falta, se genera uno aleatorio
+por ejecución y se muestra una advertencia (no se usa un secreto fijo).
+
+### Semilleros (hub — requieren Authorization, no `X-Semillero-Id`)
+
+```
+GET    /api/semilleros                          -> 200 [ { semilleroId, semilleroNombre, semilleroCodigo (solo tesorero), esTesorero, estado, miembros } ]
+POST   /api/semilleros  { nombre }              -> 201 { semillero, memberId } | 400
+POST   /api/semilleros/join  { codigo }         -> 201 { semilleroId, semilleroNombre, estado } | 404 | 409
+```
+
+El creador queda como **tesorero automático** y se crea su `Member` vinculado (`programa: 'Sin definir'`, `semestre: 1` hasta capturar datos reales). El código de invitación tiene 8 caracteres alfanuméricos, es permanente y rotable; solo el tesorero lo ve.
+La creación del semillero, su integrante inicial y su membresía se revierte si falla una etapa.
+Las membresías cuyo semillero ya no existe se omiten de las respuestas de listado y perfil.
+
+### Semillero activo (requieren Authorization + encabezado `X-Semillero-Id`)
+
+```
+GET    /api/semilleros/me                                            -> 200 { id, nombre, creadoPor, esTesorero, codigo? }
+PATCH  /api/semilleros/me  { nombre }                                -> 200 | 400 (solo tesorero)
+POST   /api/semilleros/me/code/rotate                                -> 200 { codigo } (solo tesorero)
+GET    /api/semilleros/me/accounts                                   -> 200 [ { id, usuario, integrante, esTesorero, estado, fechaSolicitud } ]
+PATCH  /api/semilleros/me/accounts/:membershipId  { estado?, esTesorero? } -> 200 | 404 | 409 (solo tesorero)
+```
+
+`estado` de una membresía: `pendiente | activo | rechazado | inactivo`. Al aprobar (`estado: 'activo'`) se crea/vincula el `Member` de forma idempotente. Nunca se puede quedar el semillero sin al menos un tesorero activo (409).
+
+`PATCH /api/contributions/:id/pay` valida el `id` como ObjectId y responde `400` si no es válido.
+
+### Modelo de relación (usuarios, membresías e integrantes)
+
+- `User`: cuenta de acceso (id, nombre, email, passwordHash).
+- `Membership`: vincula un `User` con un `Semillero` (`userId`, `semilleroId`, `esTesorero`, `estado`, `memberId?`). Un usuario solo puede tener una membresía por semillero.
+- `Member`: integrante que aporta (`nombre`, `programa`, `semestre`, `activo`, `semilleroId`). Es distinto de `User` y `Membership`; se crea al aprobar una solicitud o al crear el semillero.
+- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar.
 
 ## 3. Reglas (backend manda)
 
 1. Gasto > saldo → `409 Saldo insuficiente`.
 2. Aporte: `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`; desde `pagado` nada → `409`.
 3. `DELETE /members/:id` no borra, pone `activo:false`.
+4. Reactivar un integrante: `PUT /members/:id` con `{ "activo": true }`.
+5. Aporte `pendiente` con `mes` anterior al actual se devuelve como `vencido`.
 
 ## 4. Códigos
 
@@ -201,11 +252,17 @@ data class Contribution(
     val integranteId: String,
     val monto: Double,
     val mes: String,
+    val concepto: String,
     val estado: String,
     val fechaPago: String?
 )
 
-data class CreateContributionRequest(val integranteId: String, val monto: Double, val mes: String)
+data class CreateContributionRequest(
+    val integranteId: String,
+    val monto: Double,
+    val mes: String,
+    val concepto: String
+)
 
 data class Expense(
     val id: String,
