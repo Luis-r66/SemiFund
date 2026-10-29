@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../models/semillero_membership.dart';
 import '../providers/session_provider.dart';
 import '../screens/accounts/accounts_screen.dart';
+import '../screens/auth/change_password_screen.dart';
+import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/welcome_screen.dart';
@@ -12,6 +14,7 @@ import '../screens/contributions/contributions_screen.dart';
 import '../screens/expenses/expense_form_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/home/home_screen.dart';
+import '../screens/onboarding/academic_profile_screen.dart';
 import '../screens/invite/invite_screen.dart';
 import '../screens/members/member_detail_screen.dart';
 import '../screens/members/member_form_screen.dart';
@@ -66,11 +69,22 @@ class AppRouter {
               '/welcome',
               '/login',
               '/register',
+              '/forgot-password',
             };
             if (publicRoutes.contains(location)) return null;
             return session.notice != null ? '/login' : '/welcome';
           }
 
+          if (!session.isProfileComplete) {
+            if (location == '/onboarding' || location == '/forgot-password') {
+              return null;
+            }
+            return '/onboarding';
+          }
+
+          if (location == '/onboarding') {
+            return session.hasActiveSemillero ? '/home' : '/semilleros';
+          }
           const Set<String> authRoutes = <String>{
             '/splash',
             '/welcome',
@@ -121,6 +135,22 @@ class AppRouter {
                 membership: extra is SemilleroMembership ? extra : null,
               );
             },
+          ),
+          GoRoute(
+            path: '/onboarding',
+            builder: (_, _) => const AcademicProfileScreen(),
+          ),
+          GoRoute(
+            path: '/profile/academic',
+            builder: (_, _) => const AcademicProfileScreen(editMode: true),
+          ),
+          GoRoute(
+            path: '/forgot-password',
+            builder: (_, _) => const ForgotPasswordScreen(),
+          ),
+          GoRoute(
+            path: '/change-password',
+            builder: (_, _) => const ChangePasswordScreen(),
           ),
           GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
           GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),

@@ -6,15 +6,42 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000/api" },
-    { "key": "token", "value": "" },
-    { "key": "tokenA", "value": "" },
-    { "key": "tokenB", "value": "" },
-    { "key": "semilleroId", "value": "" },
-    { "key": "codigo", "value": "" },
-    { "key": "memberId", "value": "" },
-    { "key": "membershipId", "value": "" },
-    { "key": "contributionId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "tokenA",
+      "value": ""
+    },
+    {
+      "key": "tokenB",
+      "value": ""
+    },
+    {
+      "key": "semilleroId",
+      "value": ""
+    },
+    {
+      "key": "codigo",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "membershipId",
+      "value": ""
+    },
+    {
+      "key": "contributionId",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -22,7 +49,10 @@
       "item": [
         {
           "name": "API viva",
-          "request": { "method": "GET", "url": "http://localhost:3000/health" }
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:3000/health"
+          }
         }
       ]
     },
@@ -33,11 +63,16 @@
           "name": "Registrar usuario (201)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/register",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Ana Tesorero\",\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"Test1234!\"\n}"
+              "raw": "{\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"Test1234!\",\n  \"nombres\": \"Ana\",\n  \"apellidos\": \"Tesorero\"\n}"
             }
           }
         },
@@ -45,11 +80,16 @@
           "name": "Registrar correo duplicado (409)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/register",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Ana Duplicado\",\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"Test1234!\"\n}"
+              "raw": "{\n  \"email\": \"ana.tesorero@test.com\",\n  \"password\": \"Test1234!\",\n  \"nombres\": \"Ana\",\n  \"apellidos\": \"Duplicado\"\n}"
             }
           }
         },
@@ -57,11 +97,16 @@
           "name": "Contraseña corta (400)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/register",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Corto\",\n  \"email\": \"corto@test.com\",\n  \"password\": \"123\"\n}"
+              "raw": "{\n  \"email\": \"corto@test.com\",\n  \"password\": \"123\",\n  \"nombres\": \"Corto\",\n  \"apellidos\": \"Apellido\"\n}"
             }
           }
         },
@@ -80,7 +125,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
@@ -92,11 +142,16 @@
           "name": "Registro con tipos invalidos (400)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/register",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": 123,\n  \"email\": [\"invalido\"],\n  \"password\": {\"valor\": \"no\"}\n}"
+              "raw": "{\n  \"email\": [\n    \"invalido\"\n  ],\n  \"password\": {\n    \"valor\": \"no\"\n  },\n  \"nombres\": 123,\n  \"apellidos\": 123\n}"
             }
           }
         },
@@ -104,7 +159,12 @@
           "name": "Login con tipos invalidos (400)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
@@ -127,7 +187,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
@@ -139,7 +204,12 @@
           "name": "Credenciales invalidas (401)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
@@ -152,10 +222,100 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "Completar perfil acad?mico (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/me",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombres\": \"Ana\",\n  \"apellidos\": \"Tesorero\",\n  \"tipoUsuario\": \"estudiante\",\n  \"programa\": \"Ingenier?a de Sistemas\",\n  \"semestre\": 6\n}"
+            }
+          }
+        },
+        {
+          "name": "Cambiar contrase?a (200) -> guarda token",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Test1234!\",\n  \"newPassword\": \"Test5678!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Solicitar recuperaci?n (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Authorization",
+                "value": ""
+              }
+            ],
+            "url": "{{baseUrl}}/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.tesorero@test.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Restablecer contrase?a (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.tesorero@test.com\",\n  \"code\": \"123456\",\n  \"password\": \"Test5678!\"\n}"
+            }
           }
         }
       ]
@@ -168,8 +328,14 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros"
           }
@@ -191,8 +357,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros",
             "body": {
@@ -206,11 +378,20 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros",
-            "body": { "mode": "raw", "raw": "{}" }
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
           }
         },
         {
@@ -218,8 +399,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{tokenB}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/join",
             "body": {
@@ -233,8 +420,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/join",
             "body": {
@@ -248,9 +441,18 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me"
           }
@@ -260,9 +462,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me",
             "body": {
@@ -276,9 +487,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me/code/rotate"
           }
@@ -299,9 +519,18 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me/accounts"
           }
@@ -311,9 +540,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
             "body": {
@@ -327,9 +565,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
             "body": {
@@ -343,9 +590,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
             "body": {
@@ -359,9 +615,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me/accounts/{{membershipId}}",
             "body": {
@@ -382,7 +647,10 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{baseUrl}}/semilleros/me"
           }
@@ -397,8 +665,14 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/members"
           }
@@ -408,9 +682,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/members",
             "body": {
@@ -424,28 +707,58 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/members",
-            "body": { "mode": "raw", "raw": "{\n  \"programa\": \"Ingeniería de Software\",\n  \"semestre\": 3\n}" }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"programa\": \"Ingeniería de Software\",\n  \"semestre\": 3\n}"
+            }
           }
         },
         {
           "name": "Detalle integrante (200)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/members/{{memberId}}" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/members/{{memberId}}"
+          },
           "header": [
-            { "key": "Authorization", "value": "Bearer {{token}}" },
-            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "X-Semillero-Id",
+              "value": "{{semilleroId}}"
+            }
           ]
         },
         {
           "name": "Detalle inexistente (404)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/members/000000000000000000000000" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/members/000000000000000000000000"
+          },
           "header": [
-            { "key": "Authorization", "value": "Bearer {{token}}" },
-            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "X-Semillero-Id",
+              "value": "{{semilleroId}}"
+            }
           ]
         },
         {
@@ -453,12 +766,24 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/members/{{memberId}}",
-            "body": { "mode": "raw", "raw": "{\n  \"semestre\": 6\n}" }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"semestre\": 6\n}"
+            }
           }
         },
         {
@@ -466,8 +791,14 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/members/{{memberId}}"
           }
@@ -478,9 +809,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{tokenB}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/members",
             "body": {
@@ -499,8 +839,14 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/contributions"
           }
@@ -510,9 +856,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/contributions",
             "body": {
@@ -526,9 +881,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/contributions",
             "body": {
@@ -542,26 +906,50 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/contributions?status=pending&memberId={{memberId}}"
           }
         },
         {
           "name": "Pagar aporte (200) - solo tesorero",
-          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" },
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/pay"
+          },
           "header": [
-            { "key": "Authorization", "value": "Bearer {{token}}" },
-            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "X-Semillero-Id",
+              "value": "{{semilleroId}}"
+            }
           ]
         },
         {
           "name": "Pagar de nuevo (409)",
-          "request": { "method": "PATCH", "url": "{{baseUrl}}/contributions/{{contributionId}}/pay" },
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/pay"
+          },
           "header": [
-            { "key": "Authorization", "value": "Bearer {{token}}" },
-            { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            },
+            {
+              "key": "X-Semillero-Id",
+              "value": "{{semilleroId}}"
+            }
           ]
         }
       ]
@@ -574,8 +962,14 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/expenses"
           }
@@ -585,9 +979,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/expenses",
             "body": {
@@ -601,9 +1004,18 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/expenses",
             "body": {
@@ -617,8 +1029,14 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/expenses?category=transporte&month=2026-10"
           }
@@ -633,8 +1051,14 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "X-Semillero-Id", "value": "{{semilleroId}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
             ],
             "url": "{{baseUrl}}/balance"
           }

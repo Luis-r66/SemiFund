@@ -2,7 +2,28 @@ const mongoose = require('mongoose');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 
-// GET /api/members?activo=true|false  (filtrado por semillero activo vía X-Semillero-Id)
+function extraerNombre(body) {
+  const recibioPartes = body.nombres !== undefined || body.apellidos !== undefined;
+  if (recibioPartes) {
+    if (
+      typeof body.nombres !== 'string' ||
+      typeof body.apellidos !== 'string' ||
+      !body.nombres.trim() ||
+      !body.apellidos.trim()
+    ) {
+      return null;
+    }
+    const nombres = body.nombres.trim();
+    const apellidos = body.apellidos.trim();
+    return { nombres, apellidos, nombre: `${nombres} ${apellidos}` };
+  }
+  if (typeof body.nombre === 'string' && body.nombre.trim()) {
+    return { nombres: null, apellidos: null, nombre: body.nombre.trim() };
+  }
+  return null;
+}
+
+// GET /api/members?activo=true|false  (filtrado por semillero activo)
 const list = asyncHandler(async (req, res) => {
   const filter = { semilleroId: req.semilleroId };
   if (req.query.activo !== undefined) {
@@ -21,14 +42,16 @@ const getById = asyncHandler(async (req, res) => {
   res.status(200).json(member);
 });
 
-// POST /api/members  { nombre, programa, semestre }
+// POST /api/members  { nombres, apellidos, programa, semestre }
 const create = asyncHandler(async (req, res) => {
-  const { nombre, programa, semestre } = req.body;
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const { programa, semestre } = body;
+  const nombre = extraerNombre(body);
   if (!nombre || !programa || semestre === undefined) {
-    return res.status(400).json({ error: 'nombre, programa y semestre son requeridos' });
+    return res.status(400).json({ error: 'nombres, apellidos, programa y semestre son requeridos' });
   }
   const member = await Member.create({
-    nombre,
+    ...nombre,
     programa,
     semestre,
     activo: true,
@@ -39,7 +62,7 @@ const create = asyncHandler(async (req, res) => {
 
 // PUT /api/members/:id  (solo si pertenece al semillero activo)
 // Solo estos campos son editables; evita asignación masiva (semilleroId, _id, etc.)
-const CAMPOS_EDITABLES = ['nombre', 'programa', 'semestre', 'activo'];
+const CAMPOS_EDITABLES = ['nombre', 'nombres', 'apellidos', 'programa', 'semestre', 'activo'];
 
 const update = asyncHandler(async (req, res) => {
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
@@ -50,9 +73,18 @@ const update = asyncHandler(async (req, res) => {
   if (Object.keys(cambios).length === 0) {
     return res.status(400).json({ error: 'No hay campos editables en la solicitud' });
   }
-  if (cambios.nombre !== undefined && (typeof cambios.nombre !== 'string' || !cambios.nombre.trim())) {
+
+  const recibioPartes = body.nombres !== undefined || body.apellidos !== undefined;
+  if (recibioPartes) {
+    const nombre = extraerNombre(body);
+    if (!nombre) return res.status(400).json({ error: 'nombres y apellidos no pueden estar vacíos' });
+    cambios.nombres = nombre.nombres;
+    cambios.apellidos = nombre.apellidos;
+    cambios.nombre = nombre.nombre;
+  } else if (cambios.nombre !== undefined && (typeof cambios.nombre !== 'string' || !cambios.nombre.trim())) {
     return res.status(400).json({ error: 'El nombre no puede estar vacío' });
   }
+
   if (cambios.programa !== undefined && (typeof cambios.programa !== 'string' || !cambios.programa.trim())) {
     return res.status(400).json({ error: 'El programa no puede estar vacío' });
   }

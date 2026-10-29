@@ -19,15 +19,21 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _namesController = TextEditingController();
+  final TextEditingController _surnamesController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmController = TextEditingController();
+  final FocusNode _surnamesFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
+  final FocusNode _confirmFocus = FocusNode();
 
-  String? _nameError;
+  String? _namesError;
+  String? _surnamesError;
   String? _emailError;
   String? _passwordError;
+  String? _confirmError;
   String? _error;
 
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -35,49 +41,71 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    _passwordController.addListener(_onPasswordChanged);
-    _nameController.addListener(_onFormChanged);
-    _emailController.addListener(_onFormChanged);
+    for (final TextEditingController controller in <TextEditingController>[
+      _namesController,
+      _surnamesController,
+      _emailController,
+      _passwordController,
+      _confirmController,
+    ]) {
+      controller.addListener(_onFormChanged);
+    }
   }
-
-  void _onPasswordChanged() => setState(() {});
 
   void _onFormChanged() => setState(() {});
 
   bool get _canSubmit {
-    return _nameController.text.trim().isNotEmpty &&
+    return _namesController.text.trim().isNotEmpty &&
+        _surnamesController.text.trim().isNotEmpty &&
         _emailRegex.hasMatch(_emailController.text.trim()) &&
-        _passwordController.text.length >= 8;
+        _passwordController.text.length >= 8 &&
+        _confirmController.text == _passwordController.text;
   }
 
   @override
   void dispose() {
-    _passwordController.removeListener(_onPasswordChanged);
-    _nameController.removeListener(_onFormChanged);
-    _emailController.removeListener(_onFormChanged);
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
+    for (final TextEditingController controller in <TextEditingController>[
+      _namesController,
+      _surnamesController,
+      _emailController,
+      _passwordController,
+      _confirmController,
+    ]) {
+      controller.removeListener(_onFormChanged);
+      controller.dispose();
+    }
+    _surnamesFocus.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
   bool _validate() {
-    final String name = _nameController.text.trim();
+    final String names = _namesController.text.trim();
+    final String surnames = _surnamesController.text.trim();
     final String email = _emailController.text.trim();
     final String password = _passwordController.text;
+    final String confirm = _confirmController.text;
     setState(() {
-      _nameError = name.isEmpty ? 'Ingresa tu nombre completo.' : null;
+      _namesError = names.isEmpty ? 'Ingresa tus nombres.' : null;
+      _surnamesError = surnames.isEmpty ? 'Ingresa tus apellidos.' : null;
       _emailError = email.isEmpty
           ? 'Ingresa tu correo institucional.'
           : (!_emailRegex.hasMatch(email) ? 'Ingresa un correo válido.' : null);
       _passwordError = password.length < 8
           ? 'La contraseña debe tener al menos 8 caracteres.'
           : null;
+      _confirmError = confirm != password
+          ? 'Las contraseñas no coinciden.'
+          : null;
       _error = null;
     });
-    return _nameError == null && _emailError == null && _passwordError == null;
+    return _namesError == null &&
+        _surnamesError == null &&
+        _emailError == null &&
+        _passwordError == null &&
+        _confirmError == null;
   }
 
   Future<void> _submit() async {
@@ -87,7 +115,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final SessionProvider session = context.read<SessionProvider>();
     try {
       await session.register(
-        nombre: _nameController.text.trim(),
+        nombres: _namesController.text.trim(),
+        apellidos: _surnamesController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -138,19 +167,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         color: AppColors.ink2,
                       ),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
                     LabeledField(
-                      label: 'Nombre completo',
-                      error: _nameError,
+                      label: 'Nombres',
+                      error: _namesError,
                       child: AppTextField(
-                        controller: _nameController,
-                        hintText: 'Tu nombre completo',
+                        controller: _namesController,
+                        hintText: 'Ej. Luis Ernesto',
                         textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.words,
-                        autofillHints: const <String>[AutofillHints.name],
+                        autofillHints: const <String>[AutofillHints.givenName],
                         onChanged: (_) {
-                          if (_nameError != null) {
-                            setState(() => _nameError = null);
+                          if (_namesError != null) {
+                            setState(() => _namesError = null);
+                          }
+                        },
+                        onSubmitted: (_) => _surnamesFocus.requestFocus(),
+                      ),
+                    ),
+                    LabeledField(
+                      label: 'Apellidos',
+                      error: _surnamesError,
+                      child: AppTextField(
+                        controller: _surnamesController,
+                        focusNode: _surnamesFocus,
+                        hintText: 'Ej. Ríos Pérez',
+                        textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.words,
+                        autofillHints: const <String>[AutofillHints.familyName],
+                        onChanged: (_) {
+                          if (_surnamesError != null) {
+                            setState(() => _surnamesError = null);
                           }
                         },
                         onSubmitted: (_) => _emailFocus.requestFocus(),
@@ -184,13 +231,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: PasswordField(
                         controller: _passwordController,
                         focusNode: _passwordFocus,
-                        textInputAction: TextInputAction.done,
+                        textInputAction: TextInputAction.next,
                         autofillHints: const <String>[
                           AutofillHints.newPassword,
                         ],
                         onChanged: (_) {
                           if (_passwordError != null) {
                             setState(() => _passwordError = null);
+                          }
+                        },
+                        onSubmitted: (_) => _confirmFocus.requestFocus(),
+                      ),
+                    ),
+                    LabeledField(
+                      label: 'Confirmar contraseña',
+                      error: _confirmError,
+                      child: PasswordField(
+                        controller: _confirmController,
+                        focusNode: _confirmFocus,
+                        hintText: 'Repite tu contraseña',
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const <String>[
+                          AutofillHints.newPassword,
+                        ],
+                        onChanged: (_) {
+                          if (_confirmError != null) {
+                            setState(() => _confirmError = null);
                           }
                         },
                         onSubmitted: (_) => _submit(),

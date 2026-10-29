@@ -23,6 +23,7 @@ class ExpenseFormScreen extends StatefulWidget {
 class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   final TextEditingController _description = TextEditingController();
   final TextEditingController _amount = TextEditingController();
+  final TextEditingController _customCategory = TextEditingController();
 
   String? _category;
   bool _saving = false;
@@ -33,6 +34,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     super.initState();
     _description.addListener(() => setState(() {}));
     _amount.addListener(() => setState(() {}));
+    _customCategory.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<ExpensesProvider>().load();
     });
@@ -42,6 +44,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   void dispose() {
     _description.dispose();
     _amount.dispose();
+    _customCategory.dispose();
     super.dispose();
   }
 
@@ -53,6 +56,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   bool get _canSave =>
       _description.text.trim().isNotEmpty &&
       _category != null &&
+      (_category != 'Otros' || _customCategory.text.trim().isNotEmpty) &&
       _montoValue > 0 &&
       !_overBudget &&
       !_saving;
@@ -67,7 +71,9 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     try {
       await context.read<ExpensesProvider>().create(
         descripcion: _description.text.trim(),
-        categoria: _category!.toLowerCase(),
+        categoria: (_category == 'Otros' ? _customCategory.text : _category!)
+            .trim()
+            .toLowerCase(),
         monto: _montoValue,
       );
       if (!mounted) return;
@@ -119,10 +125,24 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                         items: expenseCategories,
                         labelOf: (String item) => item,
                         hintText: 'Selecciona una categoría',
-                        onChanged: (String? value) =>
-                            setState(() => _category = value),
+                        onChanged: (String? value) {
+                          setState(() {
+                            _category = value;
+                            if (value != 'Otros') _customCategory.clear();
+                          });
+                        },
                       ),
                     ),
+                    if (_category == 'Otros')
+                      LabeledField(
+                        label: 'Especifica la categoría',
+                        child: AppTextField(
+                          controller: _customCategory,
+                          hintText: 'Ej. Transporte',
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.next,
+                        ),
+                      ),
                     LabeledField(
                       label: 'Monto (COP)',
                       child: MoneyField(controller: _amount, invalid: over),

@@ -141,6 +141,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                         Center(
                           child: MemberAvatar(
                             name: member.nombre,
+                            initialsOverride: member.initials,
                             size: 72,
                             dim: !member.activo,
                           ),

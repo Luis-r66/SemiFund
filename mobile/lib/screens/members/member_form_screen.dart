@@ -23,7 +23,8 @@ class MemberFormScreen extends StatefulWidget {
 }
 
 class _MemberFormScreenState extends State<MemberFormScreen> {
-  final TextEditingController _name = TextEditingController();
+  final TextEditingController _names = TextEditingController();
+  final TextEditingController _surnames = TextEditingController();
   final TextEditingController _program = TextEditingController();
   final TextEditingController _semester = TextEditingController();
 
@@ -37,7 +38,8 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
   void initState() {
     super.initState();
     for (final TextEditingController c in <TextEditingController>[
-      _name,
+      _names,
+      _surnames,
       _program,
       _semester,
     ]) {
@@ -50,7 +52,8 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
 
   @override
   void dispose() {
-    _name.dispose();
+    _names.dispose();
+    _surnames.dispose();
     _program.dispose();
     _semester.dispose();
     super.dispose();
@@ -63,7 +66,17 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
         widget.memberId!,
       );
       if (!mounted) return;
-      _name.text = member.nombre;
+      final List<String> parts = member.nombre
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((String part) => part.isNotEmpty)
+          .toList();
+      _names.text = member.nombres.isNotEmpty
+          ? member.nombres
+          : (parts.isNotEmpty ? parts.first : '');
+      _surnames.text = member.apellidos.isNotEmpty
+          ? member.apellidos
+          : (parts.length > 1 ? parts.skip(1).join(' ') : '');
       _program.text = member.programa;
       _semester.text = member.semestre.toString();
     } on ApiException catch (error) {
@@ -80,7 +93,8 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
   }
 
   bool get _canSave =>
-      _name.text.trim().isNotEmpty &&
+      _names.text.trim().isNotEmpty &&
+      _surnames.text.trim().isNotEmpty &&
       _program.text.trim().isNotEmpty &&
       _semesterValue != null &&
       !_saving;
@@ -96,13 +110,15 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
     try {
       if (_isEdit) {
         await members.update(widget.memberId!, <String, dynamic>{
-          'nombre': _name.text.trim(),
+          'nombres': _names.text.trim(),
+          'apellidos': _surnames.text.trim(),
           'programa': _program.text.trim(),
           'semestre': _semesterValue,
         });
       } else {
         await members.create(
-          nombre: _name.text.trim(),
+          nombres: _names.text.trim(),
+          apellidos: _surnames.text.trim(),
           programa: _program.text.trim(),
           semestre: _semesterValue!,
         );
@@ -140,10 +156,19 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           LabeledField(
-                            label: 'Nombre completo',
+                            label: 'Nombres',
                             child: AppTextField(
-                              controller: _name,
-                              hintText: 'Ej. Juliana Herrera',
+                              controller: _names,
+                              hintText: 'Ej. Juliana',
+                              textCapitalization: TextCapitalization.words,
+                              textInputAction: TextInputAction.next,
+                            ),
+                          ),
+                          LabeledField(
+                            label: 'Apellidos',
+                            child: AppTextField(
+                              controller: _surnames,
+                              hintText: 'Ej. Herrera Pérez',
                               textCapitalization: TextCapitalization.words,
                               textInputAction: TextInputAction.next,
                             ),

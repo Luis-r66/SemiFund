@@ -170,7 +170,12 @@ class _PendingCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              MemberAvatar(name: name, size: 44, light: true),
+              MemberAvatar(
+                name: name,
+                initialsOverride: account.usuario?.initials,
+                size: 44,
+                light: true,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -280,7 +285,12 @@ class _MemberCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              MemberAvatar(name: name, size: 44, dim: !isTreasurer),
+              MemberAvatar(
+                name: name,
+                initialsOverride: account.usuario?.initials,
+                size: 44,
+                dim: !isTreasurer,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

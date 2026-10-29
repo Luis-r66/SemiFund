@@ -8,12 +8,14 @@ class MemberAvatar extends StatelessWidget {
   const MemberAvatar({
     super.key,
     required this.name,
+    this.initialsOverride,
     this.size = 44,
     this.dim = false,
     this.light = false,
   });
 
   final String name;
+  final String? initialsOverride;
   final double size;
   final bool dim;
   final bool light;
@@ -34,7 +36,7 @@ class MemberAvatar extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(color: background, shape: BoxShape.circle),
       child: Text(
-        initials(name),
+        initialsOverride ?? initials(name),
         style: AppTextStyles.tinySemibold.copyWith(
           color: foreground,
           fontSize: fontSize,

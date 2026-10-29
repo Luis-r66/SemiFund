@@ -130,17 +130,33 @@ GET /api/balance -> 200 { totalAportado, totalGastado, saldoDisponible }
 ### Auth (públicas)
 
 ```
-POST   /api/auth/register  { nombre, email, password }  -> 201 { token, user } | 400 | 409
-POST   /api/auth/login     { email, password }          -> 200 { token, user } | 401
-POST   /api/auth/logout    (requiere Authorization)     -> 200
-GET    /api/auth/me        (requiere Authorization)     -> 200 { id, nombre, email, semilleros[] }
+POST   /api/auth/register  { nombres, apellidos, email, password } -> 201 { token, user } | 400 | 409 | 429
+POST   /api/auth/login     { email, password }                     -> 200 { token, user } | 401 | 429
+POST   /api/auth/logout    (Authorization)                         -> 200
+GET    /api/auth/me        (Authorization)                         -> 200 { id, nombre, nombres, apellidos, email, tipoUsuario, programa, semestre, semilleros[] }
+PATCH  /api/auth/me        (Authorization) { nombres?, apellidos?, tipoUsuario?, programa?, semestre? } -> 200 | 400
+PATCH  /api/auth/password  (Authorization) { currentPassword, newPassword } -> 200 { token, mensaje } | 400 | 401 | 429
+POST   /api/auth/forgot-password { email }                         -> 200 mensaje genérico | 400 | 429 | 503
+POST   /api/auth/reset-password  { email, code, password }         -> 200 | 400 | 429
 ```
 
 `password` mínimo 8 caracteres. `email` se guarda en minúsculas y debe ser único. El token JWT expira en 7d.
-`nombre`, `email` y `password` deben ser texto; de lo contrario se responde `400`.
-En producción `JWT_SECRET` es obligatorio; en desarrollo, si falta, se genera uno aleatorio
-por ejecución y se muestra una advertencia (no se usa un secreto fijo).
+`nombres` y `apellidos` son los campos nuevos; por compatibilidad, un cliente anterior todavía puede enviar `nombre`.
+`register` responde `requierePerfil: true`; la app debe enviar a completar perfil académico.
 
+Perfil académico:
+- `tipoUsuario`: `estudiante | profesor`.
+- `programa`: carrera para estudiante; área o departamento para profesor.
+- `semestre`: entero 1–10, obligatorio para estudiante; `null` para profesor.
+- "Profesor" es solo un dato de perfil; no cambia los permisos de tesorero/integrante.
+
+Recuperación:
+- `forgot-password` genera un código de 6 dígitos, lo envía por Brevo y responde genéricamente para no revelar si el correo existe.
+- El código vence en 15 minutos, es de un solo uso y admite máximo 5 intentos.
+- `reset-password` invalida las sesiones anteriores mediante `tokenVersion`.
+- `PATCH /auth/password` pide la contraseña actual, incrementa `tokenVersion` y devuelve un token nuevo.
+- Rate limiting: `429` en login, registro, recuperación y cambio de contraseña.
+- Variables de entorno: `MAIL_MODE` (`console` en local, `brevo` en producción), `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME`.
 ### Semilleros (hub — requieren Authorization, no `X-Semillero-Id`)
 
 ```
@@ -169,9 +185,9 @@ PATCH  /api/semilleros/me/accounts/:membershipId  { estado?, esTesorero? } -> 20
 
 ### Modelo de relación (usuarios, membresías e integrantes)
 
-- `User`: cuenta de acceso (id, nombre, email, passwordHash).
+- `User`: cuenta de acceso (id, nombre, nombres, apellidos, email, tipoUsuario, programa, semestre, passwordHash, tokenVersion).
 - `Membership`: vincula un `User` con un `Semillero` (`userId`, `semilleroId`, `esTesorero`, `estado`, `memberId?`). Un usuario solo puede tener una membresía por semillero.
-- `Member`: integrante que aporta (`nombre`, `programa`, `semestre`, `activo`, `semilleroId`). Es distinto de `User` y `Membership`; se crea al aprobar una solicitud o al crear el semillero.
+- `Member`: integrante que aporta (`nombre`, `nombres`, `apellidos`, `programa`, `semestre`, `activo`, `semilleroId`). Es distinto de `User` y `Membership`; se crea al aprobar una solicitud o al crear el semillero. El perfil académico de la cuenta no se sincroniza automáticamente con este integrante.
 - Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar.
 
 ## 3. Reglas (backend manda)
@@ -184,7 +200,7 @@ PATCH  /api/semilleros/me/accounts/:membershipId  { estado?, esTesorero? } -> 20
 
 ## 4. Códigos
 
-200 GET/PUT/PATCH · 201 POST · 204 DELETE · 400 validación · 404 no existe · 409 regla negocio · 500 interno.
+200 GET/PUT/PATCH · 201 POST · 204 DELETE · 400 validación · 401 no autenticado · 403 sin permiso · 404 no existe · 409 regla de negocio · 429 demasiados intentos · 500 interno · 503 correo no disponible.
 
 ## 5. Android (Retrofit + Kotlin)
 

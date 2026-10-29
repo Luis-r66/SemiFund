@@ -113,8 +113,11 @@ class SessionProvider extends ChangeNotifier {
     }
   }
 
+  bool get isProfileComplete => _user?.isProfileComplete ?? false;
+
   Future<void> register({
-    required String nombre,
+    required String nombres,
+    required String apellidos,
     required String email,
     required String password,
   }) async {
@@ -125,7 +128,8 @@ class SessionProvider extends ChangeNotifier {
     try {
       final AuthResult result = await _authService.register(
         RegisterRequest(
-          nombre: nombre.trim(),
+          nombres: nombres.trim(),
+          apellidos: apellidos.trim(),
           email: email.trim(),
           password: password,
         ),
@@ -184,6 +188,55 @@ class SessionProvider extends ChangeNotifier {
       // El interceptor global maneja la sesión expirada.
     }
   }
+
+  Future<void> completeProfile({
+    required String nombres,
+    required String apellidos,
+    required UserType tipoUsuario,
+    required String programa,
+    int? semestre,
+  }) async {
+    final UserModel updated = await _authService.updateProfile(
+      UpdateProfileRequest(
+        nombres: nombres.trim(),
+        apellidos: apellidos.trim(),
+        tipoUsuario: tipoUsuario,
+        programa: programa.trim(),
+        semestre: tipoUsuario == UserType.estudiante ? semestre : null,
+      ),
+    );
+    _user = updated;
+    notifyListeners();
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final String token = await _authService.changePassword(
+      ChangePasswordRequest(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      ),
+    );
+    if (token.isNotEmpty) await _store.saveToken(token);
+    notifyListeners();
+  }
+
+  Future<void> forgotPassword(String email) =>
+      _authService.forgotPassword(email.trim());
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) => _authService.resetPassword(
+    ResetPasswordRequest(
+      email: email.trim(),
+      code: code.trim(),
+      password: password,
+    ),
+  );
 
   Future<SemilleroDetail> createSemillero(String nombre) async {
     final SemilleroDetail created = await _semilleroService.create(nombre);

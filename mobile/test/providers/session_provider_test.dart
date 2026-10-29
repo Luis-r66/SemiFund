@@ -65,12 +65,28 @@ class FakeSessionStore implements SessionStore {
 void main() {
   setUpAll(() {
     registerFallbackValue(const LoginRequest(email: '', password: ''));
+    registerFallbackValue(
+      const UpdateProfileRequest(
+        nombres: '',
+        apellidos: '',
+        tipoUsuario: UserType.estudiante,
+        programa: '',
+      ),
+    );
+    registerFallbackValue(
+      const ChangePasswordRequest(currentPassword: '', newPassword: ''),
+    );
   });
 
   const UserModel user = UserModel(
     id: 'user-1',
     nombre: 'Valentina Ríos',
+    nombres: 'Valentina',
+    apellidos: 'Ríos',
     email: 'valentina@universidad.edu.co',
+    tipoUsuario: UserType.estudiante,
+    programa: 'Ingeniería de Sistemas',
+    semestre: 7,
   );
 
   const SemilleroMembership membership = SemilleroMembership(
@@ -165,5 +181,41 @@ void main() {
     expect(store.token, isNull);
     expect(store.semilleroId, isNull);
     expect(session.notice, contains('expiró'));
+  });
+
+  test('completar perfil actualiza el usuario', () async {
+    const UserModel updated = UserModel(
+      id: 'user-1',
+      nombre: 'Valentina Ríos',
+      nombres: 'Valentina',
+      apellidos: 'Ríos',
+      email: 'valentina@universidad.edu.co',
+      tipoUsuario: UserType.estudiante,
+      programa: 'Ingeniería de Sistemas',
+      semestre: 7,
+    );
+    when(() => auth.updateProfile(any())).thenAnswer((_) async => updated);
+
+    await session.completeProfile(
+      nombres: 'Valentina',
+      apellidos: 'Ríos',
+      tipoUsuario: UserType.estudiante,
+      programa: 'Ingeniería de Sistemas',
+      semestre: 7,
+    );
+
+    expect(session.user?.isProfileComplete, isTrue);
+    expect(session.user?.programa, 'Ingeniería de Sistemas');
+  });
+
+  test('cambiar contraseña guarda el token nuevo', () async {
+    when(() => auth.changePassword(any())).thenAnswer((_) async => 'new-token');
+
+    await session.changePassword(
+      currentPassword: 'password123',
+      newPassword: 'password456',
+    );
+
+    expect(store.token, 'new-token');
   });
 }

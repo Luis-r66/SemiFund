@@ -144,6 +144,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     Center(
                       child: TextButton(
+                        onPressed: () => context.push('/forgot-password'),
+                        child: const Text('¿Olvidaste tu contraseña?'),
+                      ),
+                    ),
+                    Center(
+                      child: TextButton(
                         onPressed: () => context.push('/register'),
                         child: Text.rich(
                           TextSpan(

@@ -216,3 +216,39 @@ class CodeField extends StatelessWidget {
     );
   }
 }
+
+class NumericCodeField extends StatelessWidget {
+  const NumericCodeField({
+    super.key,
+    required this.controller,
+    this.onChanged,
+    this.errorText,
+    this.length = 6,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String>? onChanged;
+  final String? errorText;
+  final int length;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppTextField(
+      controller: controller,
+      hintText: '0' * length,
+      textAlign: TextAlign.center,
+      keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.done,
+      onChanged: onChanged,
+      errorText: errorText,
+      style: AppTextStyles.h3.copyWith(
+        fontFamily: AppTextStyles.mono,
+        letterSpacing: 6,
+      ),
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(length),
+      ],
+    );
+  }
+}

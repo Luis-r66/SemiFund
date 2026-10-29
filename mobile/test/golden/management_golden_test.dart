@@ -397,6 +397,26 @@ void main() {
       },
     );
   });
+
+  testWidgets('expense form other category', (WidgetTester tester) async {
+    await golden(
+      tester,
+      const ExpenseFormScreen(),
+      name: 'expense_other',
+      extra: <ChangeNotifierProvider<ChangeNotifier>>[
+        ChangeNotifierProvider<ExpensesProvider>(
+          create: (_) => ExpensesProvider(reads, writes),
+        ),
+      ],
+      interact: (WidgetTester tester) async {
+        await tester.tap(find.byType(DropdownButton<String>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Otros').last);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).at(1), 'Transporte');
+      },
+    );
+  });
 }
 
 Future<void> _loadFonts() async {

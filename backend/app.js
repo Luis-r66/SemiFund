@@ -13,6 +13,9 @@ const semilleros = require('./routes/semilleros');
 
 const app = express();
 
+// Render está detrás de un proxy; esto permite rate limiting por IP real.
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));

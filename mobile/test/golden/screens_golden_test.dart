@@ -13,10 +13,13 @@ import 'package:semi_fund/models/semillero_membership.dart';
 import 'package:semi_fund/models/user.dart';
 import 'package:semi_fund/providers/home_provider.dart';
 import 'package:semi_fund/providers/session_provider.dart';
+import 'package:semi_fund/screens/auth/change_password_screen.dart';
+import 'package:semi_fund/screens/auth/forgot_password_screen.dart';
 import 'package:semi_fund/screens/auth/login_screen.dart';
 import 'package:semi_fund/screens/auth/register_screen.dart';
 import 'package:semi_fund/screens/auth/welcome_screen.dart';
 import 'package:semi_fund/screens/home/home_screen.dart';
+import 'package:semi_fund/screens/onboarding/academic_profile_screen.dart';
 import 'package:semi_fund/screens/profile/profile_screen.dart';
 import 'package:semi_fund/screens/semilleros/create_semillero_screen.dart';
 import 'package:semi_fund/screens/semilleros/join_semillero_screen.dart';
@@ -38,7 +41,12 @@ void main() {
   const UserModel user = UserModel(
     id: 'user-1',
     nombre: 'Valentina Ríos',
+    nombres: 'Valentina',
+    apellidos: 'Ríos',
     email: 'valentina.rios@universidad.edu.co',
+    tipoUsuario: UserType.estudiante,
+    programa: 'Ingeniería de Sistemas',
+    semestre: 7,
   );
 
   const SemilleroMembership activeMembership = SemilleroMembership(
@@ -177,6 +185,34 @@ void main() {
     );
   });
 
+  testWidgets('onboarding', (WidgetTester tester) async {
+    final SessionProvider session = await authenticatedSession();
+    await golden(
+      tester,
+      const AcademicProfileScreen(),
+      session: session,
+      name: 'onboarding',
+    );
+  });
+
+  testWidgets('forgot password', (WidgetTester tester) async {
+    await golden(
+      tester,
+      const ForgotPasswordScreen(),
+      session: unauthenticatedSession(),
+      name: 'forgot_password',
+    );
+  });
+
+  testWidgets('change password', (WidgetTester tester) async {
+    final SessionProvider session = await authenticatedSession();
+    await golden(
+      tester,
+      const ChangePasswordScreen(),
+      session: session,
+      name: 'change_password',
+    );
+  });
   testWidgets('semilleros', (WidgetTester tester) async {
     final SessionProvider session = await authenticatedSession(
       memberships: const <SemilleroMembership>[

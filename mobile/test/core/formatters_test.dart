@@ -22,6 +22,12 @@ void main() {
     expect(initials('Valentina Ríos'), 'VR');
     expect(initials('Luis'), 'L');
     expect(initials(''), '?');
+    expect(initials('Luis Ernesto Ríos Pérez'), 'LR');
+    expect(
+      initialsFromParts(nombres: 'Luis Ernesto', apellidos: 'Ríos Pérez'),
+      'LR',
+    );
+    expect(initialsFromParts(nombres: 'Luis', apellidos: 'Ríos'), 'LR');
     expect(firstName('Valentina Ríos'), 'Valentina');
   });
 

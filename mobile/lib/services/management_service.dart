@@ -11,14 +11,16 @@ class ManagementService {
   final ApiClient _api;
 
   Future<Member> createMember({
-    required String nombre,
+    required String nombres,
+    required String apellidos,
     required String programa,
     required int semestre,
   }) async {
     final dynamic data = await _api.post(
       '/members',
       data: <String, dynamic>{
-        'nombre': nombre,
+        'nombres': nombres,
+        'apellidos': apellidos,
         'programa': programa,
         'semestre': semestre,
       },

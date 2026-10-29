@@ -16,6 +16,7 @@ import 'package:semi_fund/screens/accounts/accounts_screen.dart';
 import 'package:semi_fund/screens/auth/login_screen.dart';
 import 'package:semi_fund/screens/auth/welcome_screen.dart';
 import 'package:semi_fund/screens/home/home_screen.dart';
+import 'package:semi_fund/screens/onboarding/academic_profile_screen.dart';
 import 'package:semi_fund/screens/semilleros/semilleros_screen.dart';
 import 'package:semi_fund/services/auth_service.dart';
 import 'package:semi_fund/services/dashboard_service.dart';
@@ -33,7 +34,12 @@ void main() {
   const UserModel user = UserModel(
     id: 'user-1',
     nombre: 'Valentina Ríos',
+    nombres: 'Valentina',
+    apellidos: 'Ríos',
     email: 'valentina@universidad.edu.co',
+    tipoUsuario: UserType.estudiante,
+    programa: 'Ingeniería de Sistemas',
+    semestre: 7,
   );
 
   const SemilleroMembership activeMembership = SemilleroMembership(
@@ -190,6 +196,30 @@ void main() {
 
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.textContaining('sesión expiró'), findsOneWidget);
+  });
+
+  testWidgets('perfil incompleto redirige al onboarding', (
+    WidgetTester tester,
+  ) async {
+    setPhoneSize(tester);
+    store.token = 'token-1';
+    when(() => auth.me()).thenAnswer(
+      (_) async => const UserModel(
+        id: 'user-2',
+        nombre: 'Nuevo Usuario',
+        email: 'nuevo@universidad.edu.co',
+      ),
+    );
+    when(() => semilleros.list())
+        .thenAnswer((_) async => <SemilleroMembership>[]);
+
+    final SessionProvider session = buildSession();
+    await session.bootstrap();
+
+    await tester.pumpWidget(app(session));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AcademicProfileScreen), findsOneWidget);
   });
 
   testWidgets('integrante no puede entrar a Cuentas', (

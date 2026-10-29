@@ -59,6 +59,8 @@ const crear = asyncHandler(async (req, res) => {
     semillero = await Semillero.create({ nombre: nombre.trim(), codigo, creadoPor: userId });
     member = await Member.create({
       nombre: user.nombre,
+      nombres: user.nombres || null,
+      apellidos: user.apellidos || null,
       programa: 'Sin definir',
       semestre: 1,
       activo: true,
@@ -170,17 +172,27 @@ const rotarCodigo = asyncHandler(async (req, res) => {
 // GET /api/semillero/accounts  (solo tesorero)
 const listarCuentas = asyncHandler(async (req, res) => {
   const membresias = await Membership.find({ semilleroId: req.semillero._id })
-    .populate('userId', 'nombre email')
-    .populate('memberId', 'nombre programa semestre activo')
+    .populate('userId', 'nombre nombres apellidos email')
+    .populate('memberId', 'nombre nombres apellidos programa semestre activo')
     .sort({ createdAt: -1 });
   res.status(200).json(
     membresias.map(m => ({
       id: m.id,
-      usuario: m.userId ? { id: m.userId.id, nombre: m.userId.nombre, email: m.userId.email } : null,
+      usuario: m.userId
+        ? {
+            id: m.userId.id,
+            nombre: m.userId.nombre,
+            nombres: m.userId.nombres || null,
+            apellidos: m.userId.apellidos || null,
+            email: m.userId.email
+          }
+        : null,
       integrante: m.memberId
         ? {
             id: m.memberId.id,
             nombre: m.memberId.nombre,
+            nombres: m.memberId.nombres || null,
+            apellidos: m.memberId.apellidos || null,
             programa: m.memberId.programa,
             semestre: m.memberId.semestre,
             activo: m.memberId.activo
@@ -218,6 +230,8 @@ const actualizarCuenta = asyncHandler(async (req, res) => {
   if (membresia.estado === 'activo' && !membresia.memberId && membresia.userId) {
     const member = await Member.create({
       nombre: membresia.userId.nombre || 'Integrante',
+      nombres: membresia.userId.nombres || null,
+      apellidos: membresia.userId.apellidos || null,
       programa: 'Sin definir',
       semestre: 1,
       activo: true,

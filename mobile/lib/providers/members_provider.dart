@@ -44,12 +44,14 @@ class MembersProvider extends ChangeNotifier {
   }
 
   Future<Member> create({
-    required String nombre,
+    required String nombres,
+    required String apellidos,
     required String programa,
     required int semestre,
   }) async {
     final Member created = await _writes.createMember(
-      nombre: nombre,
+      nombres: nombres,
+      apellidos: apellidos,
       programa: programa,
       semestre: semestre,
     );

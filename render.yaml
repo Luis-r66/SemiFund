@@ -15,3 +15,11 @@ services:
         generateValue: true
       - key: MONGODB_URI
         sync: false
+      - key: MAIL_MODE
+        value: brevo
+      - key: MAIL_FROM_NAME
+        value: SemiFund
+      - key: MAIL_FROM
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false

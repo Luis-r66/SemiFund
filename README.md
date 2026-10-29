@@ -28,6 +28,17 @@ MONGODB_URI=mongodb://<usuario>:<password>@ac-ed2os0d-shard-00-00.../semillero?s
 
 > Hay dos formatos en `.env.example`: `mongodb+srv` (recomendado) y URI directa con los 3 shards (fallback si Node falla con `querySrv ECONNREFUSED`). No subir `.env` al repo.
 
+Para recuperación de contraseña:
+
+```
+MAIL_MODE=console          # local: el código aparece en la consola
+MAIL_FROM_NAME=SemiFund
+MAIL_FROM=                 # remitente verificado en Brevo
+BREVO_API_KEY=             # solo en Render o .env local, nunca en Git
+```
+
+En Render configura `MAIL_MODE=brevo`, `MAIL_FROM` y `BREVO_API_KEY`.
+
 ## Levantar el backend
 
 ```bash
@@ -38,13 +49,32 @@ npm start      # producción
 
 Verificar: `GET http://localhost:3000/health` → `{ "ok": true }`.
 
-## Endpoints (base `http://localhost:3000/api`)
+## Autenticación, perfil y recuperación
+
+| Método | Ruta | OK | Errores |
+|---|---|---|---|
+| POST | `/auth/register` `{nombres, apellidos, email, password}` | 201 `{token, user}` | 400, 409, 429 |
+| POST | `/auth/login` `{email, password}` | 200 `{token, user}` | 401, 429 |
+| GET | `/auth/me` | 200 perfil + semilleros | 401 |
+| PATCH | `/auth/me` `{nombres?, apellidos?, tipoUsuario?, programa?, semestre?}` | 200 perfil | 400 |
+| PATCH | `/auth/password` `{currentPassword, newPassword}` | 200 `{token}` | 400, 401, 429 |
+| POST | `/auth/forgot-password` `{email}` | 200 mensaje genérico | 400, 429, 503 |
+| POST | `/auth/reset-password` `{email, code, password}` | 200 | 400, 429 |
+
+- `tipoUsuario`: `estudiante | profesor`.
+- Estudiante: `programa` y `semestre` (1–10).
+- Profesor: área/departamento en `programa`, sin semestre.
+- `nombres`/`apellidos` son los campos nuevos; `nombre` sigue aceptándose por compatibilidad.
+- El código de recuperación tiene 6 dígitos, vence en 15 minutos, es de un solo uso y máximo 5 intentos.
+- `PATCH /auth/password` y `reset-password` invalidan sesiones anteriores con `tokenVersion`.
+
+## Endpoints de tesorería (base `http://localhost:3000/api`)
 
 | Método | Ruta | OK | Errores |
 |---|---|---|---|
 | GET | `/members?activo=true` | 200 lista | 400 filtro inválido |
 | GET | `/members/:id` | 200 | 404 |
-| POST | `/members` `{nombre, programa, semestre}` | 201 | 400 |
+| POST | `/members` `{nombres, apellidos, programa, semestre}` | 201 | 400 |
 | PUT | `/members/:id` (solo nombre, programa, semestre, activo) | 200 | 400, 404 |
 | DELETE | `/members/:id` (soft, `activo=false`) | 204 | 404 |
 | GET | `/contributions?status=pending&memberId=` | 200 | 400 |

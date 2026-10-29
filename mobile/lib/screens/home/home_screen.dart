@@ -115,7 +115,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   InkWell(
                     onTap: () => context.push('/profile'),
                     customBorder: const CircleBorder(),
-                    child: MemberAvatar(name: name, size: 40, light: true),
+                    child: MemberAvatar(
+                      name: name,
+                      initialsOverride: session.user?.initials,
+                      size: 40,
+                      light: true,
+                    ),
                   ),
                 ],
               ),

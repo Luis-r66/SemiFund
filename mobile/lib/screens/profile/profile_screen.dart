@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/semillero_membership.dart';
+import '../../models/user.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
@@ -45,9 +46,11 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final SessionProvider session = context.watch<SessionProvider>();
-    final String name = session.user?.nombre ?? '';
-    final String email = session.user?.email ?? '';
+    final UserModel? user = session.user;
+    final String name = user?.nombre ?? '';
+    final String email = user?.email ?? '';
     final SemilleroMembership? active = session.activeSemillero;
+    final bool isStudent = user?.tipoUsuario == UserType.estudiante;
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -71,7 +74,13 @@ class ProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                 children: <Widget>[
                   const SizedBox(height: 8),
-                  Center(child: MemberAvatar(name: name, size: 76)),
+                  Center(
+                    child: MemberAvatar(
+                      name: name,
+                      initialsOverride: session.user?.initials,
+                      size: 76,
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   Text(
                     name,
@@ -99,6 +108,44 @@ class ProfileScreen extends StatelessWidget {
                         _InfoRow(label: 'Correo', value: email),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                  const SectionLabel('Datos académicos'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.line),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: <Widget>[
+                        _InfoRow(
+                          label: 'Tipo',
+                          value: user?.tipoUsuario?.label ?? 'Sin completar',
+                        ),
+                        const Divider(),
+                        _InfoRow(
+                          label: user?.tipoUsuario == UserType.profesor
+                              ? 'Área'
+                              : 'Carrera',
+                          value: user?.programa ?? 'Sin completar',
+                        ),
+                        if (isStudent) ...<Widget>[
+                          const Divider(),
+                          _InfoRow(
+                            label: 'Semestre',
+                            value: user?.semestre == null
+                                ? 'Sin completar'
+                                : '${user!.semestre}°',
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SecondaryButton(
+                    label: 'Editar datos académicos',
+                    onPressed: () => context.push('/profile/academic'),
                   ),
                   const SizedBox(height: 24),
                   const SectionLabel('Membresía activa'),
@@ -141,6 +188,11 @@ class ProfileScreen extends StatelessWidget {
                           ),
                   ),
                   const SizedBox(height: 24),
+                  SecondaryButton(
+                    label: 'Cambiar contraseña',
+                    onPressed: () => context.push('/change-password'),
+                  ),
+                  const SizedBox(height: 10),
                   SecondaryButton(
                     label: 'Cambiar semillero',
                     onPressed: () => showSemilleroSwitcher(context, session),

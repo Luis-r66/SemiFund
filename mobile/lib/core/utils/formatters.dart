@@ -62,16 +62,34 @@ String capitalize(String value) {
   return value[0].toUpperCase() + value.substring(1);
 }
 
-String initials(String name) {
-  final List<String> parts = name
+String initials(String name) => initialsFromParts(fullName: name);
+
+/// Iniciales a partir de nombres/apellidos separados o, como respaldo,
+/// de un nombre completo antiguo. Con 3+ palabras usa la primera y la
+/// penúltima para intentar saltar el segundo nombre.
+String initialsFromParts({
+  String? nombres,
+  String? apellidos,
+  String? fullName,
+}) {
+  final String nombresLimpios = (nombres ?? '').trim();
+  final String apellidosLimpios = (apellidos ?? '').trim();
+  if (nombresLimpios.isNotEmpty && apellidosLimpios.isNotEmpty) {
+    return _firstLetter(nombresLimpios) + _firstLetter(apellidosLimpios);
+  }
+
+  final List<String> parts = (fullName ?? '')
       .trim()
       .split(RegExp(r'\s+'))
       .where((String part) => part.isNotEmpty)
       .toList();
   if (parts.isEmpty) return '?';
-  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-  return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+  if (parts.length == 1) return _firstLetter(parts.first);
+  if (parts.length == 2) return _firstLetter(parts[0]) + _firstLetter(parts[1]);
+  return _firstLetter(parts[0]) + _firstLetter(parts[parts.length - 2]);
 }
+
+String _firstLetter(String value) => value.substring(0, 1).toUpperCase();
 
 String firstName(String name) {
   final String trimmed = name.trim();

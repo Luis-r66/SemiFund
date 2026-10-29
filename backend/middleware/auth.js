@@ -3,7 +3,7 @@ const User = require('../models/User');
 const JWT_SECRET = require('../config/jwt');
 
 // Middleware: valida el token Bearer y setea req.userId
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Se requiere token de autenticación' });
@@ -11,13 +11,20 @@ function requireAuth(req, res, next) {
   const token = auth.substring(7);
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'Usuario no encontrado o sesión inválida' });
+    }
+    if ((user.tokenVersion || 0) !== (decoded.tokenVersion || 0)) {
+      return res.status(401).json({ error: 'Tu sesión expiró. Inicia sesión de nuevo.' });
+    }
     req.userId = decoded.userId;
+    req.user = user;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Token inválido o expirado' });
   }
 }
-
 // Middleware: valida que exista X-Semillero-Id y que el usuario tenga membresía activa
 async function requireSemillero(req, res, next) {
   const semilleroId = req.headers['x-semillero-id'];

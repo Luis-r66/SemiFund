@@ -4,6 +4,7 @@ import 'package:semi_fund/models/contribution.dart';
 import 'package:semi_fund/models/expense.dart';
 import 'package:semi_fund/models/member.dart';
 import 'package:semi_fund/models/semillero_membership.dart';
+import 'package:semi_fund/models/user.dart';
 
 void main() {
   test('parsea una membresía de semillero', () {
@@ -87,5 +88,46 @@ void main() {
     expect(balance.saldoDisponible, 230000);
     expect(expense.monto, 20000);
     expect(expense.categoriaLabel, 'Transporte');
+  });
+  test('parsea perfil académico y calcula iniciales', () {
+    final UserModel user = UserModel.fromJson(<String, dynamic>{
+      'id': 'user-1',
+      'nombre': 'Luis Ernesto Ríos Pérez',
+      'nombres': 'Luis Ernesto',
+      'apellidos': 'Ríos Pérez',
+      'email': 'luis@universidad.edu.co',
+      'tipoUsuario': 'estudiante',
+      'programa': 'Ingeniería de Sistemas',
+      'semestre': 7,
+    });
+
+    expect(user.tipoUsuario, UserType.estudiante);
+    expect(user.isProfileComplete, isTrue);
+    expect(user.initials, 'LR');
+  });
+
+  test('detecta un perfil incompleto', () {
+    final UserModel user = UserModel.fromJson(<String, dynamic>{
+      'id': 'user-2',
+      'nombre': 'Nuevo Usuario',
+      'email': 'nuevo@universidad.edu.co',
+    });
+
+    expect(user.tipoUsuario, isNull);
+    expect(user.isProfileComplete, isFalse);
+  });
+
+  test('miembro con nombres separados usa las iniciales correctas', () {
+    final Member member = Member.fromJson(<String, dynamic>{
+      'id': 'member-2',
+      'nombre': 'Luis Ernesto Ríos Pérez',
+      'nombres': 'Luis Ernesto',
+      'apellidos': 'Ríos Pérez',
+      'programa': 'Ingeniería de Sistemas',
+      'semestre': 7,
+      'activo': true,
+    });
+
+    expect(member.initials, 'LR');
   });
 }

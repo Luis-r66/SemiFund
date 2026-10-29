@@ -163,7 +163,11 @@ class _MemberTile extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: <Widget>[
-              MemberAvatar(name: member.nombre, dim: !member.activo),
+              MemberAvatar(
+                name: member.nombre,
+                initialsOverride: member.initials,
+                dim: !member.activo,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
