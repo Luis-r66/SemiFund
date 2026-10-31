@@ -1,5 +1,6 @@
 import '../core/utils/formatters.dart';
 import '../core/utils/json_utils.dart';
+import 'user.dart';
 
 class Member {
   const Member({
@@ -10,6 +11,8 @@ class Member {
     required this.activo,
     this.nombres = '',
     this.apellidos = '',
+    this.tipoUsuario,
+    this.esCuentaVinculada = false,
     this.fechaIngreso,
   });
 
@@ -18,9 +21,18 @@ class Member {
   final String nombres;
   final String apellidos;
   final String programa;
-  final int semestre;
+  final int? semestre;
   final bool activo;
+  final UserType? tipoUsuario;
+  final bool esCuentaVinculada;
   final DateTime? fechaIngreso;
+
+  bool get esProfesor => tipoUsuario == UserType.profesor;
+
+  String get programLabel => esProfesor ? 'Área' : 'Programa';
+
+  String get semesterLabel =>
+      esProfesor || semestre == null ? 'No aplica' : '$semestreº';
 
   String get initials => initialsFromParts(
     nombres: nombres,
@@ -36,8 +48,10 @@ class Member {
       nombres: asString(map['nombres']),
       apellidos: asString(map['apellidos']),
       programa: asString(map['programa']),
-      semestre: asInt(map['semestre']),
+      semestre: map['semestre'] == null ? null : asInt(map['semestre']),
       activo: asBool(map['activo'], fallback: true),
+      tipoUsuario: UserType.tryParse(map['tipoUsuario']),
+      esCuentaVinculada: asBool(map['esCuentaVinculada']),
       fechaIngreso: asDate(map['fechaIngreso']),
     );
   }
@@ -50,6 +64,8 @@ class Member {
     'programa': programa,
     'semestre': semestre,
     'activo': activo,
+    'tipoUsuario': tipoUsuario?.apiValue,
+    'esCuentaVinculada': esCuentaVinculada,
     'fechaIngreso': fechaIngreso?.toIso8601String(),
   };
 
@@ -61,6 +77,8 @@ class Member {
     String? programa,
     int? semestre,
     bool? activo,
+    UserType? tipoUsuario,
+    bool? esCuentaVinculada,
     DateTime? fechaIngreso,
   }) {
     return Member(
@@ -71,6 +89,8 @@ class Member {
       programa: programa ?? this.programa,
       semestre: semestre ?? this.semestre,
       activo: activo ?? this.activo,
+      tipoUsuario: tipoUsuario ?? this.tipoUsuario,
+      esCuentaVinculada: esCuentaVinculada ?? this.esCuentaVinculada,
       fechaIngreso: fechaIngreso ?? this.fechaIngreso,
     );
   }

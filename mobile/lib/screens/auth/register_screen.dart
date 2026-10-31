@@ -91,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _namesError = names.isEmpty ? 'Ingresa tus nombres.' : null;
       _surnamesError = surnames.isEmpty ? 'Ingresa tus apellidos.' : null;
       _emailError = email.isEmpty
-          ? 'Ingresa tu correo institucional.'
+          ? 'Ingresa tu correo electrónico.'
           : (!_emailRegex.hasMatch(email) ? 'Ingresa un correo válido.' : null);
       _passwordError = password.length < 8
           ? 'La contraseña debe tener al menos 8 caracteres.'
@@ -204,12 +204,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     LabeledField(
-                      label: 'Correo institucional',
+                      label: 'Correo electrónico',
                       error: _emailError,
                       child: AppTextField(
                         controller: _emailController,
                         focusNode: _emailFocus,
-                        hintText: 'nombre@universidad.edu.co',
+                        hintText: 'nombre@correo.com',
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const <String>[

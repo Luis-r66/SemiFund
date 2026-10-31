@@ -49,6 +49,14 @@ npm start      # producción
 
 Verificar: `GET http://localhost:3000/health` → `{ "ok": true }`.
 
+Para sincronizar los datos académicos de las cuentas con los integrantes existentes:
+
+```bash
+cd backend
+npm run sync:members -- --dry-run   # revisar cambios
+npm run sync:members                # aplicar
+```
+
 ## Autenticación, perfil y recuperación
 
 | Método | Ruta | OK | Errores |
@@ -75,21 +83,30 @@ Verificar: `GET http://localhost:3000/health` → `{ "ok": true }`.
 | GET | `/members?activo=true` | 200 lista | 400 filtro inválido |
 | GET | `/members/:id` | 200 | 404 |
 | POST | `/members` `{nombres, apellidos, programa, semestre}` | 201 | 400 |
-| PUT | `/members/:id` (solo nombre, programa, semestre, activo) | 200 | 400, 404 |
+| PUT | `/members/:id` (manual: nombre, programa, semestre, activo; vinculado: solo activo) | 200 | 400, 404, 409 datos académicos de cuenta |
 | DELETE | `/members/:id` (soft, `activo=false`) | 204 | 404 |
 | GET | `/contributions?status=pending&memberId=` | 200 | 400 |
-| POST | `/contributions` `{integranteId, monto, mes, concepto}` | 201 | 400 (incluye integrante inexistente o concepto faltante) |
+| POST | `/contributions` `{integranteId, monto, mes, concepto}` | 201 | 400, 409 aporte duplicado |
+| PATCH | `/contributions/:id/report` `{referencia?}` | 200 | 403 no es propio, 404, 409 ya pagado/reportado |
 | PATCH | `/contributions/:id/pay` | 200 | 404, 409 ya pagado |
+| PATCH | `/contributions/:id/reject` `{motivo?}` | 200 | 404, 409 no está reportado |
 | GET | `/expenses?category=&month=YYYY-MM` | 200 | 400 |
 | POST | `/expenses` `{descripcion, categoria, monto, fecha?}` (sin fecha futura) | 201 | 400, 409 saldo insuficiente |
 | GET | `/balance` → `{totalAportado, totalGastado, saldoDisponible}` | 200 | — |
+| GET | `/reports/movimientos.csv` | 200 CSV | 403 no tesorero |
 
-`status` en query: `pending|paid|overdue` → `pendiente|pagado|vencido` en DB.
+`status` en query: `pending|paid|overdue|reported` → `pendiente|pagado|vencido|reportado` en DB. `GET /contributions` agrega `esPropio` a cada aporte.
+
+- El integrante solo puede reportar aportes propios. El tesorero aprueba con `/pay` o rechaza con `/reject`.
+- El CSV `movimientos.csv` incluye aportes y gastos. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
+- El perfil académico de la cuenta se sincroniza con los integrantes vinculados. El tesorero no puede editar carrera/semestre de un integrante con cuenta.
 
 ## Reglas de negocio (validadas en backend)
 
 1. Gasto con `monto > saldoDisponible` → `409 { "error": "Saldo insuficiente" }` (`controllers/expenseController.js` + `utils/balance.js` con `aggregate` en vivo).
-2. Aporte: `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`. Desde `pagado` nada → `409` (`controllers/contributionController.js#pay`).
+2. Aporte: `pendiente→reportado→pagado`, `vencido→reportado→pagado`, `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`. Un rechazo devuelve el aporte a `pendiente`. Desde `pagado` nada → `409`.
+3. Un integrante no puede reportar el aporte de otro (`403`); el tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
+4. Al crear un semillero o aprobar una solicitud se copian los datos académicos de la cuenta; al actualizar el perfil se sincronizan los integrantes vinculados.
 
 ## Probar con Postman / Insomnia
 

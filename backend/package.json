@@ -1,11 +1,12 @@
 {
   "name": "proyecto-android-studio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "API REST tesoreria Semillero de Software - Node + Express + Mongoose",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "sync:members": "node scripts/backfillMemberProfiles.js"
   },
   "keywords": [],
   "author": "",

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const ESTADOS = ['pendiente', 'pagado', 'vencido'];
+const ESTADOS = ['pendiente', 'pagado', 'vencido', 'reportado'];
 
 const contributionSchema = new mongoose.Schema(
   {
@@ -23,12 +23,19 @@ const contributionSchema = new mongoose.Schema(
       maxlength: [200, 'El concepto no puede superar 200 caracteres']
     },
     estado: { type: String, enum: ESTADOS, default: 'pendiente' },
-    fechaPago: { type: Date, default: null }
+    fechaPago: { type: Date, default: null },
+    referencia: { type: String, trim: true, maxlength: [120, 'La referencia no puede superar 120 caracteres'], default: null },
+    fechaReporte: { type: Date, default: null },
+    reportadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    fechaRevision: { type: Date, default: null },
+    revisadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    motivoRechazo: { type: String, trim: true, maxlength: [200, 'El motivo no puede superar 200 caracteres'], default: null }
   },
   { collection: 'contributions', timestamps: { createdAt: true, updatedAt: false } }
 );
 
 contributionSchema.index({ integranteId: 1, estado: 1 });
+contributionSchema.index({ semilleroId: 1, integranteId: 1, mes: 1 });
 
 contributionSchema.method('toJSON', function () {
   const obj = this.toObject();

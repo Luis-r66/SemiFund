@@ -951,6 +951,56 @@
               "value": "{{semilleroId}}"
             }
           ]
+        },
+        {
+          "name": "Reportar aporte (200) - integrante dueño",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/report",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referencia\": \"TRX-001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Rechazar aporte reportado (200) - tesorero",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/reject",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Comprobante ilegible\"\n}"
+            }
+          }
         }
       ]
     },
@@ -1061,6 +1111,28 @@
               }
             ],
             "url": "{{baseUrl}}/balance"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Exportar movimientos CSV (200) - tesorero",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Semillero-Id",
+                "value": "{{semilleroId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/reports/movimientos.csv"
           }
         }
       ]

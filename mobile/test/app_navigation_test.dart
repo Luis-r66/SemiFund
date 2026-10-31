@@ -83,7 +83,7 @@ void main() {
     when(() => dashboard.balance()).thenAnswer((_) async => Balance.empty);
     when(() => dashboard.members(activo: true))
         .thenAnswer((_) async => const <Member>[]);
-    when(() => dashboard.contributions(status: ContributionStatus.pendiente))
+    when(() => dashboard.contributions())
         .thenAnswer((_) async => const <Contribution>[]);
     when(() => dashboard.expenses()).thenAnswer((_) async => const <Expense>[]);
   });

@@ -7,6 +7,7 @@ const Membership = require('../models/Membership');
 const PasswordReset = require('../models/PasswordReset');
 const asyncHandler = require('../middleware/asyncHandler');
 const { sendResetCode } = require('../utils/mailer');
+const { syncMembersForUser } = require('../utils/memberSync');
 
 const JWT_SECRET = require('../config/jwt');
 const JWT_EXPIRES_IN = '7d';
@@ -185,6 +186,9 @@ const updateMe = asyncHandler(async (req, res) => {
   user.programa = programaSolicitado || null;
   user.semestre = semestre ?? null;
   await user.save();
+  await syncMembersForUser(user).catch((error) => {
+    console.error('No se pudo sincronizar el perfil del integrante:', error.message);
+  });
 
   res.status(200).json(publicUser(user));
 });

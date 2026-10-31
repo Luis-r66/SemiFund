@@ -47,6 +47,23 @@ void main() {
     expect(member.fechaIngreso, isNotNull);
   });
 
+  test('parsea un integrante profesor sin semestre', () {
+    final Member member = Member.fromJson(<String, dynamic>{
+      'id': 'member-prof',
+      'nombre': 'Zulema Leon',
+      'programa': 'Ingenieria de Sistemas',
+      'semestre': null,
+      'tipoUsuario': 'profesor',
+      'esCuentaVinculada': true,
+      'activo': true,
+    });
+
+    expect(member.esProfesor, isTrue);
+    expect(member.programLabel, 'Área');
+    expect(member.semesterLabel, 'No aplica');
+    expect(member.esCuentaVinculada, isTrue);
+  });
+
   test('interpreta estados de aporte en español e inglés', () {
     final Contribution pending = Contribution.fromJson(<String, dynamic>{
       'id': 'c1',
@@ -69,6 +86,25 @@ void main() {
     expect(pending.concepto, 'Cuota mensual');
     expect(overdue.estado, ContributionStatus.vencido);
     expect(overdue.concepto, '');
+  });
+
+  test('parsea un aporte reportado y si es propio', () {
+    final Contribution contribution = Contribution.fromJson(<String, dynamic>{
+      'id': 'c3',
+      'integranteId': 'm1',
+      'monto': 20000,
+      'mes': '2026-10',
+      'concepto': 'Cuota',
+      'estado': 'reportado',
+      'esPropio': true,
+      'referencia': 'TRX-1',
+      'fechaReporte': '2026-10-20T10:00:00.000Z',
+    });
+
+    expect(contribution.estado, ContributionStatus.reportado);
+    expect(contribution.esPropio, isTrue);
+    expect(contribution.referencia, 'TRX-1');
+    expect(contribution.canReport, isFalse);
   });
 
   test('parsea balance y gastos', () {

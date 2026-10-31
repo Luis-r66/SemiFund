@@ -167,7 +167,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                               children: <Widget>[
                                 Expanded(
                                   child: _Fact(
-                                    label: 'Programa',
+                                    label: member.programLabel,
                                     value: member.programa,
                                   ),
                                 ),
@@ -179,13 +179,22 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                                   width: 110,
                                   child: _Fact(
                                     label: 'Semestre',
-                                    value: '${member.semestre}°',
+                                    value: member.semesterLabel,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
+                        if (member.esCuentaVinculada) ...<Widget>[
+                          const SizedBox(height: 10),
+                          Text(
+                            'Los datos académicos se editan desde el perfil de la cuenta.',
+                            style: AppTextStyles.small.copyWith(
+                              color: AppColors.ink3,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         const SectionLabel('Historial de aportes'),
                         Container(
@@ -227,20 +236,22 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
                 child: Row(
                   children: <Widget>[
-                    Expanded(
-                      child: SecondaryButton(
-                        label: 'Editar',
-                        onPressed: _busy
-                            ? null
-                            : () async {
-                                await context.push(
-                                  '/members/${member.id}/edit',
-                                );
-                                if (mounted) await _load();
-                              },
+                    if (!member.esCuentaVinculada) ...<Widget>[
+                      Expanded(
+                        child: SecondaryButton(
+                          label: 'Editar',
+                          onPressed: _busy
+                              ? null
+                              : () async {
+                                  await context.push(
+                                    '/members/${member.id}/edit',
+                                  );
+                                  if (mounted) await _load();
+                                },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
+                      const SizedBox(width: 10),
+                    ],
                     Expanded(
                       child: DangerButton(
                         label: member.activo ? 'Desactivar' : 'Reactivar',

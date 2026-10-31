@@ -12,8 +12,12 @@
   "id": "uuid",
   "_id": "uuid",
   "nombre": "Ana Torres",
+  "nombres": "Ana",
+  "apellidos": "Torres",
+  "tipoUsuario": "estudiante",
   "programa": "Ingeniería de Software",
   "semestre": 5,
+  "esCuentaVinculada": true,
   "activo": true,
   "fechaIngreso": "2026-02-10T15:00:00.000Z"
 }
@@ -22,8 +26,11 @@
 | Campo | Reglas |
 |---|---|
 | nombre | requerido, no vacío |
-| programa | requerido, no vacío |
-| semestre | requerido, 1–10 |
+| nombres / apellidos | opcionales; se usan para iniciales |
+| tipoUsuario | `estudiante`, `profesor` o `null` |
+| programa | requerido, no vacío; para profesor es el área |
+| semestre | requerido para estudiante, 1–10; `null` para profesor |
+| esCuentaVinculada | `true` si el integrante está vinculado a un `User` |
 | activo / fechaIngreso | autogenerados |
 
 ### Contribution
@@ -40,7 +47,9 @@
 }
 ```
 
-`estado`: `pendiente|pagado|vencido`. `mes`: `YYYY-MM`. `monto` > 0. `concepto`: requerido, no vacío.
+`estado`: `pendiente|pagado|vencido|reportado`. `mes`: `YYYY-MM`. `monto` > 0. `concepto`: requerido, no vacío.
+Campos nuevos: `referencia`, `fechaReporte`, `reportadoPor`, `fechaRevision`, `revisadoPor`, `motivoRechazo`.
+La respuesta de `GET /api/contributions` agrega `esPropio` para indicar si el aporte pertenece al integrante de la sesión.
 
 ### Expense
 
@@ -71,7 +80,9 @@ GET    /api/members
 GET    /api/members?activo=true|false
 GET    /api/members/:id            -> 200 | 404 {"error":"Integrante no encontrado"}
 POST   /api/members                -> 201 | 400
-PUT    /api/members/:id            -> 200 | 400 | 404   (solo: nombre, programa, semestre 1-10, activo boolean; otros campos se ignoran)
+PUT    /api/members/:id            -> 200 | 400 | 404 | 409
+  - Integrante manual: nombre, nombres, apellidos, programa, semestre 1-10, activo.
+  - Integrante vinculado a cuenta: solo activo; los datos académicos se editan desde /api/auth/me.
 DELETE /api/members/:id            -> 204 (activo=false) | 404
 ```
 
@@ -92,11 +103,17 @@ Editar (parcial):
 ```
 GET   /api/contributions
 GET   /api/contributions?status=pending&memberId=
-POST  /api/contributions            -> 201 | 400 (incluye "El integrante no existe")
+POST  /api/contributions            -> 201 | 400 | 409 aporte duplicado
+PATCH /api/contributions/:id/report -> 200 | 403 | 404 | 409
 PATCH /api/contributions/:id/pay    -> 200 | 404 | 409
+PATCH /api/contributions/:id/reject -> 200 | 404 | 409
 ```
 
-`status`: `pending|paid|overdue` (= `pendiente|pagado|vencido`).
+`status`: `pending|paid|overdue|reported` (= `pendiente|pagado|vencido|reportado`).
+
+- `report`: solo el integrante dueño del aporte. Pasa el estado a `reportado` y guarda `referencia` opcional.
+- `pay`: solo tesorero. Acepta pendiente, vencido o reportado; guarda `fechaPago`, `fechaRevision` y `revisadoPor`.
+- `reject`: solo tesorero y solo sobre un aporte `reportado`; lo devuelve a `pendiente` y guarda `motivoRechazo`.
 
 Crear:
 
@@ -125,6 +142,18 @@ Crear:
 ```
 GET /api/balance -> 200 { totalAportado, totalGastado, saldoDisponible }
 ```
+
+### Reportes
+
+```
+GET /api/reports/movimientos.csv -> 200 text/csv | 403
+```
+
+- Solo tesorero del semillero activo.
+- Un solo archivo con aportes y gastos, separados por la columna `tipo_registro`.
+- Columnas: `tipo_registro, semillero_codigo, semillero_nombre, periodo, fecha, fecha_pago, integrante_nombre, integrante_email, programa, semestre, descripcion, categoria, monto, moneda, estado, referencia, id_origen`.
+- `integrante_email` sale de la cuenta vinculada; si el integrante es manual, queda vacío.
+- UTF-8 con BOM, separador coma, fechas `YYYY-MM-DD`, montos con dos decimales.
 ## 6. Autenticación y semilleros (Fase 2)
 
 ### Auth (públicas)
@@ -165,7 +194,7 @@ POST   /api/semilleros  { nombre }              -> 201 { semillero, memberId } |
 POST   /api/semilleros/join  { codigo }         -> 201 { semilleroId, semilleroNombre, estado } | 404 | 409
 ```
 
-El creador queda como **tesorero automático** y se crea su `Member` vinculado (`programa: 'Sin definir'`, `semestre: 1` hasta capturar datos reales). El código de invitación tiene 8 caracteres alfanuméricos, es permanente y rotable; solo el tesorero lo ve.
+El creador queda como **tesorero automático** y se crea su `Member` vinculado con los datos académicos de su cuenta. El código de invitación tiene 8 caracteres alfanuméricos, es permanente y rotable; solo el tesorero lo ve.
 La creación del semillero, su integrante inicial y su membresía se revierte si falla una etapa.
 Las membresías cuyo semillero ya no existe se omiten de las respuestas de listado y perfil.
 
@@ -179,7 +208,7 @@ GET    /api/semilleros/me/accounts                                   -> 200 [ { 
 PATCH  /api/semilleros/me/accounts/:membershipId  { estado?, esTesorero? } -> 200 | 404 | 409 (solo tesorero)
 ```
 
-`estado` de una membresía: `pendiente | activo | rechazado | inactivo`. Al aprobar (`estado: 'activo'`) se crea/vincula el `Member` de forma idempotente. Nunca se puede quedar el semillero sin al menos un tesorero activo (409).
+`estado` de una membresía: `pendiente | activo | rechazado | inactivo`. Al aprobar (`estado: 'activo'`) se crea/vincula el `Member` con los datos académicos de la cuenta de forma idempotente. Nunca se puede quedar el semillero sin al menos un tesorero activo (409).
 
 `PATCH /api/contributions/:id/pay` valida el `id` como ObjectId y responde `400` si no es válido.
 
@@ -187,16 +216,17 @@ PATCH  /api/semilleros/me/accounts/:membershipId  { estado?, esTesorero? } -> 20
 
 - `User`: cuenta de acceso (id, nombre, nombres, apellidos, email, tipoUsuario, programa, semestre, passwordHash, tokenVersion).
 - `Membership`: vincula un `User` con un `Semillero` (`userId`, `semilleroId`, `esTesorero`, `estado`, `memberId?`). Un usuario solo puede tener una membresía por semillero.
-- `Member`: integrante que aporta (`nombre`, `nombres`, `apellidos`, `programa`, `semestre`, `activo`, `semilleroId`). Es distinto de `User` y `Membership`; se crea al aprobar una solicitud o al crear el semillero. El perfil académico de la cuenta no se sincroniza automáticamente con este integrante.
-- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar.
+- `Member`: integrante que aporta (`userId?`, `nombre`, `nombres`, `apellidos`, `tipoUsuario`, `programa`, `semestre`, `activo`, `semilleroId`). Si está vinculado a una cuenta, el perfil académico se sincroniza desde `User` al crear el semillero, aprobar la solicitud o actualizar `/api/auth/me`. El tesorero no puede editar los datos académicos de un integrante vinculado.
+- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar. El integrante puede reportar sus propios aportes.
 
 ## 3. Reglas (backend manda)
 
 1. Gasto > saldo → `409 Saldo insuficiente`.
-2. Aporte: `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`; desde `pagado` nada → `409`.
-3. `DELETE /members/:id` no borra, pone `activo:false`.
-4. Reactivar un integrante: `PUT /members/:id` con `{ "activo": true }`.
-5. Aporte `pendiente` con `mes` anterior al actual se devuelve como `vencido`.
+2. Aporte: `pendiente→reportado→pagado`, `vencido→reportado→pagado`, `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`; desde `pagado` nada → `409`. Un rechazo devuelve el aporte a `pendiente`.
+3. Un integrante no puede reportar el aporte de otro (`403`). El tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
+4. `DELETE /members/:id` no borra, pone `activo:false`.
+5. Reactivar un integrante: `PUT /members/:id` con `{ "activo": true }`.
+6. Aporte `pendiente` con `mes` anterior al actual se actualiza a `vencido` al consultar.
 
 ## 4. Códigos
 

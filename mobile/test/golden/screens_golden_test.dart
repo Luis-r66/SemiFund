@@ -296,7 +296,7 @@ void main() {
         ),
       ],
     );
-    when(() => dashboard.contributions(status: ContributionStatus.pendiente))
+    when(() => dashboard.contributions())
         .thenAnswer(
           (_) async => const <Contribution>[
             Contribution(

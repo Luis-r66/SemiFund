@@ -66,6 +66,16 @@ const CAMPOS_EDITABLES = ['nombre', 'nombres', 'apellidos', 'programa', 'semestr
 
 const update = asyncHandler(async (req, res) => {
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const existente = await Member.findOne({ _id: req.params.id, semilleroId: req.semilleroId });
+  if (!existente) return res.status(404).json({ error: 'Integrante no encontrado' });
+
+  const camposAcademicos = ['nombre', 'nombres', 'apellidos', 'programa', 'semestre'];
+  if (existente.userId && camposAcademicos.some((campo) => body[campo] !== undefined)) {
+    return res.status(409).json({
+      error: 'Los datos académicos se editan desde el perfil de la cuenta'
+    });
+  }
+
   const cambios = {};
   for (const campo of CAMPOS_EDITABLES) {
     if (body[campo] !== undefined) cambios[campo] = body[campo];

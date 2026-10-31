@@ -181,7 +181,9 @@ class _MemberTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${member.programa} · ${member.semestre}° sem.',
+                      member.esProfesor
+                          ? '${member.programa} · Docente'
+                          : '${member.programa} · ${member.semesterLabel} sem.',
                       style: AppTextStyles.small.copyWith(
                         color: AppColors.ink2,
                       ),

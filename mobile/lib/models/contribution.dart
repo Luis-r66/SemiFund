@@ -3,7 +3,8 @@ import '../core/utils/json_utils.dart';
 enum ContributionStatus {
   pendiente('pendiente', 'pending', 'Pendiente'),
   pagado('pagado', 'paid', 'Pagado'),
-  vencido('vencido', 'overdue', 'Vencido');
+  vencido('vencido', 'overdue', 'Vencido'),
+  reportado('reportado', 'reported', 'Reportado');
 
   const ContributionStatus(this.apiValue, this.queryValue, this.label);
 
@@ -32,6 +33,10 @@ class Contribution {
     required this.estado,
     this.fechaPago,
     this.createdAt,
+    this.esPropio = false,
+    this.referencia,
+    this.fechaReporte,
+    this.motivoRechazo,
   });
 
   final String id;
@@ -42,8 +47,17 @@ class Contribution {
   final ContributionStatus estado;
   final DateTime? fechaPago;
   final DateTime? createdAt;
+  final bool esPropio;
+  final String? referencia;
+  final DateTime? fechaReporte;
+  final String? motivoRechazo;
 
   bool get isPaid => estado == ContributionStatus.pagado;
+
+  bool get canReport =>
+      esPropio &&
+      (estado == ContributionStatus.pendiente ||
+          estado == ContributionStatus.vencido);
 
   factory Contribution.fromJson(dynamic json) {
     final Map<String, dynamic> map = asMap(json);
@@ -56,6 +70,10 @@ class Contribution {
       estado: ContributionStatus.fromApi(map['estado']),
       fechaPago: asDate(map['fechaPago']),
       createdAt: asDate(map['createdAt']),
+      esPropio: asBool(map['esPropio']),
+      referencia: asNullableString(map['referencia']),
+      fechaReporte: asDate(map['fechaReporte']),
+      motivoRechazo: asNullableString(map['motivoRechazo']),
     );
   }
 
@@ -68,6 +86,10 @@ class Contribution {
     'estado': estado.apiValue,
     'fechaPago': fechaPago?.toIso8601String(),
     'createdAt': createdAt?.toIso8601String(),
+    'esPropio': esPropio,
+    'referencia': referencia,
+    'fechaReporte': fechaReporte?.toIso8601String(),
+    'motivoRechazo': motivoRechazo,
   };
 
   Contribution copyWith({
@@ -79,6 +101,10 @@ class Contribution {
     ContributionStatus? estado,
     DateTime? fechaPago,
     DateTime? createdAt,
+    bool? esPropio,
+    String? referencia,
+    DateTime? fechaReporte,
+    String? motivoRechazo,
   }) {
     return Contribution(
       id: id ?? this.id,
@@ -89,6 +115,10 @@ class Contribution {
       estado: estado ?? this.estado,
       fechaPago: fechaPago ?? this.fechaPago,
       createdAt: createdAt ?? this.createdAt,
+      esPropio: esPropio ?? this.esPropio,
+      referencia: referencia ?? this.referencia,
+      fechaReporte: fechaReporte ?? this.fechaReporte,
+      motivoRechazo: motivoRechazo ?? this.motivoRechazo,
     );
   }
 }

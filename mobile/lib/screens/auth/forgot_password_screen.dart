@@ -154,7 +154,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     Text(
                       _codeSent
                           ? 'Escribe el código que enviamos a tu correo y define una nueva contraseña.'
-                          : 'Ingresa tu correo institucional y te enviaremos un código de recuperación.',
+                          : 'Ingresa tu correo electrónico y te enviaremos un código de recuperación.',
                       style: AppTextStyles.small.copyWith(
                         color: AppColors.ink2,
                       ),
@@ -162,11 +162,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     const SizedBox(height: 24),
                     if (!_codeSent) ...<Widget>[
                       LabeledField(
-                        label: 'Correo institucional',
+                        label: 'Correo electrónico',
                         error: _emailError,
                         child: AppTextField(
                           controller: _email,
-                          hintText: 'nombre@universidad.edu.co',
+                          hintText: 'nombre@correo.com',
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.done,
                           autofillHints: const <String>[AutofillHints.email],

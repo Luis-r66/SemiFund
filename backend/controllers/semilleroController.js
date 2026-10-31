@@ -4,6 +4,7 @@ const Membership = require('../models/Membership');
 const Member = require('../models/Member');
 const User = require('../models/User');
 const asyncHandler = require('../middleware/asyncHandler');
+const { academicFieldsFromUser } = require('../utils/memberSync');
 
 // Genera un código alfanumérico de 8 caracteres (mayúsculas y dígitos, sin ambiguos)
 function generarCodigo() {
@@ -58,11 +59,8 @@ const crear = asyncHandler(async (req, res) => {
   try {
     semillero = await Semillero.create({ nombre: nombre.trim(), codigo, creadoPor: userId });
     member = await Member.create({
-      nombre: user.nombre,
-      nombres: user.nombres || null,
-      apellidos: user.apellidos || null,
-      programa: 'Sin definir',
-      semestre: 1,
+      ...academicFieldsFromUser(user),
+      userId,
       activo: true,
       semilleroId: semillero._id
     });
@@ -173,7 +171,7 @@ const rotarCodigo = asyncHandler(async (req, res) => {
 const listarCuentas = asyncHandler(async (req, res) => {
   const membresias = await Membership.find({ semilleroId: req.semillero._id })
     .populate('userId', 'nombre nombres apellidos email')
-    .populate('memberId', 'nombre nombres apellidos programa semestre activo')
+    .populate('memberId', 'userId nombre nombres apellidos tipoUsuario programa semestre activo')
     .sort({ createdAt: -1 });
   res.status(200).json(
     membresias.map(m => ({
@@ -193,8 +191,10 @@ const listarCuentas = asyncHandler(async (req, res) => {
             nombre: m.memberId.nombre,
             nombres: m.memberId.nombres || null,
             apellidos: m.memberId.apellidos || null,
+            tipoUsuario: m.memberId.tipoUsuario || null,
             programa: m.memberId.programa,
             semestre: m.memberId.semestre,
+            esCuentaVinculada: Boolean(m.memberId.userId),
             activo: m.memberId.activo
           }
         : null,
@@ -227,18 +227,23 @@ const actualizarCuenta = asyncHandler(async (req, res) => {
   if (typeof esTesorero === 'boolean') membresia.esTesorero = esTesorero;
   await membresia.save();
 
-  if (membresia.estado === 'activo' && !membresia.memberId && membresia.userId) {
-    const member = await Member.create({
-      nombre: membresia.userId.nombre || 'Integrante',
-      nombres: membresia.userId.nombres || null,
-      apellidos: membresia.userId.apellidos || null,
-      programa: 'Sin definir',
-      semestre: 1,
-      activo: true,
-      semilleroId: membresia.semilleroId
-    });
-    membresia.memberId = member._id;
-    await membresia.save();
+  if (membresia.estado === 'activo' && membresia.userId) {
+    const fields = academicFieldsFromUser(membresia.userId);
+    if (!membresia.memberId) {
+      const member = await Member.create({
+        ...fields,
+        userId: membresia.userId._id,
+        activo: true,
+        semilleroId: membresia.semilleroId
+      });
+      membresia.memberId = member._id;
+      await membresia.save();
+    } else {
+      await Member.findOneAndUpdate(
+        { _id: membresia.memberId, semilleroId: membresia.semilleroId },
+        { $set: { ...fields, userId: membresia.userId._id } }
+      );
+    }
   }
 
   res.status(200).json({ id: membresia.id, estado: membresia.estado, esTesorero: membresia.esTesorero });

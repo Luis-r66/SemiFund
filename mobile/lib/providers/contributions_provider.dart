@@ -81,4 +81,16 @@ class ContributionsProvider extends ChangeNotifier {
     await _writes.payContribution(contribution.id);
     await refresh();
   }
+
+  Future<void> report(Contribution contribution, {String? referencia}) async {
+    await _writes.reportContribution(contribution.id, referencia: referencia);
+    await refresh();
+  }
+
+  Future<void> reject(Contribution contribution, {String? motivo}) async {
+    await _writes.rejectContribution(contribution.id, motivo: motivo);
+    await refresh();
+  }
+
+  Future<CsvDownload> exportCsv() => _writes.exportMovimientos();
 }

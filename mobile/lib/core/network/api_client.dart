@@ -53,6 +53,20 @@ class ApiClient {
     return _execute(() => _dio.delete<dynamic>(path, data: data));
   }
 
+  Future<Response<List<int>>> getBytes(String path) async {
+    try {
+      return await _dio.get<List<int>>(
+        path,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: const <String, dynamic>{'Accept': 'text/csv'},
+        ),
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<dynamic> _execute(Future<Response<dynamic>> Function() request) async {
     try {
       final Response<dynamic> response = await request();

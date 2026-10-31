@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final String password = _passwordController.text;
     setState(() {
       _emailError = email.isEmpty
-          ? 'Ingresa tu correo institucional.'
+          ? 'Ingresa tu correo electrónico.'
           : (!_emailRegex.hasMatch(email) ? 'Ingresa un correo válido.' : null);
       _passwordError = password.isEmpty ? 'Ingresa tu contraseña.' : null;
       _error = null;
@@ -111,12 +111,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 28),
                     LabeledField(
-                      label: 'Correo institucional',
+                      label: 'Correo electrónico',
                       error: _emailError,
                       child: AppTextField(
                         controller: _emailController,
                         focusNode: _emailFocus,
-                        hintText: 'nombre@universidad.edu.co',
+                        hintText: 'nombre@correo.com',
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const <String>[AutofillHints.email],

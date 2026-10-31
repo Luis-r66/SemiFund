@@ -78,7 +78,7 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
           ? member.apellidos
           : (parts.length > 1 ? parts.skip(1).join(' ') : '');
       _program.text = member.programa;
-      _semester.text = member.semestre.toString();
+      _semester.text = member.semestre?.toString() ?? '';
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {

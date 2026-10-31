@@ -60,7 +60,7 @@ class HomeProvider extends ChangeNotifier {
         <Future<dynamic>>[
           _service.balance(),
           _service.members(activo: true),
-          _service.contributions(status: ContributionStatus.pendiente),
+          _service.contributions(),
           _service.expenses(),
         ],
       );
@@ -78,7 +78,7 @@ class HomeProvider extends ChangeNotifier {
         pendingContributions: contributions
             .where(
               (Contribution item) =>
-                  item.estado == ContributionStatus.pendiente,
+                  item.estado != ContributionStatus.pagado,
             )
             .length,
         expensesCount: expenses.length,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
@@ -9,6 +11,7 @@ import '../../core/utils/formatters.dart';
 import '../../models/contribution.dart';
 import '../../providers/contributions_provider.dart';
 import '../../providers/session_provider.dart';
+import '../../services/management_service.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
@@ -17,8 +20,6 @@ import '../../widgets/loading_view.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
 
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-
 class ContributionsScreen extends StatefulWidget {
   const ContributionsScreen({super.key});
 
@@ -26,11 +27,11 @@ class ContributionsScreen extends StatefulWidget {
   State<ContributionsScreen> createState() => _ContributionsScreenState();
 }
 
-/// Filtro de la pestaña: null = Todos.
-enum _Tab { todos, pendiente, vencido }
+enum _Tab { todos, pendiente, vencido, reportado }
 
 class _ContributionsScreenState extends State<ContributionsScreen> {
   _Tab _tab = _Tab.todos;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -48,6 +49,8 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         return ContributionStatus.pendiente;
       case _Tab.vencido:
         return ContributionStatus.vencido;
+      case _Tab.reportado:
+        return ContributionStatus.reportado;
     }
   }
 
@@ -59,6 +62,8 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         return 'Pendiente';
       case _Tab.vencido:
         return 'Vencido';
+      case _Tab.reportado:
+        return 'Reportado';
     }
   }
 
@@ -100,6 +105,127 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     }
   }
 
+  Future<void> _report(Contribution contribution) async {
+    final ContributionsProvider provider = context
+        .read<ContributionsProvider>();
+    final TextEditingController reference = TextEditingController();
+    final String? result = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Reportar pago'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text(
+              'El tesorero revisará el reporte antes de marcarlo como pagado.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reference,
+              decoration: const InputDecoration(
+                labelText: 'Referencia (opcional)',
+                hintText: 'Número de transacción',
+              ),
+              textInputAction: TextInputAction.done,
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(null),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(reference.text),
+            child: const Text('Reportar'),
+          ),
+        ],
+      ),
+    );
+    reference.dispose();
+    if (result == null) return;
+    try {
+      await provider.report(contribution, referencia: result);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _reject(Contribution contribution) async {
+    final ContributionsProvider provider = context
+        .read<ContributionsProvider>();
+    final TextEditingController reason = TextEditingController();
+    final String? result = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Rechazar reporte'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text('El aporte volverá a quedar pendiente.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reason,
+              decoration: const InputDecoration(
+                labelText: 'Motivo (opcional)',
+                hintText: 'Ej. Comprobante ilegible',
+              ),
+              textInputAction: TextInputAction.done,
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(null),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(reason.text),
+            child: const Text('Rechazar'),
+          ),
+        ],
+      ),
+    );
+    reason.dispose();
+    if (result == null) return;
+    try {
+      await provider.reject(contribution, motivo: result);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _export() async {
+    setState(() => _exporting = true);
+    try {
+      final CsvDownload file = await context
+          .read<ContributionsProvider>()
+          .exportCsv();
+      await SharePlus.instance.share(
+        ShareParams(
+          files: <XFile>[
+            XFile.fromData(
+              file.bytes,
+              mimeType: 'text/csv',
+              name: file.filename,
+            ),
+          ],
+          downloadFallbackEnabled: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ContributionsProvider contributions = context
@@ -115,8 +241,24 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
               title: 'Aportes',
               onBack: () => context.pop(),
               trailing: isTreasurer
-                  ? RoundAddButton(
-                      onPressed: () => context.push('/contributions/new'),
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        IconButton(
+                          tooltip: 'Exportar CSV',
+                          onPressed: _exporting ? null : _export,
+                          icon: _exporting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.download_outlined),
+                        ),
+                        RoundAddButton(
+                          onPressed: () => context.push('/contributions/new'),
+                        ),
+                      ],
                     )
                   : null,
             ),
@@ -163,7 +305,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                             name: contributions.memberName(item.integranteId),
                             contribution: item,
                             canPay: isTreasurer && !item.isPaid,
+                            canReport: !isTreasurer && item.canReport,
+                            canReject:
+                                isTreasurer &&
+                                item.estado == ContributionStatus.reportado,
                             onPay: () => _pay(item),
+                            onReport: () => _report(item),
+                            onReject: () => _reject(item),
                           ),
                         ),
                     ],
@@ -183,16 +331,25 @@ class _ContributionTile extends StatelessWidget {
     required this.name,
     required this.contribution,
     required this.canPay,
+    required this.canReport,
+    required this.canReject,
     required this.onPay,
+    required this.onReport,
+    required this.onReject,
   });
 
   final String name;
   final Contribution contribution;
   final bool canPay;
+  final bool canReport;
+  final bool canReject;
   final VoidCallback onPay;
+  final VoidCallback onReport;
+  final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
+    final bool hasActions = canPay || canReport || canReject;
     return Material(
       color: AppColors.paper,
       shape: RoundedRectangleBorder(
@@ -200,57 +357,81 @@ class _ContributionTile extends StatelessWidget {
         side: const BorderSide(color: AppColors.line),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: canPay ? onPay : null,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      name,
-                      style: AppTextStyles.bodySemibold,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      formatMonth(contribution.mes),
-                      style: AppTextStyles.small.copyWith(
-                        color: AppColors.ink2,
-                      ),
-                    ),
-                    if (contribution.concepto.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 2),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
                       Text(
-                        contribution.concepto,
-                        style: AppTextStyles.tiny.copyWith(
-                          color: AppColors.ink3,
-                        ),
+                        name,
+                        style: AppTextStyles.bodySemibold,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        formatMonth(contribution.mes),
+                        style: AppTextStyles.small.copyWith(
+                          color: AppColors.ink2,
+                        ),
+                      ),
+                      if (contribution.concepto.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 2),
+                        Text(
+                          contribution.concepto,
+                          style: AppTextStyles.tiny.copyWith(
+                            color: AppColors.ink3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Text(
+                      formatCop(contribution.monto),
+                      style: AppTextStyles.moneySmall,
+                    ),
+                    const SizedBox(height: 6),
+                    StatusBadge.contribution(contribution),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              ],
+            ),
+            if (hasActions) ...<Widget>[
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
-                  Text(
-                    formatCop(contribution.monto),
-                    style: AppTextStyles.moneySmall,
-                  ),
-                  const SizedBox(height: 6),
-                  StatusBadge.contribution(contribution),
+                  if (canReject)
+                    TextButton(
+                      onPressed: onReject,
+                      child: const Text('Rechazar'),
+                    ),
+                  if (canReport)
+                    TextButton(
+                      onPressed: onReport,
+                      child: const Text('Reportar pago'),
+                    ),
+                  if (canPay)
+                    TextButton(
+                      onPressed: onPay,
+                      child: const Text('Registrar pago'),
+                    ),
                 ],
               ),
             ],
-          ),
+          ],
         ),
       ),
     );

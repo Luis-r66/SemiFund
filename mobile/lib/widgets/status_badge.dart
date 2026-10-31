@@ -38,6 +38,8 @@ class StatusBadge extends StatelessWidget {
         return const StatusBadge(label: 'Pagado', tone: BadgeTone.ok);
       case ContributionStatus.vencido:
         return const StatusBadge(label: 'Vencido', tone: BadgeTone.bad);
+      case ContributionStatus.reportado:
+        return const StatusBadge(label: 'Reportado', tone: BadgeTone.warn);
     }
   }
 
