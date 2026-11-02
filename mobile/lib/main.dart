@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,7 +23,10 @@ import 'services/management_service.dart';
 import 'services/semillero_service.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) {
+    FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  }
 
   await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
     DeviceOrientation.portraitUp,
@@ -82,5 +87,13 @@ Future<void> main() async {
     ),
   );
 
-  unawaited(session.bootstrap());
+  unawaited(
+    session.bootstrap().whenComplete(() {
+      if (!kIsWeb) {
+        widgetsBinding.addPostFrameCallback((_) {
+          FlutterNativeSplash.remove();
+        });
+      }
+    }),
+  );
 }

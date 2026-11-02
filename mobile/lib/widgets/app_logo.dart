@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
@@ -27,12 +26,20 @@ class AppLogo extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             color: light ? AppColors.paper : AppColors.ink,
-            borderRadius: BorderRadius.circular(size * 0.28),
+            shape: BoxShape.circle,
           ),
-          child: Icon(
-            LucideIcons.sprout,
-            color: light ? AppColors.ink : AppColors.paper,
-            size: size * 0.5,
+          child: Center(
+            child: Text(
+              'SF',
+              style: TextStyle(
+                color: light ? AppColors.ink : AppColors.paper,
+                fontFamily: 'Instrument Sans',
+                fontSize: size * 0.4,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+                height: 1,
+              ),
+            ),
           ),
         ),
         if (showLabel) ...<Widget>[
