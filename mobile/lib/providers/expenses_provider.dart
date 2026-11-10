@@ -52,11 +52,13 @@ class ExpensesProvider extends ChangeNotifier {
     required String descripcion,
     required String categoria,
     required double monto,
+    String? fecha,
   }) async {
     await _writes.createExpense(
       descripcion: descripcion,
       categoria: categoria,
       monto: monto,
+      fecha: fecha,
     );
     await load();
   }

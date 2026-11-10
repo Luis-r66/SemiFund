@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/input_formatters.dart';
 import '../../models/member.dart';
 import '../../providers/members_provider.dart';
 import '../../services/dashboard_service.dart';
@@ -159,6 +160,7 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                             label: 'Nombres',
                             child: AppTextField(
                               controller: _names,
+                              inputFormatters: lettersOnlyFormatters,
                               hintText: 'Ej. Juliana',
                               textCapitalization: TextCapitalization.words,
                               textInputAction: TextInputAction.next,
@@ -168,6 +170,7 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                             label: 'Apellidos',
                             child: AppTextField(
                               controller: _surnames,
+                              inputFormatters: lettersOnlyFormatters,
                               hintText: 'Ej. Herrera Pérez',
                               textCapitalization: TextCapitalization.words,
                               textInputAction: TextInputAction.next,
@@ -177,6 +180,7 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                             label: 'Programa académico',
                             child: AppTextField(
                               controller: _program,
+                              inputFormatters: lettersOnlyFormatters,
                               hintText: 'Ej. Ingeniería de Sistemas',
                               textInputAction: TextInputAction.next,
                             ),

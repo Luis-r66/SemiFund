@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
@@ -28,6 +29,29 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   String? _category;
   bool _saving = false;
   String? _error;
+  DateTime _fecha = _hoy;
+
+  static DateTime get _hoy {
+    final DateTime now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  static String _isoDate(DateTime date) {
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  Future<void> _pickDate() async {
+    final DateTime hoy = _hoy;
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _fecha,
+      firstDate: hoy,
+      lastDate: hoy,
+    );
+    if (picked != null && mounted) setState(() => _fecha = picked);
+  }
 
   @override
   void initState() {
@@ -75,6 +99,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
             .trim()
             .toLowerCase(),
         monto: _montoValue,
+        fecha: _isoDate(_fecha),
       );
       if (!mounted) return;
       context.pop();
@@ -146,6 +171,40 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                     LabeledField(
                       label: 'Monto (COP)',
                       child: MoneyField(controller: _amount, invalid: over),
+                    ),
+                    LabeledField(
+                      label: 'Fecha',
+                      helper: 'Solo se pueden registrar gastos de hoy.',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: _pickDate,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.paper,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.line),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  formatShortDate(_fecha),
+                                  style: AppTextStyles.body,
+                                ),
+                              ),
+                              const Icon(
+                                LucideIcons.calendar,
+                                size: 18,
+                                color: AppColors.ink3,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                     if (over) ...<Widget>[
                       Padding(

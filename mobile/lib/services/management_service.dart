@@ -139,6 +139,7 @@ class ManagementService {
     required String descripcion,
     required String categoria,
     required double monto,
+    String? fecha,
   }) async {
     final dynamic data = await _api.post(
       '/expenses',
@@ -146,6 +147,7 @@ class ManagementService {
         'descripcion': descripcion,
         'categoria': categoria,
         'monto': monto,
+        'fecha': ?fecha,
       },
     );
     return Expense.fromJson(data);

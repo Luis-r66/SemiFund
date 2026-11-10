@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/input_formatters.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_text_field.dart';
@@ -173,6 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       error: _namesError,
                       child: AppTextField(
                         controller: _namesController,
+                        inputFormatters: lettersOnlyFormatters,
                         hintText: 'Ej. Luis Ernesto',
                         textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.words,
@@ -190,6 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       error: _surnamesError,
                       child: AppTextField(
                         controller: _surnamesController,
+                        inputFormatters: lettersOnlyFormatters,
                         focusNode: _surnamesFocus,
                         hintText: 'Ej. Ríos Pérez',
                         textInputAction: TextInputAction.next,

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/input_formatters.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/user.dart';
 import '../../providers/session_provider.dart';
@@ -209,6 +210,7 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                       label: 'Nombres',
                       child: AppTextField(
                         controller: _names,
+                        inputFormatters: lettersOnlyFormatters,
                         hintText: 'Ej. Luis Ernesto',
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
@@ -218,6 +220,7 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                       label: 'Apellidos',
                       child: AppTextField(
                         controller: _surnames,
+                        inputFormatters: lettersOnlyFormatters,
                         hintText: 'Ej. Ríos Pérez',
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
@@ -227,6 +230,7 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                       label: programLabel,
                       child: AppTextField(
                         controller: _program,
+                        inputFormatters: lettersOnlyFormatters,
                         hintText: _isStudent
                             ? 'Ej. Ingeniería de Sistemas'
                             : 'Ej. Departamento de Sistemas',
