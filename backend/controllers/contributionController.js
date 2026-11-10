@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Contribution = require('../models/Contribution');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
+const { registrar } = require('../utils/audit');
 const {
   round,
   montoPagadoDe,
@@ -44,6 +45,17 @@ function validarMonto(valor, saldo) {
 function validarMotivo(motivo) {
   if (motivo !== undefined && typeof motivo !== 'string') return 'El motivo debe ser texto';
   return null;
+}
+
+function auditar(req, item, accion, detalle = null) {
+  return registrar({
+    semilleroId: req.semilleroId,
+    usuarioId: req.userId,
+    accion,
+    entidad: 'aporte',
+    entidadId: item.id,
+    detalle: detalle || item.mes
+  });
 }
 
 function miMemberId(req) {
@@ -120,6 +132,7 @@ const create = asyncHandler(async (req, res) => {
     montoPagado: 0,
     semilleroId: req.semilleroId
   });
+  await auditar(req, contribution, 'aporte.crear', `${contribution.mes} · ${contribution.monto}`);
   res.status(201).json(contribution);
 });
 
@@ -166,6 +179,7 @@ const addPayment = asyncHandler(async (req, res) => {
   agregarAbono(item, { monto, referencia, usuarioId: req.userId, aprobado: esTesorero, now });
   sincronizarEstado(item, now);
   await item.save();
+  await auditar(req, item, esTesorero ? 'aporte.abono_registrado' : 'aporte.abono_reportado', `${monto}`);
   res.status(201).json(item);
 });
 
@@ -194,6 +208,7 @@ const approvePayment = asyncHandler(async (req, res) => {
 
   aprobarAbono(item, abono, req.userId, new Date());
   await item.save();
+  await auditar(req, item, 'aporte.abono_aprobado', `${abono.monto}`);
   res.status(200).json(item);
 });
 
@@ -224,6 +239,7 @@ const rejectPayment = asyncHandler(async (req, res) => {
 
   rechazarAbono(item, abono, req.userId, typeof body.motivo === 'string' ? body.motivo.trim() || null : null, new Date());
   await item.save();
+  await auditar(req, item, 'aporte.abono_rechazado', `${abono.monto}`);
   res.status(200).json(item);
 });
 
@@ -255,6 +271,7 @@ const voidPayment = asyncHandler(async (req, res) => {
 
   anularAbono(item, abono, req.userId, typeof body.motivo === 'string' ? body.motivo.trim() || null : null, new Date());
   await item.save();
+  await auditar(req, item, 'aporte.abono_anulado', `${abono.monto}`);
   res.status(200).json(item);
 });
 
@@ -299,6 +316,7 @@ const report = asyncHandler(async (req, res) => {
   });
   sincronizarEstado(item, now);
   await item.save();
+  await auditar(req, item, 'aporte.reportado');
   res.status(200).json(item);
 });
 
@@ -327,6 +345,7 @@ const pay = asyncHandler(async (req, res) => {
   sincronizarEstado(item, now);
   item.fechaPago = now;
   await item.save();
+  await auditar(req, item, 'aporte.pago_total', `${item.monto}`);
   res.status(200).json(item);
 });
 
@@ -359,6 +378,7 @@ const reject = asyncHandler(async (req, res) => {
     sincronizarEstado(item, now);
   }
   await item.save();
+  await auditar(req, item, 'aporte.reporte_rechazado');
   res.status(200).json(item);
 });
 

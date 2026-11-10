@@ -1,16 +1,15 @@
 const mongoose = require('mongoose');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
+const { nombreValido } = require('../utils/validators');
+const { registrar } = require('../utils/audit');
+
+const MSG_NOMBRES = 'nombres y apellidos son requeridos y solo pueden tener letras';
 
 function extraerNombre(body) {
   const recibioPartes = body.nombres !== undefined || body.apellidos !== undefined;
   if (recibioPartes) {
-    if (
-      typeof body.nombres !== 'string' ||
-      typeof body.apellidos !== 'string' ||
-      !body.nombres.trim() ||
-      !body.apellidos.trim()
-    ) {
+    if (!nombreValido(body.nombres) || !nombreValido(body.apellidos)) {
       return null;
     }
     const nombres = body.nombres.trim();
@@ -48,7 +47,7 @@ const create = asyncHandler(async (req, res) => {
   const { programa, semestre } = body;
   const nombre = extraerNombre(body);
   if (!nombre || !programa || semestre === undefined) {
-    return res.status(400).json({ error: 'nombres, apellidos, programa y semestre son requeridos' });
+    return res.status(400).json({ error: `${MSG_NOMBRES}; también programa y semestre` });
   }
   const member = await Member.create({
     ...nombre,
@@ -56,6 +55,14 @@ const create = asyncHandler(async (req, res) => {
     semestre,
     activo: true,
     semilleroId: req.semilleroId
+  });
+  await registrar({
+    semilleroId: req.semilleroId,
+    usuarioId: req.userId,
+    accion: 'integrante.crear',
+    entidad: 'integrante',
+    entidadId: member.id,
+    detalle: member.nombre
   });
   res.status(201).json(member);
 });
@@ -87,7 +94,7 @@ const update = asyncHandler(async (req, res) => {
   const recibioPartes = body.nombres !== undefined || body.apellidos !== undefined;
   if (recibioPartes) {
     const nombre = extraerNombre(body);
-    if (!nombre) return res.status(400).json({ error: 'nombres y apellidos no pueden estar vacíos' });
+    if (!nombre) return res.status(400).json({ error: MSG_NOMBRES });
     cambios.nombres = nombre.nombres;
     cambios.apellidos = nombre.apellidos;
     cambios.nombre = nombre.nombre;
@@ -115,6 +122,14 @@ const update = asyncHandler(async (req, res) => {
     { returnDocument: 'after', runValidators: true }
   );
   if (!member) return res.status(404).json({ error: 'Integrante no encontrado' });
+  await registrar({
+    semilleroId: req.semilleroId,
+    usuarioId: req.userId,
+    accion: 'integrante.editar',
+    entidad: 'integrante',
+    entidadId: member.id,
+    detalle: Object.keys(cambios).join(', ')
+  });
   res.status(200).json(member);
 });
 
@@ -126,6 +141,14 @@ const remove = asyncHandler(async (req, res) => {
     { returnDocument: 'after' }
   );
   if (!member) return res.status(404).json({ error: 'Integrante no encontrado' });
+  await registrar({
+    semilleroId: req.semilleroId,
+    usuarioId: req.userId,
+    accion: 'integrante.desactivar',
+    entidad: 'integrante',
+    entidadId: member.id,
+    detalle: member.nombre
+  });
   res.status(204).end();
 });
 

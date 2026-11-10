@@ -1,6 +1,8 @@
 const Expense = require('../models/Expense');
 const asyncHandler = require('../middleware/asyncHandler');
 const { getBalance } = require('../utils/balance');
+const { hoyBogota } = require('../utils/validators');
+const { registrar } = require('../utils/audit');
 
 // GET /api/expenses?category=&month=YYYY-MM  (filtrado por semillero activo)
 const list = asyncHandler(async (req, res) => {
@@ -30,15 +32,17 @@ const create = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'descripcion, categoria y monto son requeridos' });
   }
 
+  let fechaGasto = null;
   if (fecha !== undefined) {
-    const fechaGasto = new Date(fecha);
-    if (Number.isNaN(fechaGasto.getTime())) {
-      return res.status(400).json({ error: 'fecha no es una fecha válida' });
+    const dia = typeof fecha === 'string' ? fecha.slice(0, 10) : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || Number.isNaN(new Date(`${dia}T12:00:00-05:00`).getTime())) {
+      return res.status(400).json({ error: 'fecha no es una fecha válida (YYYY-MM-DD)' });
     }
-    // Margen de un día por diferencias de zona horaria
-    if (fechaGasto.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+    if (dia > hoyBogota()) {
       return res.status(400).json({ error: 'La fecha del gasto no puede ser futura' });
     }
+    // Mediodía de Colombia: la fecha no cambia de mes por diferencias de zona horaria.
+    fechaGasto = new Date(`${dia}T12:00:00-05:00`);
   }
 
   const { saldoDisponible } = await getBalance(req.semilleroId);
@@ -46,7 +50,21 @@ const create = asyncHandler(async (req, res) => {
     return res.status(409).json({ error: 'Saldo insuficiente' });
   }
 
-  const expense = await Expense.create({ descripcion, categoria, monto, semilleroId: req.semilleroId, ...(fecha ? { fecha } : {}) });
+  const expense = await Expense.create({
+    descripcion,
+    categoria,
+    monto,
+    semilleroId: req.semilleroId,
+    ...(fechaGasto ? { fecha: fechaGasto } : {})
+  });
+  await registrar({
+    semilleroId: req.semilleroId,
+    usuarioId: req.userId,
+    accion: 'gasto.crear',
+    entidad: 'gasto',
+    entidadId: expense.id,
+    detalle: `${descripcion} · ${monto}`
+  });
   res.status(201).json(expense);
 });
 

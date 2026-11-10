@@ -8,6 +8,7 @@ const PasswordReset = require('../models/PasswordReset');
 const asyncHandler = require('../middleware/asyncHandler');
 const { sendResetCode } = require('../utils/mailer');
 const { syncMembersForUser } = require('../utils/memberSync');
+const { nombreValido } = require('../utils/validators');
 
 const JWT_SECRET = require('../config/jwt');
 const JWT_EXPIRES_IN = '7d';
@@ -40,13 +41,8 @@ function publicUser(user) {
 function extraerNombre(body, user = null) {
   const recibioPartes = body.nombres !== undefined || body.apellidos !== undefined;
   if (recibioPartes) {
-    if (
-      typeof body.nombres !== 'string' ||
-      typeof body.apellidos !== 'string' ||
-      !body.nombres.trim() ||
-      !body.apellidos.trim()
-    ) {
-      return { error: 'nombres y apellidos son requeridos' };
+    if (!nombreValido(body.nombres) || !nombreValido(body.apellidos)) {
+      return { error: 'nombres y apellidos son requeridos y solo pueden tener letras' };
     }
     const nombres = body.nombres.trim();
     const apellidos = body.apellidos.trim();
