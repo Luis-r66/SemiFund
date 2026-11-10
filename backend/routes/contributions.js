@@ -16,4 +16,10 @@ router.patch('/:id/report', validateObjectId, c.report);
 // Solo el tesorero puede rechazar un aporte reportado.
 router.patch('/:id/reject', validateObjectId, requireTesorero, c.reject);
 
+// Abonos parciales: el integrante reporta (o el tesorero registra) un abono.
+router.post('/:id/payments', validateObjectId, c.addPayment);
+router.patch('/:id/payments/:abonoId/approve', validateObjectId, requireTesorero, c.approvePayment);
+router.patch('/:id/payments/:abonoId/reject', validateObjectId, requireTesorero, c.rejectPayment);
+router.patch('/:id/payments/:abonoId/void', validateObjectId, requireTesorero, c.voidPayment);
+
 module.exports = router;

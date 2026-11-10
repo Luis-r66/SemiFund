@@ -3,6 +3,7 @@ const Expense = require('../models/Expense');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 const { marcarVencidos } = require('./contributionController');
+const { montoPagadoDe, saldoPendiente } = require('../utils/payments');
 
 const HEADERS = [
   'tipo_registro',
@@ -59,30 +60,49 @@ const movimientos = asyncHandler(async (req, res) => {
   const memberById = new Map(members.map((member) => [member._id.toString(), member]));
   const rows = [];
 
+  const filaAporte = ({ item, member, tipo, fechaValor, monto, estado, referencia }) => [
+    tipo,
+    req.semillero.codigo,
+    req.semillero.nombre,
+    item.mes,
+    fecha(fechaValor),
+    tipo === 'aporte' ? fecha(fechaValor) : '',
+    member ? member.nombre : '',
+    member && member.userId ? member.userId.email : '',
+    member ? member.programa : '',
+    member && member.semestre != null ? member.semestre : '',
+    item.concepto,
+    '',
+    dinero(monto),
+    'COP',
+    estado,
+    referencia || '',
+    item.id
+  ];
+
   for (const item of contributions) {
     const member = memberById.get(item.integranteId.toString());
-    rows.push({
-      orden: item.fechaPago || item.fechaReporte || item.createdAt,
-      values: [
-        'aporte',
-        req.semillero.codigo,
-        req.semillero.nombre,
-        item.mes,
-        fecha(item.fechaPago || item.fechaReporte || item.createdAt),
-        fecha(item.fechaPago),
-        member ? member.nombre : '',
-        member && member.userId ? member.userId.email : '',
-        member ? member.programa : '',
-        member && member.semestre != null ? member.semestre : '',
-        item.concepto,
-        '',
-        dinero(item.monto),
-        'COP',
-        item.estado,
-        item.referencia || '',
-        item.id
-      ]
-    });
+    const aprobados = item.abonos.filter((abono) => abono.estado === 'aprobado');
+    const pagos = aprobados.length > 0
+      ? aprobados
+      : montoPagadoDe(item) > 0
+        ? [{ monto: montoPagadoDe(item), fecha: item.fechaPago || item.createdAt, referencia: item.referencia }]
+        : [];
+
+    for (const pago of pagos) {
+      rows.push({
+        orden: pago.fecha,
+        values: filaAporte({ item, member, tipo: 'aporte', fechaValor: pago.fecha, monto: pago.monto, estado: 'aprobado', referencia: pago.referencia })
+      });
+    }
+
+    const saldo = saldoPendiente(item);
+    if (saldo > 0) {
+      rows.push({
+        orden: item.fechaReporte || item.createdAt,
+        values: filaAporte({ item, member, tipo: 'cuota_pendiente', fechaValor: item.createdAt, monto: saldo, estado: item.estado, referencia: item.referencia })
+      });
+    }
   }
 
   for (const item of expenses) {

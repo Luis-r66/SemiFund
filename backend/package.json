@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "sync:members": "node scripts/backfillMemberProfiles.js"
+    "sync:members": "node scripts/backfillMemberProfiles.js",
+    "migrate:payments": "node scripts/migratePartialPayments.js",
+    "test": "node --test test/payments.test.js"
   },
   "keywords": [],
   "author": "",

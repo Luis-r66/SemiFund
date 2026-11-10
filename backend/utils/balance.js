@@ -4,12 +4,21 @@ const Expense = require('../models/Expense');
 const asyncHandler = require('../middleware/asyncHandler');
 
 // Calcula el saldo de un semillero en el momento con agregaciones de Mongo (no se almacena).
-// totalAportado = SUM aportes con estado "pagado"
+// totalAportado = SUM de abonos cobrados (montoPagado; aportes antiguos sin montoPagado cuentan completos si están pagados)
 // totalGastado  = SUM gastos
 async function getBalance(semilleroId) {
   const [aportes] = await Contribution.aggregate([
-    { $match: { semilleroId: new mongoose.Types.ObjectId(semilleroId), estado: 'pagado' } },
-    { $group: { _id: null, total: { $sum: '$monto' } } }
+    { $match: { semilleroId: new mongoose.Types.ObjectId(semilleroId) } },
+    {
+      $group: {
+        _id: null,
+        total: {
+          $sum: {
+            $ifNull: ['$montoPagado', { $cond: [{ $eq: ['$estado', 'pagado'] }, '$monto', 0] }]
+          }
+        }
+      }
+    }
   ]);
 
   const [gastos] = await Expense.aggregate([

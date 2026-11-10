@@ -1,6 +1,22 @@
 const mongoose = require('mongoose');
+const { montoPagadoDe, saldoPendiente, estadoCobro } = require('../utils/payments');
 
 const ESTADOS = ['pendiente', 'pagado', 'vencido', 'reportado'];
+const ESTADOS_ABONO = ['reportado', 'aprobado', 'rechazado', 'anulado'];
+
+const abonoSchema = new mongoose.Schema(
+  {
+    monto: { type: Number, required: [true, 'El monto del abono es requerido'], min: [0.01, 'El monto debe ser mayor a 0'] },
+    fecha: { type: Date, default: Date.now },
+    referencia: { type: String, trim: true, maxlength: [120, 'La referencia no puede superar 120 caracteres'], default: null },
+    estado: { type: String, enum: ESTADOS_ABONO, required: true },
+    reportadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    revisadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    fechaRevision: { type: Date, default: null },
+    motivo: { type: String, trim: true, maxlength: [200, 'El motivo no puede superar 200 caracteres'], default: null }
+  },
+  { _id: true }
+);
 
 const contributionSchema = new mongoose.Schema(
   {
@@ -23,6 +39,8 @@ const contributionSchema = new mongoose.Schema(
       maxlength: [200, 'El concepto no puede superar 200 caracteres']
     },
     estado: { type: String, enum: ESTADOS, default: 'pendiente' },
+    montoPagado: { type: Number, min: 0, default: undefined },
+    abonos: { type: [abonoSchema], default: [] },
     fechaPago: { type: Date, default: null },
     referencia: { type: String, trim: true, maxlength: [120, 'La referencia no puede superar 120 caracteres'], default: null },
     fechaReporte: { type: Date, default: null },
@@ -41,6 +59,10 @@ contributionSchema.method('toJSON', function () {
   const obj = this.toObject();
   obj.id = obj._id.toString();
   if (obj.integranteId) obj.integranteId = obj.integranteId.toString();
+  obj.montoPagado = montoPagadoDe(this);
+  obj.saldoPendiente = saldoPendiente(this);
+  obj.estadoCobro = estadoCobro(this);
+  obj.abonos = (obj.abonos || []).map((abono) => ({ ...abono, id: abono._id.toString() }));
   return obj;
 });
 
