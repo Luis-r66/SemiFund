@@ -1,4 +1,5 @@
 import '../core/utils/json_utils.dart';
+import 'abono.dart';
 
 enum ContributionStatus {
   pendiente('pendiente', 'pending', 'Pendiente'),
@@ -37,6 +38,8 @@ class Contribution {
     this.referencia,
     this.fechaReporte,
     this.motivoRechazo,
+    this.montoPagado,
+    this.abonos = const <Abono>[],
   });
 
   final String id;
@@ -51,11 +54,25 @@ class Contribution {
   final String? referencia;
   final DateTime? fechaReporte;
   final String? motivoRechazo;
+  final double? montoPagado;
+  final List<Abono> abonos;
 
   bool get isPaid => estado == ContributionStatus.pagado;
 
+  /// Dinero ya cobrado. Si el backend no lo envía (datos antiguos), un pagado cuenta completo.
+  double get cobrado => montoPagado ?? (isPaid ? monto : 0);
+
+  double get saldoPendiente => (monto - cobrado).clamp(0, double.infinity).toDouble();
+
+  bool get isParcial => cobrado > 0 && saldoPendiente > 0;
+
+  bool get hasAbonoReportado =>
+      abonos.any((Abono abono) => abono.estado == AbonoStatus.reportado);
+
   bool get canReport =>
       esPropio &&
+      !hasAbonoReportado &&
+      saldoPendiente > 0 &&
       (estado == ContributionStatus.pendiente ||
           estado == ContributionStatus.vencido);
 
@@ -74,6 +91,8 @@ class Contribution {
       referencia: asNullableString(map['referencia']),
       fechaReporte: asDate(map['fechaReporte']),
       motivoRechazo: asNullableString(map['motivoRechazo']),
+      montoPagado: map['montoPagado'] == null ? null : asDouble(map['montoPagado']),
+      abonos: asList(map['abonos']).map(Abono.fromJson).toList(),
     );
   }
 
@@ -105,6 +124,8 @@ class Contribution {
     String? referencia,
     DateTime? fechaReporte,
     String? motivoRechazo,
+    double? montoPagado,
+    List<Abono>? abonos,
   }) {
     return Contribution(
       id: id ?? this.id,
@@ -119,6 +140,8 @@ class Contribution {
       referencia: referencia ?? this.referencia,
       fechaReporte: fechaReporte ?? this.fechaReporte,
       motivoRechazo: motivoRechazo ?? this.motivoRechazo,
+      montoPagado: montoPagado ?? this.montoPagado,
+      abonos: abonos ?? this.abonos,
     );
   }
 }

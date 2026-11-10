@@ -90,6 +90,39 @@ class ManagementService {
     return Contribution.fromJson(data);
   }
 
+  Future<Contribution> addPayment(
+    String id, {
+    double? monto,
+    String? referencia,
+  }) async {
+    final Map<String, dynamic> body = <String, dynamic>{};
+    if (monto != null) body['monto'] = monto;
+    if (referencia != null && referencia.trim().isNotEmpty) {
+      body['referencia'] = referencia.trim();
+    }
+    final dynamic data = await _api.post('/contributions/$id/payments', data: body);
+    return Contribution.fromJson(data);
+  }
+
+  Future<Contribution> approvePayment(String id, String abonoId) async {
+    final dynamic data = await _api.patch('/contributions/$id/payments/$abonoId/approve');
+    return Contribution.fromJson(data);
+  }
+
+  Future<Contribution> rejectPayment(String id, String abonoId, {String? motivo}) async {
+    final Map<String, dynamic> body = <String, dynamic>{};
+    if (motivo != null && motivo.trim().isNotEmpty) body['motivo'] = motivo.trim();
+    final dynamic data = await _api.patch('/contributions/$id/payments/$abonoId/reject', data: body);
+    return Contribution.fromJson(data);
+  }
+
+  Future<Contribution> voidPayment(String id, String abonoId, {String? motivo}) async {
+    final Map<String, dynamic> body = <String, dynamic>{};
+    if (motivo != null && motivo.trim().isNotEmpty) body['motivo'] = motivo.trim();
+    final dynamic data = await _api.patch('/contributions/$id/payments/$abonoId/void', data: body);
+    return Contribution.fromJson(data);
+  }
+
   Future<CsvDownload> exportMovimientos() async {
     final Response<List<int>> response = await _api.getBytes('/reports/movimientos.csv');
     final String? disposition = response.headers.value('content-disposition');

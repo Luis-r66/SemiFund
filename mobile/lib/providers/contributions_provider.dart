@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/network/api_exception.dart';
+import '../models/abono.dart';
 import '../models/contribution.dart';
 import '../models/member.dart';
 import '../services/dashboard_service.dart';
@@ -89,6 +90,34 @@ class ContributionsProvider extends ChangeNotifier {
 
   Future<void> reject(Contribution contribution, {String? motivo}) async {
     await _writes.rejectContribution(contribution.id, motivo: motivo);
+    await refresh();
+  }
+
+  Future<void> addPayment(
+    Contribution contribution, {
+    double? monto,
+    String? referencia,
+  }) async {
+    await _writes.addPayment(
+      contribution.id,
+      monto: monto,
+      referencia: referencia,
+    );
+    await refresh();
+  }
+
+  Future<void> approvePayment(Contribution contribution, Abono abono) async {
+    await _writes.approvePayment(contribution.id, abono.id);
+    await refresh();
+  }
+
+  Future<void> rejectPayment(Contribution contribution, Abono abono, {String? motivo}) async {
+    await _writes.rejectPayment(contribution.id, abono.id, motivo: motivo);
+    await refresh();
+  }
+
+  Future<void> voidPayment(Contribution contribution, Abono abono, {String? motivo}) async {
+    await _writes.voidPayment(contribution.id, abono.id, motivo: motivo);
     await refresh();
   }
 

@@ -33,7 +33,9 @@ class StatusBadge extends StatelessWidget {
   factory StatusBadge.contribution(Contribution contribution) {
     switch (contribution.estado) {
       case ContributionStatus.pendiente:
-        return const StatusBadge(label: 'Pendiente', tone: BadgeTone.warn);
+        return contribution.isParcial
+            ? const StatusBadge(label: 'Parcial', tone: BadgeTone.warn)
+            : const StatusBadge(label: 'Pendiente', tone: BadgeTone.warn);
       case ContributionStatus.pagado:
         return const StatusBadge(label: 'Pagado', tone: BadgeTone.ok);
       case ContributionStatus.vencido:
