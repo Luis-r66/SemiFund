@@ -352,7 +352,7 @@ void main() {
   testWidgets('contribution form', (WidgetTester tester) async {
     await golden(
       tester,
-      const ContributionFormScreen(),
+      ContributionFormScreen(hoy: DateTime(2026, 10, 4)),
       name: 'contribution_form',
       extra: <ChangeNotifierProvider<ChangeNotifier>>[
         ChangeNotifierProvider<MembersProvider>(
@@ -381,7 +381,7 @@ void main() {
   testWidgets('expense form over budget', (WidgetTester tester) async {
     await golden(
       tester,
-      const ExpenseFormScreen(),
+      ExpenseFormScreen(hoy: DateTime(2026, 10, 4)),
       name: 'expense_form',
       extra: <ChangeNotifierProvider<ChangeNotifier>>[
         ChangeNotifierProvider<ExpensesProvider>(
@@ -401,7 +401,7 @@ void main() {
   testWidgets('expense form other category', (WidgetTester tester) async {
     await golden(
       tester,
-      const ExpenseFormScreen(),
+      ExpenseFormScreen(hoy: DateTime(2026, 10, 4)),
       name: 'expense_other',
       extra: <ChangeNotifierProvider<ChangeNotifier>>[
         ChangeNotifierProvider<ExpensesProvider>(

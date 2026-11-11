@@ -118,8 +118,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final _InputResult? result = await _ask(
       _InputDialog(
         title: 'Reportar pago',
-        description:
-            'Puedes reportar el total o una parte. El tesorero revisará el reporte antes de aprobarlo.',
+        description: 'Puedes reportar el total o una parte. El tesorero revisará el reporte antes de aprobarlo.',
         confirmLabel: 'Reportar',
         saldo: contribution.saldoPendiente,
         fieldLabel: 'Referencia (opcional)',
@@ -127,11 +126,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       ),
     );
     if (result == null) return;
-    await _guard(() => provider.addPayment(
-          contribution,
-          monto: result.monto,
-          referencia: result.texto,
-        ));
+    await _guard(
+      () => provider.addPayment(
+        contribution,
+        monto: result.monto,
+        referencia: result.texto,
+      ),
+    );
   }
 
   Future<void> _registerAbono(Contribution contribution) async {
@@ -140,8 +141,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final _InputResult? result = await _ask(
       _InputDialog(
         title: 'Registrar abono',
-        description:
-            'El dinero queda aprobado de inmediato. Úsalo para efectivo o consignaciones ya recibidas.',
+        description: 'El dinero queda aprobado de inmediato. Úsalo para efectivo o consignaciones ya recibidas.',
         confirmLabel: 'Registrar',
         saldo: contribution.saldoPendiente,
         fieldLabel: 'Referencia (opcional)',
@@ -149,11 +149,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       ),
     );
     if (result == null) return;
-    await _guard(() => provider.addPayment(
-          contribution,
-          monto: result.monto,
-          referencia: result.texto,
-        ));
+    await _guard(
+      () => provider.addPayment(
+        contribution,
+        monto: result.monto,
+        referencia: result.texto,
+      ),
+    );
   }
 
   Future<void> _approve(Contribution contribution, Abono abono) async {
@@ -176,11 +178,9 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       ),
     );
     if (result == null) return;
-    await _guard(() => provider.rejectPayment(
-          contribution,
-          abono,
-          motivo: result.texto,
-        ));
+    await _guard(
+      () => provider.rejectPayment(contribution, abono, motivo: result.texto),
+    );
   }
 
   Future<void> _voidAbono(Contribution contribution, Abono abono) async {
@@ -189,19 +189,16 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final _InputResult? result = await _ask(
       _InputDialog(
         title: 'Anular abono',
-        description:
-            'Se descontará de lo cobrado y la cuota volverá a quedar con saldo pendiente.',
+        description: 'Se descontará de lo cobrado y la cuota volverá a quedar con saldo pendiente.',
         confirmLabel: 'Anular',
         fieldLabel: 'Motivo (opcional)',
         fieldHint: 'Ej. Aprobado por error',
       ),
     );
     if (result == null) return;
-    await _guard(() => provider.voidPayment(
-          contribution,
-          abono,
-          motivo: result.texto,
-        ));
+    await _guard(
+      () => provider.voidPayment(contribution, abono, motivo: result.texto),
+    );
   }
 
   Future<_InputResult?> _ask(_InputDialog dialog) {
@@ -249,12 +246,44 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     );
   }
 
-  Future<void> _export() async {
+  Future<void> _openBulk() async {
+    final ContributionsProvider provider = context
+        .read<ContributionsProvider>();
+    final _BulkInput? input = await showDialog<_BulkInput>(
+      context: context,
+      builder: (BuildContext dialogContext) => const _BulkDialog(),
+    );
+    if (input == null) return;
+    try {
+      final BulkContributionResult result = await provider.createBulk(
+        mes: input.mes,
+        monto: input.monto,
+        concepto: input.concepto,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${result.creadas} ${result.creadas == 1 ? 'cuota creada' : 'cuotas creadas'}'
+            '${result.omitidas > 0 ? ' · ${result.omitidas} omitidas (ya existían o están inactivas)' : ''}',
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _export(
+    Future<CsvDownload> Function(ContributionsProvider provider) fetch,
+  ) async {
     setState(() => _exporting = true);
     try {
-      final CsvDownload file = await context
-          .read<ContributionsProvider>()
-          .exportCsv();
+      final CsvDownload file = await fetch(
+        context.read<ContributionsProvider>(),
+      );
       await SharePlus.instance.share(
         ShareParams(
           files: <XFile>[
@@ -295,15 +324,41 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         IconButton(
-                          tooltip: 'Exportar CSV',
-                          onPressed: _exporting ? null : _export,
+                          tooltip: 'Cuotas del mes',
+                          onPressed: _openBulk,
+                          icon: const Icon(LucideIcons.calendarPlus, size: 20),
+                        ),
+                        PopupMenuButton<String>(
+                          tooltip: 'Exportar',
+                          enabled: !_exporting,
+                          onSelected: (String format) => _export(
+                            (ContributionsProvider provider) => format == 'xlsx'
+                                ? provider.exportExcel()
+                                : provider.exportCsv(),
+                          ),
+                          itemBuilder: (BuildContext context) =>
+                              const <PopupMenuEntry<String>>[
+                                PopupMenuItem<String>(
+                                  value: 'xlsx',
+                                  child: Text('Excel (libro completo)'),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'csv',
+                                  child: Text('CSV (movimientos)'),
+                                ),
+                              ],
                           icon: _exporting
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
-                              : const Icon(Icons.download_outlined),
+                              : const Icon(
+                                  LucideIcons.fileSpreadsheet,
+                                  size: 20,
+                                ),
                         ),
                         RoundAddButton(
                           onPressed: () => context.push('/contributions/new'),
@@ -363,8 +418,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                                 !item.isPaid &&
                                 !item.hasAbonoReportado,
                             canReport: !isTreasurer && item.canReport,
-                            canReview:
-                                isTreasurer && item.hasAbonoReportado,
+                            canReview: isTreasurer && item.hasAbonoReportado,
                             onDetail: () => _openDetail(item),
                             onRegister: () => _registerAbono(item),
                             onPayTotal: () => _pay(item),
@@ -380,6 +434,113 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BulkInput {
+  const _BulkInput({
+    required this.mes,
+    required this.monto,
+    required this.concepto,
+  });
+
+  final String mes;
+  final double monto;
+  final String concepto;
+}
+
+class _BulkDialog extends StatefulWidget {
+  const _BulkDialog();
+
+  @override
+  State<_BulkDialog> createState() => _BulkDialogState();
+}
+
+class _BulkDialogState extends State<_BulkDialog> {
+  final List<String> _months = monthOptions(DateTime.now());
+  late String? _mes = currentMonth(DateTime.now());
+  final TextEditingController _amount = TextEditingController();
+  final TextEditingController _concept = TextEditingController(
+    text: 'Cuota mensual',
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _concept.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final double monto = parseMoney(_amount.text);
+    if (_mes == null) {
+      setState(() => _error = 'Selecciona el mes.');
+      return;
+    }
+    if (monto <= 0) {
+      setState(() => _error = 'Ingresa un monto mayor a 0.');
+      return;
+    }
+    if (_concept.text.trim().isEmpty) {
+      setState(() => _error = 'Escribe un concepto.');
+      return;
+    }
+    Navigator.of(
+      context,
+    ).pop(_BulkInput(mes: _mes!, monto: monto, concepto: _concept.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Cuotas del mes'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Se crea una cuota para cada integrante activo que aún no tenga una en ese mes.',
+            ),
+            const SizedBox(height: 12),
+            SelectField<String>(
+              value: _mes,
+              items: _months,
+              labelOf: formatMonth,
+              hintText: 'Selecciona el mes',
+              onChanged: (String? value) => setState(() => _mes = value),
+            ),
+            const SizedBox(height: 12),
+            MoneyField(
+              controller: _amount,
+              invalid: _error != null && parseMoney(_amount.text) <= 0,
+              onChanged: (_) => setState(() => _error = null),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _concept,
+              decoration: const InputDecoration(labelText: 'Concepto'),
+              onChanged: (_) => setState(() => _error = null),
+            ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: AppTextStyles.small.copyWith(color: AppColors.bad),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _confirm, child: const Text('Crear cuotas')),
+      ],
     );
   }
 }
@@ -436,12 +597,15 @@ class _InputDialogState extends State<_InputDialog> {
         return;
       }
       if (monto > saldo) {
-        setState(() => _error =
-            'No puede superar el saldo pendiente (${formatCop(saldo)}).');
+        setState(
+          () => _error =
+              'No puede superar el saldo pendiente (${formatCop(saldo)}).',
+        );
         return;
       }
     }
-    Navigator.of(context).pop(_InputResult(monto: monto, texto: _text.text.trim()));
+    Navigator.of(context)
+        .pop(_InputResult(monto: monto, texto: _text.text.trim()));
   }
 
   @override
@@ -488,10 +652,7 @@ class _InputDialogState extends State<_InputDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
-        FilledButton(
-          onPressed: _confirm,
-          child: Text(widget.confirmLabel),
-        ),
+        FilledButton(onPressed: _confirm, child: Text(widget.confirmLabel)),
       ],
     );
   }
@@ -599,10 +760,7 @@ class _ContributionTile extends StatelessWidget {
               child: Wrap(
                 alignment: WrapAlignment.end,
                 children: <Widget>[
-                  TextButton(
-                    onPressed: onDetail,
-                    child: const Text('Detalle'),
-                  ),
+                  TextButton(onPressed: onDetail, child: const Text('Detalle')),
                   if (canReview)
                     TextButton(
                       onPressed: onReview,
@@ -682,9 +840,21 @@ class _DetailSheet extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: <Widget>[
-                Expanded(child: _Figure(label: 'Cuota', value: formatCop(item.monto))),
-                Expanded(child: _Figure(label: 'Abonado', value: formatCop(item.cobrado))),
-                Expanded(child: _Figure(label: 'Saldo', value: formatCop(item.saldoPendiente))),
+                Expanded(
+                  child: _Figure(label: 'Cuota', value: formatCop(item.monto)),
+                ),
+                Expanded(
+                  child: _Figure(
+                    label: 'Abonado',
+                    value: formatCop(item.cobrado),
+                  ),
+                ),
+                Expanded(
+                  child: _Figure(
+                    label: 'Saldo',
+                    value: formatCop(item.saldoPendiente),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -770,7 +940,8 @@ class _AbonoRow extends StatelessWidget {
       if (abono.referencia != null) 'Ref. ${abono.referencia}',
       if (abono.motivo != null) 'Motivo: ${abono.motivo}',
     ];
-    final bool canApprove = isTreasurer && abono.estado == AbonoStatus.reportado;
+    final bool canApprove =
+        isTreasurer && abono.estado == AbonoStatus.reportado;
     final bool canVoid = isTreasurer && abono.estado == AbonoStatus.aprobado;
 
     return Padding(
@@ -795,9 +966,15 @@ class _AbonoRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: <Widget>[
                 if (canApprove)
-                  TextButton(onPressed: onReject, child: const Text('Rechazar')),
+                  TextButton(
+                    onPressed: onReject,
+                    child: const Text('Rechazar'),
+                  ),
                 if (canApprove)
-                  FilledButton(onPressed: onApprove, child: const Text('Aprobar')),
+                  FilledButton(
+                    onPressed: onApprove,
+                    child: const Text('Aprobar'),
+                  ),
                 if (canVoid)
                   TextButton(onPressed: onVoid, child: const Text('Anular')),
               ],

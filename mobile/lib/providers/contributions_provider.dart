@@ -111,15 +111,39 @@ class ContributionsProvider extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> rejectPayment(Contribution contribution, Abono abono, {String? motivo}) async {
+  Future<void> rejectPayment(
+    Contribution contribution,
+    Abono abono, {
+    String? motivo,
+  }) async {
     await _writes.rejectPayment(contribution.id, abono.id, motivo: motivo);
     await refresh();
   }
 
-  Future<void> voidPayment(Contribution contribution, Abono abono, {String? motivo}) async {
+  Future<void> voidPayment(
+    Contribution contribution,
+    Abono abono, {
+    String? motivo,
+  }) async {
     await _writes.voidPayment(contribution.id, abono.id, motivo: motivo);
     await refresh();
   }
 
+  Future<BulkContributionResult> createBulk({
+    required String mes,
+    required double monto,
+    required String concepto,
+  }) async {
+    final BulkContributionResult result = await _writes.createBulkContributions(
+      mes: mes,
+      monto: monto,
+      concepto: concepto,
+    );
+    await refresh();
+    return result;
+  }
+
   Future<CsvDownload> exportCsv() => _writes.exportMovimientos();
+
+  Future<CsvDownload> exportExcel() => _writes.exportLibro();
 }

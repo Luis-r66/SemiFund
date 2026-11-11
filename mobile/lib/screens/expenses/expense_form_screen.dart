@@ -15,7 +15,11 @@ import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
 
 class ExpenseFormScreen extends StatefulWidget {
-  const ExpenseFormScreen({super.key});
+  const ExpenseFormScreen({super.key, this.hoy});
+
+  /// Fecha usada para validar y mostrar el gasto. En pruebas se fija para que
+  /// los goldens no cambien con el día.
+  final DateTime? hoy;
 
   @override
   State<ExpenseFormScreen> createState() => _ExpenseFormScreenState();
@@ -29,10 +33,10 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   String? _category;
   bool _saving = false;
   String? _error;
-  DateTime _fecha = _hoy;
+  late DateTime _fecha;
 
-  static DateTime get _hoy {
-    final DateTime now = DateTime.now();
+  DateTime get _hoy {
+    final DateTime now = widget.hoy ?? DateTime.now();
     return DateTime(now.year, now.month, now.day);
   }
 
@@ -56,6 +60,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   @override
   void initState() {
     super.initState();
+    _fecha = _hoy;
     _description.addListener(() => setState(() {}));
     _amount.addListener(() => setState(() {}));
     _customCategory.addListener(() => setState(() {}));

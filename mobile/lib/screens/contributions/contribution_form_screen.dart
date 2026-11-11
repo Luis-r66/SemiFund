@@ -15,7 +15,11 @@ import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
 
 class ContributionFormScreen extends StatefulWidget {
-  const ContributionFormScreen({super.key});
+  const ContributionFormScreen({super.key, this.hoy});
+
+  /// Mes de referencia. En pruebas se fija para que los goldens no cambien
+  /// cuando cambie el mes.
+  final DateTime? hoy;
 
   @override
   State<ContributionFormScreen> createState() => _ContributionFormScreenState();
@@ -24,7 +28,7 @@ class ContributionFormScreen extends StatefulWidget {
 class _ContributionFormScreenState extends State<ContributionFormScreen> {
   final TextEditingController _amount = TextEditingController();
   final TextEditingController _concept = TextEditingController();
-  final List<String> _months = monthOptions(DateTime.now());
+  late final List<String> _months;
 
   Member? _member;
   String? _month;
@@ -34,7 +38,9 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
   @override
   void initState() {
     super.initState();
-    _month = currentMonth(DateTime.now());
+    final DateTime hoy = widget.hoy ?? DateTime.now();
+    _months = monthOptions(hoy);
+    _month = currentMonth(hoy);
     _amount.addListener(() => setState(() {}));
     _concept.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {

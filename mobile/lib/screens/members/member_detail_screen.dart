@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
@@ -18,6 +19,7 @@ import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
+import 'statement_sheet.dart';
 
 class MemberDetailScreen extends StatefulWidget {
   const MemberDetailScreen({super.key, required this.memberId});
@@ -196,6 +198,12 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                           ),
                         ],
                         const SizedBox(height: 24),
+                        SecondaryButton(
+                          label: 'Estado de cuenta',
+                          icon: LucideIcons.fileText,
+                          onPressed: () => showStatementSheet(context, member),
+                        ),
+                        const SizedBox(height: 20),
                         const SectionLabel('Historial de aportes'),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16),

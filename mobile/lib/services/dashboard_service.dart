@@ -1,9 +1,11 @@
 import '../core/network/api_client.dart';
 import '../core/utils/json_utils.dart';
+import '../models/audit_entry.dart';
 import '../models/balance.dart';
 import '../models/contribution.dart';
 import '../models/expense.dart';
 import '../models/member.dart';
+import '../models/member_statement.dart';
 
 class DashboardService {
   DashboardService(this._api);
@@ -13,6 +15,19 @@ class DashboardService {
   Future<Balance> balance() async {
     final dynamic data = await _api.get('/balance');
     return Balance.fromJson(data);
+  }
+
+  Future<MemberStatement> memberStatement(String memberId) async {
+    final dynamic data = await _api.get('/members/$memberId/statement');
+    return MemberStatement.fromJson(data);
+  }
+
+  Future<List<AuditEntry>> auditLog({int limit = 100}) async {
+    final dynamic data = await _api.get(
+      '/audit',
+      queryParameters: <String, dynamic>{'limit': limit},
+    );
+    return asList(data).map(AuditEntry.fromJson).toList();
   }
 
   Future<Member> member(String id) async {

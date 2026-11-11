@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/semillero_membership.dart';
 import '../providers/session_provider.dart';
 import '../screens/accounts/accounts_screen.dart';
+import '../screens/activity/activity_screen.dart';
 import '../screens/auth/change_password_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
@@ -156,6 +157,7 @@ class AppRouter {
           GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
           GoRoute(path: '/accounts', builder: (_, _) => const AccountsScreen()),
           GoRoute(path: '/invite', builder: (_, _) => const InviteScreen()),
+          GoRoute(path: '/activity', builder: (_, _) => const ActivityScreen()),
           GoRoute(
             path: '/members',
             builder: (_, _) => const MembersScreen(),

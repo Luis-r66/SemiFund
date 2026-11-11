@@ -192,6 +192,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           subtitle: 'Comparte el código del semillero',
                           onTap: () => _open('/invite'),
                         ),
+                        const SizedBox(height: 10),
+                        _ManageTile(
+                          icon: LucideIcons.history,
+                          title: 'Actividad',
+                          subtitle: 'Quién hizo qué y cuándo',
+                          onTap: () => _open('/activity'),
+                        ),
                       ],
                     ],
                   ],
