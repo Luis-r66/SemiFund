@@ -136,6 +136,69 @@ const create = asyncHandler(async (req, res) => {
   res.status(201).json(contribution);
 });
 
+// POST /api/contributions/bulk  { mes, monto, concepto, integranteIds? }  (tesorero)
+// Crea una cuota por integrante activo que aún no la tenga para ese mes.
+const bulkCreate = asyncHandler(async (req, res) => {
+  const body = cuerpo(req);
+  const { mes, monto, concepto, integranteIds } = body;
+  if (typeof mes !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
+    return res.status(400).json({ error: 'mes debe tener formato YYYY-MM' });
+  }
+  if (typeof monto !== 'number' || !Number.isFinite(monto) || round(monto) <= 0) {
+    return res.status(400).json({ error: 'El monto debe ser un número mayor a 0' });
+  }
+  if (typeof concepto !== 'string' || !concepto.trim()) {
+    return res.status(400).json({ error: 'El concepto no puede estar vacío' });
+  }
+  if (integranteIds !== undefined && (!Array.isArray(integranteIds) || integranteIds.some((id) => !mongoose.Types.ObjectId.isValid(id)))) {
+    return res.status(400).json({ error: 'integranteIds debe ser una lista de ids válidos' });
+  }
+
+  const filtro = { semilleroId: req.semilleroId, activo: true };
+  if (integranteIds) filtro._id = { $in: integranteIds };
+  const miembros = await Member.find(filtro);
+  const idsValidos = new Set(miembros.map((m) => m.id));
+
+  const existentes = await Contribution.find({
+    semilleroId: req.semilleroId,
+    mes,
+    integranteId: { $in: miembros.map((m) => m._id) }
+  }).select('integranteId');
+  const yaTienen = new Set(existentes.map((item) => item.integranteId.toString()));
+
+  const omitidas = [];
+  let creadas = 0;
+  for (const member of miembros) {
+    if (yaTienen.has(member.id)) {
+      omitidas.push({ integranteId: member.id, motivo: 'Ya tiene cuota para ese mes' });
+      continue;
+    }
+    await Contribution.create({
+      integranteId: member._id,
+      semilleroId: req.semilleroId,
+      monto: round(monto),
+      mes,
+      concepto: concepto.trim(),
+      montoPagado: 0
+    });
+    creadas++;
+  }
+  for (const id of integranteIds || []) {
+    if (!idsValidos.has(String(id))) {
+      omitidas.push({ integranteId: String(id), motivo: 'Integrante no existe o está inactivo' });
+    }
+  }
+
+  await registrar({
+    semilleroId: req.semilleroId,
+    usuarioId: req.userId,
+    accion: 'aporte.cuotas_masivas',
+    entidad: 'aporte',
+    detalle: `${mes} · ${creadas} creadas · ${round(monto)}`
+  });
+  res.status(201).json({ creadas, omitidas });
+});
+
 // POST /api/contributions/:id/payments  { monto?, referencia? }
 // Integrante: registra un abono reportado (espera revisión del tesorero).
 // Tesorero: registra un abono ya aprobado (dinero recibido en efectivo o consignado).
@@ -385,6 +448,7 @@ const reject = asyncHandler(async (req, res) => {
 module.exports = {
   list,
   create,
+  bulkCreate,
   report,
   pay,
   reject,

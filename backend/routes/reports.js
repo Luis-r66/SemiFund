@@ -12,4 +12,12 @@ router.get(
   c.movimientos
 );
 
+router.get(
+  '/libro.xlsx',
+  auth.requireAuth,
+  auth.requireSemillero,
+  auth.requireTesorero,
+  c.libro
+);
+
 module.exports = router;

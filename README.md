@@ -82,24 +82,35 @@ npm run sync:members                # aplicar
 |---|---|---|---|
 | GET | `/members?activo=true` | 200 lista | 400 filtro inválido |
 | GET | `/members/:id` | 200 | 404 |
+| GET | `/members/:id/statement` (tesorero o el mismo integrante) | 200 resumen + cuotas | 403, 404 |
 | POST | `/members` `{nombres, apellidos, programa, semestre}` | 201 | 400 |
 | PUT | `/members/:id` (manual: nombre, programa, semestre, activo; vinculado: solo activo) | 200 | 400, 404, 409 datos académicos de cuenta |
 | DELETE | `/members/:id` (soft, `activo=false`) | 204 | 404 |
 | GET | `/contributions?status=pending&memberId=` | 200 | 400 |
 | POST | `/contributions` `{integranteId, monto, mes, concepto}` | 201 | 400, 409 aporte duplicado |
+| POST | `/contributions/bulk` `{mes, monto, concepto, integranteIds?}` | 201 `{creadas, omitidas}` | 400, 403 no tesorero |
 | PATCH | `/contributions/:id/report` `{referencia?}` | 200 | 403 no es propio, 404, 409 ya pagado/reportado |
 | PATCH | `/contributions/:id/pay` | 200 | 404, 409 ya pagado |
 | PATCH | `/contributions/:id/reject` `{motivo?}` | 200 | 404, 409 no está reportado |
+| POST | `/contributions/:id/payments` `{monto?, referencia?}` | 201 abono | 400, 403, 404, 409 |
+| PATCH | `/contributions/:id/payments/:abonoId/approve` | 200 | 404, 409 abono no reportado |
+| PATCH | `/contributions/:id/payments/:abonoId/reject` `{motivo?}` | 200 | 404, 409 abono no reportado |
+| PATCH | `/contributions/:id/payments/:abonoId/void` | 200 | 404, 409 abono no aprobado |
 | GET | `/expenses?category=&month=YYYY-MM` | 200 | 400 |
 | POST | `/expenses` `{descripcion, categoria, monto, fecha?}` (sin fecha futura) | 201 | 400, 409 saldo insuficiente |
 | GET | `/balance` → `{totalAportado, totalGastado, saldoDisponible}` | 200 | — |
 | GET | `/reports/movimientos.csv` | 200 CSV | 403 no tesorero |
+| GET | `/reports/libro.xlsx` | 200 Excel (Integrantes, Aportes, Gastos, Balance) | 403 no tesorero |
+| GET | `/audit?limit=100` | 200 historial | 403 no tesorero |
 
 `status` en query: `pending|paid|overdue|reported` → `pendiente|pagado|vencido|reportado` en DB. `GET /contributions` agrega `esPropio` a cada aporte.
 
 - El integrante solo puede reportar aportes propios. El tesorero aprueba con `/pay` o rechaza con `/reject`.
-- El CSV `movimientos.csv` incluye aportes y gastos. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
+- Los abonos parciales se guardan en `abonos[]` y actualizan `montoPagado`; el saldo y el estado `parcial` se calculan en el modelo. El tesorero puede anular un abono aprobado.
+- Las cuotas masivas crean una cuota por integrante activo y omiten a quien ya tenga una para ese mes.
+- El CSV `movimientos.csv` y el libro `libro.xlsx` incluyen aportes y gastos. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
 - El perfil académico de la cuenta se sincroniza con los integrantes vinculados. El tesorero no puede editar carrera/semestre de un integrante con cuenta.
+- La auditoría registra integrantes, aportes, abonos y gastos sin bloquear la operación principal.
 
 ## Reglas de negocio (validadas en backend)
 

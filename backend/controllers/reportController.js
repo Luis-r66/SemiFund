@@ -4,6 +4,8 @@ const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 const { marcarVencidos } = require('./contributionController');
 const { montoPagadoDe, saldoPendiente } = require('../utils/payments');
+const { getBalance } = require('../utils/balance');
+const ExcelJS = require('exceljs');
 
 const HEADERS = [
   'tipo_registro',
@@ -146,4 +148,97 @@ const movimientos = asyncHandler(async (req, res) => {
   res.status(200).send(csv);
 });
 
-module.exports = { movimientos };
+// GET /api/reports/libro.xlsx  (tesorero)
+const libro = asyncHandler(async (req, res) => {
+  await marcarVencidos(req.semilleroId);
+  const [members, contributions, expenses, balance] = await Promise.all([
+    Member.find({ semilleroId: req.semilleroId }).populate('userId', 'email').sort({ nombre: 1 }),
+    Contribution.find({ semilleroId: req.semilleroId }).sort({ mes: 1 }),
+    Expense.find({ semilleroId: req.semilleroId }).sort({ fecha: -1 }),
+    getBalance(req.semilleroId)
+  ]);
+  const memberById = new Map(members.map((member) => [member.id, member]));
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.created = new Date();
+
+  const integrantes = workbook.addWorksheet('Integrantes');
+  integrantes.columns = [
+    { header: 'Nombre', key: 'nombre', width: 32 },
+    { header: 'Email', key: 'email', width: 30 },
+    { header: 'Programa', key: 'programa', width: 30 },
+    { header: 'Semestre', key: 'semestre', width: 10 },
+    { header: 'Activo', key: 'activo', width: 10 }
+  ];
+  for (const member of members) {
+    integrantes.addRow({
+      nombre: member.nombre,
+      email: member.userId ? member.userId.email : '',
+      programa: member.programa,
+      semestre: member.semestre ?? '',
+      activo: member.activo ? 'Sí' : 'No'
+    });
+  }
+
+  const aportes = workbook.addWorksheet('Aportes');
+  aportes.columns = [
+    { header: 'Integrante', key: 'integrante', width: 32 },
+    { header: 'Mes', key: 'mes', width: 10 },
+    { header: 'Concepto', key: 'concepto', width: 30 },
+    { header: 'Cuota', key: 'monto', width: 14 },
+    { header: 'Cobrado', key: 'cobrado', width: 14 },
+    { header: 'Saldo', key: 'saldo', width: 14 },
+    { header: 'Estado', key: 'estado', width: 14 }
+  ];
+  for (const item of contributions) {
+    const member = memberById.get(item.integranteId.toString());
+    aportes.addRow({
+      integrante: member ? member.nombre : 'Integrante no disponible',
+      mes: item.mes,
+      concepto: item.concepto,
+      monto: item.monto,
+      cobrado: montoPagadoDe(item),
+      saldo: saldoPendiente(item),
+      estado: item.estado
+    });
+  }
+
+  const gastos = workbook.addWorksheet('Gastos');
+  gastos.columns = [
+    { header: 'Fecha', key: 'fecha', width: 14 },
+    { header: 'Descripción', key: 'descripcion', width: 36 },
+    { header: 'Categoría', key: 'categoria', width: 18 },
+    { header: 'Monto', key: 'monto', width: 14 }
+  ];
+  for (const item of expenses) {
+    gastos.addRow({
+      fecha: fecha(item.fecha),
+      descripcion: item.descripcion,
+      categoria: item.categoria,
+      monto: item.monto
+    });
+  }
+
+  const resumen = workbook.addWorksheet('Balance');
+  resumen.columns = [
+    { header: 'Concepto', key: 'concepto', width: 24 },
+    { header: 'Valor', key: 'valor', width: 16 }
+  ];
+  resumen.addRow({ concepto: 'Total aportado', valor: balance.totalAportado });
+  resumen.addRow({ concepto: 'Total gastado', valor: balance.totalGastado });
+  resumen.addRow({ concepto: 'Saldo disponible', valor: balance.saldoDisponible });
+
+  for (const sheet of [integrantes, aportes, gastos, resumen]) {
+    sheet.getRow(1).font = { bold: true };
+  }
+
+  const codigo = String(req.semillero.codigo || 'semillero').replace(/[^A-Za-z0-9_-]/g, '');
+  const nombre = `libro_${codigo}_${fecha(new Date())}.xlsx`;
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+module.exports = { movimientos, libro };

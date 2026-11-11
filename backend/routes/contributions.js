@@ -10,6 +10,7 @@ router.get('/', c.list);
 
 // Solo el tesorero puede registrar y pagar aportes.
 router.post('/', requireTesorero, c.create);
+router.post('/bulk', requireTesorero, c.bulkCreate);
 router.patch('/:id/pay', validateObjectId, requireTesorero, c.pay);
 // Cualquier integrante activo puede reportar su propio aporte.
 router.patch('/:id/report', validateObjectId, c.report);

@@ -8,6 +8,7 @@ const router = express.Router();
 // Cualquier miembro activo del semillero puede consultar.
 router.get('/', c.list);
 router.get('/:id', validateObjectId, c.getById);
+router.get('/:id/statement', validateObjectId, c.statement);
 
 // Solo el tesorero puede crear, editar o desactivar integrantes.
 router.post('/', requireTesorero, c.create);

@@ -3,6 +3,9 @@ const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 const { nombreValido } = require('../utils/validators');
 const { registrar } = require('../utils/audit');
+const Contribution = require('../models/Contribution');
+const { marcarVencidos } = require('./contributionController');
+const { round, montoPagadoDe, saldoPendiente } = require('../utils/payments');
 
 const MSG_NOMBRES = 'nombres y apellidos son requeridos y solo pueden tener letras';
 
@@ -133,6 +136,35 @@ const update = asyncHandler(async (req, res) => {
   res.status(200).json(member);
 });
 
+// GET /api/members/:id/statement  (tesorero o el mismo integrante)
+const statement = asyncHandler(async (req, res) => {
+  const member = await Member.findOne({ _id: req.params.id, semilleroId: req.semilleroId });
+  if (!member) return res.status(404).json({ error: 'Integrante no encontrado' });
+
+  const miMember = req.membership.memberId ? req.membership.memberId.toString() : null;
+  if (!req.membership.esTesorero && miMember !== member.id) {
+    return res.status(403).json({ error: 'Solo el tesorero puede ver el estado de cuenta de otro integrante' });
+  }
+
+  await marcarVencidos(req.semilleroId);
+  const cuotas = await Contribution.find({ semilleroId: req.semilleroId, integranteId: member._id }).sort({ mes: 1 });
+  const resumen = { esperado: 0, cobrado: 0, saldo: 0, vencido: 0 };
+  for (const cuota of cuotas) {
+    resumen.esperado += cuota.monto;
+    resumen.cobrado += montoPagadoDe(cuota);
+    resumen.saldo += saldoPendiente(cuota);
+    if (cuota.estado === 'vencido') resumen.vencido += saldoPendiente(cuota);
+  }
+  for (const clave of Object.keys(resumen)) resumen[clave] = round(resumen[clave]);
+
+  res.status(200).json({
+    integrante: member,
+    resumen,
+    cuotas: cuotas.map((cuota) => cuota.toJSON()),
+    alDia: resumen.saldo === 0
+  });
+});
+
 // DELETE /api/members/:id -> soft delete (activo=false), 204 sin body
 const remove = asyncHandler(async (req, res) => {
   const member = await Member.findOneAndUpdate(
@@ -152,4 +184,4 @@ const remove = asyncHandler(async (req, res) => {
   res.status(204).end();
 });
 
-module.exports = { list, getById, create, update, remove };
+module.exports = { list, getById, create, update, remove, statement };
