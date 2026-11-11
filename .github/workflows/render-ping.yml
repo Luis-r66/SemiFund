@@ -1,0 +1,31 @@
+name: Render ping
+
+# Render Free duerme tras unos minutos sin tráfico. Este ping evita que la
+# API se apague mientras el semillero la está usando. GitHub puede retrasar
+# las ejecuciones programadas; el reintento cubre el arranque en frío.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-ping
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verificar /health
+        run: |
+          set -euo pipefail
+          respuesta="$(curl --fail --silent --show-error \
+            --retry 4 --retry-all-errors --retry-delay 10 \
+            --connect-timeout 20 --max-time 90 \
+            https://semifund-api.onrender.com/health)"
+          echo "Respuesta: $respuesta"
+          echo "$respuesta" | grep -q '"ok":true'

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../core/network/api_exception.dart';
 import '../models/abono.dart';
 import '../models/contribution.dart';
+import '../models/import_result.dart';
 import '../models/member.dart';
 import '../services/dashboard_service.dart';
 import '../services/management_service.dart';
@@ -146,4 +147,12 @@ class ContributionsProvider extends ChangeNotifier {
   Future<CsvDownload> exportCsv() => _writes.exportMovimientos();
 
   Future<CsvDownload> exportExcel() => _writes.exportLibro();
+
+  Future<CsvDownload> downloadTemplate() => _writes.downloadTemplate();
+
+  Future<ImportPreview> previewImport(Uint8List bytes) =>
+      _writes.previewImport(bytes);
+
+  Future<ImportResult> confirmImport(Uint8List bytes) =>
+      _writes.confirmImport(bytes);
 }

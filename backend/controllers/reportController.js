@@ -5,6 +5,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { marcarVencidos } = require('./contributionController');
 const { montoPagadoDe, saldoPendiente } = require('../utils/payments');
 const { getBalance } = require('../utils/balance');
+const { buildTemplate } = require('../services/excelTemplate');
 const ExcelJS = require('exceljs');
 
 const HEADERS = [
@@ -241,4 +242,33 @@ const libro = asyncHandler(async (req, res) => {
   res.end();
 });
 
-module.exports = { movimientos, libro };
+// GET /api/reports/plantilla.xlsx  (tesorero)
+// Plantilla para importar datos: incluye instrucciones, listas, validaciones
+// y los registros actuales del semillero (con ID, para no duplicarlos).
+const plantilla = asyncHandler(async (req, res) => {
+  await marcarVencidos(req.semilleroId);
+  const [members, contributions, expenses, balance] = await Promise.all([
+    Member.find({ semilleroId: req.semilleroId }).sort({ nombre: 1 }),
+    Contribution.find({ semilleroId: req.semilleroId }).sort({ mes: 1 }),
+    Expense.find({ semilleroId: req.semilleroId }).sort({ fecha: -1 }),
+    getBalance(req.semilleroId)
+  ]);
+
+  const { workbook } = buildTemplate({
+    semillero: req.semillero,
+    members,
+    contributions,
+    expenses,
+    balance
+  });
+
+  const codigo = String(req.semillero.codigo || 'semillero').replace(/[^A-Za-z0-9_-]/g, '');
+  const nombre = `plantilla_${codigo}_${fecha(new Date())}.xlsx`;
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+module.exports = { movimientos, libro, plantilla };

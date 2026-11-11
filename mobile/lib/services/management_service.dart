@@ -6,7 +6,11 @@ import '../core/network/api_client.dart';
 import '../core/utils/json_utils.dart';
 import '../models/contribution.dart';
 import '../models/expense.dart';
+import '../models/import_result.dart';
 import '../models/member.dart';
+
+const String xlsxMimeType =
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 class CsvDownload {
   const CsvDownload({required this.bytes, required this.filename});
@@ -188,11 +192,44 @@ class ManagementService {
   }
 
   Future<CsvDownload> exportLibro() {
-    return _download('/reports/libro.xlsx', 'libro.xlsx');
+    return _download('/reports/libro.xlsx', 'libro.xlsx', accept: xlsxMimeType);
   }
 
-  Future<CsvDownload> _download(String path, String fallbackName) async {
-    final Response<List<int>> response = await _api.getBytes(path);
+  Future<CsvDownload> downloadTemplate() {
+    return _download(
+      '/reports/plantilla.xlsx',
+      'plantilla.xlsx',
+      accept: xlsxMimeType,
+    );
+  }
+
+  Future<ImportPreview> previewImport(Uint8List bytes) async {
+    final dynamic data = await _api.postBytes(
+      '/import/preview',
+      bytes,
+      contentType: xlsxMimeType,
+    );
+    return ImportPreview.fromJson(data);
+  }
+
+  Future<ImportResult> confirmImport(Uint8List bytes) async {
+    final dynamic data = await _api.postBytes(
+      '/import/confirm',
+      bytes,
+      contentType: xlsxMimeType,
+    );
+    return ImportResult.fromJson(data);
+  }
+
+  Future<CsvDownload> _download(
+    String path,
+    String fallbackName, {
+    String accept = 'text/csv',
+  }) async {
+    final Response<List<int>> response = await _api.getBytes(
+      path,
+      accept: accept,
+    );
     final String? disposition = response.headers.value('content-disposition');
     final RegExpMatch? match = disposition == null
         ? null

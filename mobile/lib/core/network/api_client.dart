@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
@@ -41,6 +43,25 @@ class ApiClient {
     return _execute(() => _dio.post<dynamic>(path, data: data));
   }
 
+  /// Sube un archivo binario (por ejemplo la plantilla .xlsx) como cuerpo.
+  Future<dynamic> postBytes(
+    String path,
+    Uint8List bytes, {
+    String contentType = 'application/octet-stream',
+  }) {
+    return _execute(
+      () => _dio.post<dynamic>(
+        path,
+        data: bytes,
+        options: Options(
+          contentType: contentType,
+          responseType: ResponseType.json,
+          headers: const <String, dynamic>{'Accept': 'application/json'},
+        ),
+      ),
+    );
+  }
+
   Future<dynamic> put(String path, {Object? data}) {
     return _execute(() => _dio.put<dynamic>(path, data: data));
   }
@@ -53,13 +74,16 @@ class ApiClient {
     return _execute(() => _dio.delete<dynamic>(path, data: data));
   }
 
-  Future<Response<List<int>>> getBytes(String path) async {
+  Future<Response<List<int>>> getBytes(
+    String path, {
+    String accept = 'text/csv',
+  }) async {
     try {
       return await _dio.get<List<int>>(
         path,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: const <String, dynamic>{'Accept': 'text/csv'},
+          headers: <String, dynamic>{'Accept': accept},
         ),
       );
     } on DioException catch (error) {

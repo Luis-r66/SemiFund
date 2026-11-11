@@ -10,6 +10,11 @@ function errorHandler(err, req, res, next) {
     return res.status(400).json({ error: 'Datos inválidos', details });
   }
 
+  // Archivo o cuerpo demasiado grande (express.raw / express.json)
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'El archivo supera el límite permitido de 8 MB' });
+  }
+
   // Id malformado que pasó algún filtro (respaldo del validateObjectId)
   if (err && err.name === 'CastError') {
     return res.status(400).json({ error: 'El id no es válido' });

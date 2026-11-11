@@ -101,6 +101,9 @@ npm run sync:members                # aplicar
 | GET | `/balance` → `{totalAportado, totalGastado, saldoDisponible}` | 200 | — |
 | GET | `/reports/movimientos.csv` | 200 CSV | 403 no tesorero |
 | GET | `/reports/libro.xlsx` | 200 Excel (Integrantes, Aportes, Gastos, Balance) | 403 no tesorero |
+| GET | `/reports/plantilla.xlsx` | 200 Excel para importar | 403 no tesorero |
+| POST | `/import/preview` (cuerpo `.xlsx`) | 200 vista previa fila por fila | 400, 413 más de 8 MB |
+| POST | `/import/confirm` (cuerpo `.xlsx`) | 201 resumen de creados | 409 sin filas nuevas, 422 errores, 413 |
 | GET | `/audit?limit=100` | 200 historial | 403 no tesorero |
 
 `status` en query: `pending|paid|overdue|reported` → `pendiente|pagado|vencido|reportado` en DB. `GET /contributions` agrega `esPropio` a cada aporte.
@@ -111,6 +114,49 @@ npm run sync:members                # aplicar
 - El CSV `movimientos.csv` y el libro `libro.xlsx` incluyen aportes y gastos. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
 - El perfil académico de la cuenta se sincroniza con los integrantes vinculados. El tesorero no puede editar carrera/semestre de un integrante con cuenta.
 - La auditoría registra integrantes, aportes, abonos y gastos sin bloquear la operación principal.
+
+## Plantilla Excel e importación
+
+La app descarga `GET /reports/plantilla.xlsx` desde **Aportes → menú de Excel → Descargar plantilla Excel**, la llena y la sube con **Importar Excel**. La app muestra la vista previa antes de confirmar.
+
+La plantilla solo usa los datos que hoy guarda el APK: nombres y apellidos, programa, semestre, tipo de usuario, aportes, abonos y gastos. No pide documento, correo ni teléfono.
+
+Hojas del libro:
+
+- `Instrucciones`: convenciones y advertencias.
+- `Integrantes`: personas del semillero.
+- `Aportes`: cuotas por integrante y mes.
+- `Abonos`: pagos parciales o totales.
+- `Gastos`: salidas de dinero.
+- `Listas`: catálogos e IDs para las listas desplegables.
+- `Resumen`: cifras al momento de generar la plantilla.
+
+Reglas:
+
+- Las filas con `id` son registros existentes: se muestran en gris y **se ignoran al importar**. Solo se crean las filas con `id` vacío.
+- Los integrantes nuevos se agregan antes que sus aportes y abonos, en el mismo archivo.
+- Mes en `AAAA-MM`; fechas en `AAAA-MM-DD`, reales y nunca futuras.
+- Montos mayores a 0. Los profesores no llevan semestre.
+- Duplicados: integrante por nombre normalizado (sin tildes ni mayúsculas), aporte por integrante + mes, gasto por fecha + descripción + monto, abono por aporte + monto + fecha + referencia. Las filas repetidas se omiten.
+- Si hay un solo error, la importación no guarda nada y devuelve `422` con el detalle.
+- El archivo no puede superar 8 MB (`413`). Si se supera, descarga una plantilla nueva y no agregues filas vacías de más.
+- Tope de 5000 filas por hoja.
+
+Pruebas de las reglas puras:
+
+```bash
+cd backend
+npm test    # 25 pruebas
+```
+
+## Mantener despierta la API en Render
+
+Render Free duerme por inactividad. `.github/workflows/render-ping.yml` llama cada 10 minutos a `https://semifund-api.onrender.com/health` y falla si la respuesta no es `{"ok":true}`.
+
+- Se puede ejecutar a mano desde **Actions → Render ping → Run workflow**.
+- GitHub puede retrasar las ejecuciones programadas; el workflow reintenta hasta 4 veces para cubrir el arranque en frío.
+- Si cambia el dominio de Render, actualiza la URL del workflow.
+
 
 ## Reglas de negocio (validadas en backend)
 
@@ -130,8 +176,21 @@ npm run sync:members                # aplicar
 
 - Emulador → `http://10.0.2.2:3000/api/`
 - Dispositivo físico (misma Wi-Fi) → `http://<IP-LAN-del-PC>:3000/api/` (ej. `http://192.168.1.10:3000/api/`)
+- Producción (Render) → `https://semifund-api.onrender.com/api`
 - Permiso `INTERNET` en `AndroidManifest` + `usesCleartextTraffic="true"` si es `http`.
 - Detalle de JSON por endpoint: ver `API_CONTRACT.md` (incluye interfaz Retrofit + data classes Kotlin).
+
+La app no necesita Node ni MongoDB locales: el APK release usa Render por defecto.
+
+```bash
+cd mobile
+flutter build apk                # release → https://semifund-api.onrender.com/api
+flutter run                      # debug → emulador local
+flutter build apk --dart-define=API_BASE_URL=http://192.168.1.10:3000/api
+```
+
+Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core/config/app_config.dart`.
+
 
 ## Estructura por capas
 
@@ -144,7 +203,9 @@ backend/
   controllers/ (lógica negocio + reglas)
   routes/ (solo mapeo método→controlador)
   middleware/ (asyncHandler, validateObjectId, errorHandler)
+  services/ (excelTemplate.js, excelImport.js)
   utils/balance.js (agregaciones en vivo)
+  utils/importValidation.js (reglas puras de la plantilla)
 postman/Semillero-API.postman_collection.json
 API_CONTRACT.md (contrato para Android)
 ```

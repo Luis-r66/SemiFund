@@ -18,7 +18,10 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    options.headers['Content-Type'] = 'application/json';
+    if (options.contentType == null &&
+        !options.headers.containsKey('Content-Type')) {
+      options.headers['Content-Type'] = 'application/json';
+    }
 
     final String? token = await _store.readToken();
     if (token != null && token.isNotEmpty) {

@@ -20,4 +20,12 @@ router.get(
   c.libro
 );
 
+router.get(
+  '/plantilla.xlsx',
+  auth.requireAuth,
+  auth.requireSemillero,
+  auth.requireTesorero,
+  c.plantilla
+);
+
 module.exports = router;

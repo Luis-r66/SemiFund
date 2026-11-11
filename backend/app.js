@@ -12,6 +12,7 @@ const auth = require('./routes/auth');
 const semilleros = require('./routes/semilleros');
 const reports = require('./routes/reports');
 const audit = require('./routes/audit');
+const imports = require('./routes/imports');
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/expenses', requireAuth, requireSemillero, expenses);
 app.use('/api/balance', requireAuth, requireSemillero, balance);
 app.use('/api/reports', reports);
 app.use('/api/audit', requireAuth, requireSemillero, requireTesorero, audit);
+app.use('/api/import', requireAuth, requireSemillero, requireTesorero, imports);
 
 // 404 para rutas no definidas (siempre JSON)
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));

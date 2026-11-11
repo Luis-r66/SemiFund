@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/abono.dart';
 import '../../models/contribution.dart';
+import '../../models/import_result.dart';
 import '../../providers/contributions_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../services/management_service.dart';
@@ -22,6 +24,7 @@ import '../../widgets/form_controls.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
+import 'excel_import_sheet.dart';
 
 class ContributionsScreen extends StatefulWidget {
   const ContributionsScreen({super.key});
@@ -32,9 +35,13 @@ class ContributionsScreen extends StatefulWidget {
 
 enum _Tab { todos, pendiente, vencido, reportado }
 
+/// El backend rechaza archivos de más de 8 MB; validarlo aquí da un aviso claro.
+const int _maxArchivoImportacion = 8 * 1024 * 1024;
+
 class _ContributionsScreenState extends State<ContributionsScreen> {
   _Tab _tab = _Tab.todos;
   bool _exporting = false;
+  bool _importing = false;
 
   @override
   void initState() {
@@ -276,9 +283,26 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     }
   }
 
-  Future<void> _export(
-    Future<CsvDownload> Function(ContributionsProvider provider) fetch,
-  ) async {
+  Future<void> _export(String format) async {
+    final bool excel = format != 'csv';
+    await _shareFile(
+      (ContributionsProvider provider) =>
+          excel ? provider.exportExcel() : provider.exportCsv(),
+      mimeType: excel ? xlsxMimeType : 'text/csv',
+    );
+  }
+
+  Future<void> _downloadTemplate() {
+    return _shareFile(
+      (ContributionsProvider provider) => provider.downloadTemplate(),
+      mimeType: xlsxMimeType,
+    );
+  }
+
+  Future<void> _shareFile(
+    Future<CsvDownload> Function(ContributionsProvider provider) fetch, {
+    required String mimeType,
+  }) async {
     setState(() => _exporting = true);
     try {
       final CsvDownload file = await fetch(
@@ -287,11 +311,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: <XFile>[
-            XFile.fromData(
-              file.bytes,
-              mimeType: 'text/csv',
-              name: file.filename,
-            ),
+            XFile.fromData(file.bytes, mimeType: mimeType, name: file.filename),
           ],
           downloadFallbackEnabled: true,
         ),
@@ -302,6 +322,102 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
           .showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _pickImport() async {
+    if (_importing) return;
+
+    final PlatformFile? file = await FilePicker.pickFile(
+      dialogTitle: 'Elige la plantilla de SemiFund',
+      type: FileType.custom,
+      allowedExtensions: <String>['xlsx'],
+    );
+    if (file == null) return;
+
+    final int? tamano = await file.length();
+    if (tamano != null && tamano > _maxArchivoImportacion) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El archivo supera el límite de 8 MB.')),
+      );
+      return;
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo leer el archivo seleccionado.'),
+        ),
+      );
+      return;
+    }
+
+    if (bytes.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('El archivo está vacío.')));
+      return;
+    }
+    if (bytes.length > _maxArchivoImportacion) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El archivo supera el límite de 8 MB.')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final ContributionsProvider provider = context
+        .read<ContributionsProvider>();
+    setState(() => _importing = true);
+    try {
+      final ImportPreview preview = await provider.previewImport(bytes);
+      if (!mounted) return;
+      if (preview.totales.nuevos == 0 && preview.totales.errores == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No hay filas nuevas. La plantilla solo tiene registros existentes.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final ImportResult? imported = await showModalBottomSheet<ImportResult>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (BuildContext sheetContext) => ExcelImportSheet(
+          preview: preview,
+          onConfirm: () => provider.confirmImport(bytes),
+        ),
+      );
+      if (imported == null || !mounted) return;
+
+      await provider.refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(imported.mensaje)));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo procesar el archivo. Intenta de nuevo.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _importing = false);
     }
   }
 
@@ -329,15 +445,31 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                           icon: const Icon(LucideIcons.calendarPlus, size: 20),
                         ),
                         PopupMenuButton<String>(
-                          tooltip: 'Exportar',
-                          enabled: !_exporting,
-                          onSelected: (String format) => _export(
-                            (ContributionsProvider provider) => format == 'xlsx'
-                                ? provider.exportExcel()
-                                : provider.exportCsv(),
-                          ),
+                          tooltip: 'Excel y exportaciones',
+                          enabled: !_exporting && !_importing,
+                          onSelected: (String option) {
+                            switch (option) {
+                              case 'plantilla':
+                                _downloadTemplate();
+                                break;
+                              case 'importar':
+                                _pickImport();
+                                break;
+                              default:
+                                _export(option);
+                            }
+                          },
                           itemBuilder: (BuildContext context) =>
                               const <PopupMenuEntry<String>>[
+                                PopupMenuItem<String>(
+                                  value: 'plantilla',
+                                  child: Text('Descargar plantilla Excel'),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'importar',
+                                  child: Text('Importar Excel'),
+                                ),
+                                PopupMenuDivider(),
                                 PopupMenuItem<String>(
                                   value: 'xlsx',
                                   child: Text('Excel (libro completo)'),
@@ -347,7 +479,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                                   child: Text('CSV (movimientos)'),
                                 ),
                               ],
-                          icon: _exporting
+                          icon: _exporting || _importing
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
