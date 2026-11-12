@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/input_formatters.dart';
 import '../../models/member.dart';
 import '../../providers/members_provider.dart';
@@ -151,6 +152,15 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                 title: _isEdit ? 'Editar integrante' : 'Nuevo integrante',
                 onBack: () => context.pop(),
               ),
+              if (!_isEdit)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                  child: Text(
+                    'Esta ficha es para alguien que aún no tiene cuenta. '
+                    'Si ya se registró, usa la opción Invitar integrantes.',
+                    style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+                  ),
+                ),
               Expanded(
                 child: _loading
                     ? const LoadingView()

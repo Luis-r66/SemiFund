@@ -197,6 +197,25 @@ class _MemberTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (!member.esCuentaVinculada) ...<Widget>[
+                      const SizedBox(height: 5),
+                      Row(
+                        children: <Widget>[
+                          const Icon(
+                            LucideIcons.userX,
+                            size: 13,
+                            color: AppColors.ink3,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Sin cuenta',
+                            style: AppTextStyles.tiny.copyWith(
+                              color: AppColors.ink3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

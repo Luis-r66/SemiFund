@@ -188,15 +188,20 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                             ),
                           ),
                         ),
-                        if (member.esCuentaVinculada) ...<Widget>[
-                          const SizedBox(height: 10),
+                        const SizedBox(height: 10),
+                        if (member.esCuentaVinculada)
                           Text(
                             'Los datos académicos se editan desde el perfil de la cuenta.',
                             style: AppTextStyles.small.copyWith(
                               color: AppColors.ink3,
                             ),
+                          )
+                        else
+                          _NoAccountNote(
+                            onInvite: isTreasurer
+                                ? () => context.push('/invite')
+                                : null,
                           ),
-                        ],
                         const SizedBox(height: 24),
                         SecondaryButton(
                           label: 'Estado de cuenta',
@@ -271,6 +276,49 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Aviso para fichas que no tienen cuenta vinculada, con atajo para invitar.
+class _NoAccountNote extends StatelessWidget {
+  const _NoAccountNote({this.onInvite});
+
+  final VoidCallback? onInvite;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      decoration: BoxDecoration(
+        color: AppColors.mist,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Ficha sin cuenta', style: AppTextStyles.smallSemibold),
+          const SizedBox(height: 3),
+          Text(
+            'Esta persona todavía no puede entrar a la app; '
+            'sus aportes los registra el tesorero.',
+            style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+          ),
+          if (onInvite != null)
+            TextButton.icon(
+              onPressed: onInvite,
+              icon: const Icon(LucideIcons.userPlus, size: 16),
+              label: const Text('Invitar integrante'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.ink,
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 34),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+        ],
       ),
     );
   }

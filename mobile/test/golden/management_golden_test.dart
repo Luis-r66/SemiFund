@@ -26,6 +26,7 @@ import 'package:semi_fund/screens/expenses/expense_form_screen.dart';
 import 'package:semi_fund/screens/expenses/expenses_screen.dart';
 import 'package:semi_fund/screens/invite/invite_screen.dart';
 import 'package:semi_fund/screens/members/member_detail_screen.dart';
+import 'package:semi_fund/screens/members/member_form_screen.dart';
 import 'package:semi_fund/screens/members/members_screen.dart';
 import 'package:semi_fund/services/auth_service.dart';
 import 'package:semi_fund/services/dashboard_service.dart';
@@ -351,6 +352,19 @@ void main() {
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/desktop_members.png'),
+    );
+  });
+
+  testWidgets('member form', (WidgetTester tester) async {
+    await golden(
+      tester,
+      const MemberFormScreen(),
+      name: 'member_form',
+      extra: <ChangeNotifierProvider<ChangeNotifier>>[
+        ChangeNotifierProvider<MembersProvider>(
+          create: (_) => MembersProvider(reads, writes),
+        ),
+      ],
     );
   });
 
