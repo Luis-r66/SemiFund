@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 const errorHandler = require('./middleware/errorHandler');
@@ -25,6 +26,11 @@ app.use(morgan('dev'));
 
 // Salud para verificar que el backend está vivo
 app.get('/health', (req, res) => res.status(200).json({ ok: true }));
+
+// Páginas públicas que pide la pantalla de consentimiento de Google.
+// La app Android consume /api/*; estas dos rutas solo son informativas.
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/privacidad', (req, res) => res.sendFile(path.join(__dirname, 'public', 'privacidad.html')));
 
 // Rutas de autenticación (públicas, sin token previo)
 app.use('/api/auth', auth);

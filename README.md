@@ -174,6 +174,14 @@ npm test    # 34 pruebas
 - Botón **Continuar con Google** en login y registro.
 - Si la pantalla de consentimiento está en modo *Testing*, agrega tu correo como usuario de prueba en Google Cloud Console.
 
+Para publicar la app en Google Cloud Console se usan estas páginas del backend:
+
+- Página principal: `https://semifund-api.onrender.com/`
+- Política de privacidad: `https://semifund-api.onrender.com/privacidad`
+- Dominio autorizado: `semifund-api.onrender.com`
+
+Los archivos están en `backend/public/` y también hay una copia en `PRIVACIDAD.md`. Google exige ambas URLs para habilitar **Publicar app** cuando la app pasa de *Testing* a *In production*.
+
 ## Comprobantes de abonos con Cloudinary
 
 - En el detalle de un aporte, cada abono tiene **Adjuntar comprobante** (integrante dueño o tesorero).
