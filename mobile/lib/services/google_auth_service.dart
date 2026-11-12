@@ -12,18 +12,31 @@ class GoogleAuthException implements Exception {
   String toString() => message;
 }
 
-/// Obtiene el idToken de Google en Android.
-/// El backend valida ese token con el Web Client ID; aquí no se guarda nada.
+/// Obtiene el idToken de Google.
+/// En Android el Web Client ID viaja como `serverClientId`; en web es además
+/// el `clientId` del propio cliente JavaScript. El backend valida ese token.
 class GoogleAuthService {
-  bool _inicializado = false;
+  static Future<void>? _inicializacion;
+
+  /// Deja listo el cliente de Google. Conviene llamarlo al arrancar la web:
+  /// si el script se carga después del clic, el navegador puede bloquear la
+  /// ventana emergente del selector de cuentas.
+  static Future<void> preparar() {
+    return _inicializacion ??= GoogleSignIn.instance
+        .initialize(
+          clientId: AppConfig.googleWebClientId,
+          serverClientId: AppConfig.googleWebClientId,
+        )
+        .catchError((Object _) {
+          // Se reintenta en el siguiente intento de inicio de sesión.
+          _inicializacion = null;
+        });
+  }
 
   Future<String?> obtenerIdToken() async {
     final GoogleSignIn google = GoogleSignIn.instance;
     try {
-      if (!_inicializado) {
-        await google.initialize(serverClientId: AppConfig.googleWebClientId);
-        _inicializado = true;
-      }
+      await preparar();
       final GoogleSignInAccount cuenta = await google.authenticate();
       final String? idToken = cuenta.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {

@@ -13,6 +13,7 @@ import '../../widgets/app_text_field.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/google_sign_in_button.dart';
+import '../../widgets/ios_google_notice.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -135,7 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _googleSubmit() async {
+  Future<void> _googleSubmit({String? idToken}) async {
     FocusScope.of(context).unfocus();
     setState(() {
       _error = null;
@@ -143,9 +144,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final String? idToken = await _google.obtenerIdToken();
-      if (idToken == null || !mounted) return;
-      await context.read<SessionProvider>().loginWithGoogle(idToken);
+      final String? token = idToken ?? await _google.obtenerIdToken();
+      if (token == null || !mounted) return;
+      await context.read<SessionProvider>().loginWithGoogle(token);
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = error.message);
@@ -155,7 +156,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(
-        () => _error = 'No se pudo crear la cuenta con Google. Intenta de nuevo.',
+        () =>
+            _error = 'No se pudo crear la cuenta con Google. Intenta de nuevo.',
       );
     } finally {
       if (mounted) setState(() => _googleBusy = false);
@@ -321,7 +323,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   GoogleSignInButton(
                     loading: _googleBusy,
                     onPressed: session.isBusy ? null : _googleSubmit,
+                    onIdToken: (String token) => _googleSubmit(idToken: token),
+                    onError: (String message) =>
+                        setState(() => _error = message),
                   ),
+                  const IosGoogleNotice(),
                 ],
               ),
             ),
