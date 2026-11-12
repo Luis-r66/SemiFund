@@ -191,14 +191,29 @@ El `idToken` se obtiene con `clientId` y `serverClientId` iguales al Web Client 
 
 ## Versión web
 
-- URL: `https://luis-r66.github.io/SemiFund/`
-- Es la misma aplicación Flutter compilada para navegador. El workflow `.github/workflows/flutter-web.yml` la publica en GitHub Pages en cada push que toque `mobile/**`.
-- Consume la misma API de Render: `https://semifund-api.onrender.com/api`.
-- En escritorio el contenido se limita a 1100 px y el login/registro usan un panel de marca a la izquierda. Por debajo de 1024 px se mantiene el diseño móvil.
-- La sesión se guarda en `localStorage`. Excel, CSV y PDF se descargan con el navegador, y los comprobantes se abren en una pestaña nueva.
-- La PWA ya no fuerza orientación vertical.
+Hay dos aplicaciones en el mismo GitHub Pages:
 
-Para probar en local:
+- `https://luis-r66.github.io/SemiFund/` — **app de iPhone**, congelada. Es la versión móvil de siempre, publicada desde la rama `iphone`, con el arreglo del botón de Google y un aviso para entrar con correo y contraseña cuando está instalada en la pantalla de inicio.
+- `https://luis-r66.github.io/SemiFund/web/` — **web de escritorio**, publicada desde `main`. Login y registro en un recuadro centrado, inicio con rejilla de accesos y contenido limitado a 1100 px. Por debajo de 1024 px se mantiene el diseño móvil.
+
+Detalles:
+
+- Ambas son la misma aplicación Flutter compilada para navegador y consumen la API de Render: `https://semifund-api.onrender.com/api`.
+- El workflow `.github/workflows/flutter-web.yml` compila las dos y las publica en un solo despliegue. La rama `iphone` solo se compila; no se le aplican cambios de `main`.
+- La rama `iphone` no debe recibir el layout de escritorio: es la que usan los iPhone.
+- La sesión se guarda en `localStorage`. Excel, CSV y PDF se descargan con el navegador, y los comprobantes se abren en una pestaña nueva.
+
+### Instalar en iPhone
+
+1. Abrir `https://luis-r66.github.io/SemiFund/` **en Safari** (Chrome y Firefox en iOS no permiten instalarla).
+2. Compartir → **Añadir a pantalla de inicio**.
+3. Queda como una app con su ícono; abre a pantalla completa.
+
+No hay app nativa de iOS: eso exigiría Apple Developer (99 USD/año) y un Mac. La PWA es la vía disponible.
+
+Dentro de la app instalada conviene entrar con **correo y contraseña**: iOS puede no devolver el control después del selector de cuentas de Google. En Safari normal, Google sí funciona.
+
+Para probar en local (web de escritorio):
 
 ```bash
 cd mobile
@@ -206,9 +221,18 @@ flutter run -d chrome --web-port 8080 \
   --dart-define=API_BASE_URL=https://semifund-api.onrender.com/api
 ```
 
-Para generar el build que publica GitHub Pages:
+Para generar el build de escritorio:
 
 ```bash
+flutter build web --release --base-href /SemiFund/web/ \
+  --dart-define=API_BASE_URL=https://semifund-api.onrender.com/api
+```
+
+Para regenerar el build de iPhone (rama congelada):
+
+```bash
+git checkout iphone
+cd mobile
 flutter build web --release --base-href /SemiFund/ \
   --dart-define=API_BASE_URL=https://semifund-api.onrender.com/api
 ```

@@ -15,52 +15,57 @@ class AuthBrandPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: AppColors.ink,
-      child: SafeArea(
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final bool narrow = constraints.maxWidth < 480;
-            final double horizontal = narrow ? 36 : 56;
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool narrow = constraints.maxWidth < 420;
+          final double horizontal = narrow ? 32 : 48;
 
-            return Padding(
-              padding: EdgeInsets.fromLTRB(horizontal, 44, horizontal, 36),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const AppLogo(size: 48, showLabel: false, light: true),
-                  const Spacer(),
-                  Text(
-                    'La tesorería de tu semillero, clara y compartida.',
-                    style: AppTextStyles.display.copyWith(
-                      color: AppColors.paper,
-                      fontSize: narrow ? 30 : 38,
-                      height: 1.12,
-                    ),
+          return Padding(
+            padding: EdgeInsets.fromLTRB(horizontal, 36, horizontal, 30),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const AppLogo(size: 44, showLabel: false, light: true),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'La tesorería de tu semillero, clara y compartida.',
+                        style: AppTextStyles.display.copyWith(
+                          color: AppColors.paper,
+                          fontSize: narrow ? 26 : 32,
+                          height: 1.14,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      const _BrandBenefit(
+                        text: 'Saldo, aportes y gastos en un solo lugar.',
+                      ),
+                      const SizedBox(height: 12),
+                      const _BrandBenefit(
+                        text: 'Cada integrante ve lo mismo, sin hojas de cálculo sueltas.',
+                      ),
+                      const SizedBox(height: 12),
+                      const _BrandBenefit(
+                        text: 'Comprobantes y estados de cuenta listos para descargar.',
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 28),
-                  const _BrandBenefit(
-                    text: 'Saldo, aportes y gastos en un solo lugar.',
+                ),
+                Text(
+                  'SEMIFUND · GESTIÓN DE TESORERÍA',
+                  style: AppTextStyles.label.copyWith(
+                    color: _onDark,
+                    letterSpacing: 1.2,
                   ),
-                  const SizedBox(height: 14),
-                  const _BrandBenefit(
-                    text: 'Cada integrante ve lo mismo, sin hojas de cálculo sueltas.',
-                  ),
-                  const SizedBox(height: 14),
-                  const _BrandBenefit(
-                    text: 'Comprobantes y estados de cuenta listos para descargar.',
-                  ),
-                  const Spacer(),
-                  Text(
-                    'SEMIFUND · GESTIÓN DE TESORERÍA',
-                    style: AppTextStyles.label.copyWith(
-                      color: _onDark,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

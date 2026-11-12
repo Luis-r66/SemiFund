@@ -21,9 +21,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
 
@@ -33,28 +30,58 @@ jobs:
           flutter-version: "3.47.8"
           cache: true
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias (web de escritorio)
+        working-directory: mobile
         run: flutter pub get
 
       - name: Analizar
+        working-directory: mobile
         run: flutter analyze
 
       - name: Pruebas (sin golden)
+        working-directory: mobile
         run: >-
           flutter test test/core test/models test/providers
           test/app_navigation_test.dart test/app_desktop_layout_test.dart
 
-      - name: Compilar web
+      - name: Compilar web de escritorio
+        working-directory: mobile
+        run: >-
+          flutter build web --release
+          --base-href /SemiFund/web/
+          --dart-define=API_BASE_URL=https://semifund-api.onrender.com/api
+
+      - name: Preparar Pages con la web nueva
+        run: |
+          mkdir -p pages
+          cp -r mobile/build/web pages/web
+
+      # La raíz del sitio queda congelada para la PWA de iPhone.
+      - name: Traer la app de iPhone
+        uses: actions/checkout@v4
+        with:
+          ref: iphone
+          path: legacy
+
+      - name: Instalar dependencias (iPhone)
+        working-directory: legacy/mobile
+        run: flutter pub get
+
+      - name: Compilar app de iPhone
+        working-directory: legacy/mobile
         run: >-
           flutter build web --release
           --base-href /SemiFund/
           --dart-define=API_BASE_URL=https://semifund-api.onrender.com/api
 
+      - name: Unir la app de iPhone en la raíz
+        run: cp -r legacy/mobile/build/web/. pages/
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: mobile/build/web
+          path: pages
 
   deploy:
     needs: build

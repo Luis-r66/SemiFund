@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
@@ -439,140 +440,145 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(
-              title: 'Aportes',
-              onBack: () => context.pop(),
-              trailing: isTreasurer
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        IconButton(
-                          tooltip: 'Cuotas del mes',
-                          onPressed: _openBulk,
-                          icon: const Icon(LucideIcons.calendarPlus, size: 20),
-                        ),
-                        PopupMenuButton<String>(
-                          tooltip: 'Excel y exportaciones',
-                          enabled: !_exporting && !_importing,
-                          onSelected: (String option) {
-                            switch (option) {
-                              case 'plantilla':
-                                _downloadTemplate();
-                                break;
-                              case 'importar':
-                                _pickImport();
-                                break;
-                              default:
-                                _export(option);
-                            }
-                          },
-                          itemBuilder: (BuildContext context) =>
-                              const <PopupMenuEntry<String>>[
-                                PopupMenuItem<String>(
-                                  value: 'plantilla',
-                                  child: Text('Descargar plantilla Excel'),
-                                ),
-                                PopupMenuItem<String>(
-                                  value: 'importar',
-                                  child: Text('Importar Excel'),
-                                ),
-                                PopupMenuDivider(),
-                                PopupMenuItem<String>(
-                                  value: 'xlsx',
-                                  child: Text('Excel (libro completo)'),
-                                ),
-                                PopupMenuItem<String>(
-                                  value: 'csv',
-                                  child: Text('CSV (movimientos)'),
-                                ),
-                              ],
-                          icon: _exporting || _importing
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(
-                                  LucideIcons.fileSpreadsheet,
-                                  size: 20,
-                                ),
-                        ),
-                        RoundAddButton(
-                          onPressed: () => context.push('/contributions/new'),
-                        ),
-                      ],
-                    )
-                  : null,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: SegmentedTabs<_Tab>(
-                options: _Tab.values,
-                selected: _tab,
-                labelOf: _labelFor,
-                onChanged: _select,
-              ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: contributions.refresh,
-                color: AppColors.ink,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  children: <Widget>[
-                    if (contributions.error != null) ...<Widget>[
-                      ErrorBanner(
-                        message: contributions.error!,
-                        onRetry: contributions.refresh,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (contributions.loading && contributions.items.isEmpty)
-                      const SizedBox(height: 360, child: LoadingView())
-                    else if (contributions.items.isEmpty)
-                      const EmptyState(
-                        icon: LucideIcons.wallet,
-                        title: 'Sin aportes',
-                        message: 'No hay aportes para este filtro.',
-                      )
-                    else ...<Widget>[
-                      SectionLabel(
-                        '${contributions.items.length} ${contributions.items.length == 1 ? 'registro' : 'registros'}',
-                      ),
-                      for (final Contribution item in contributions.items)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _ContributionTile(
-                            name: contributions.memberName(item.integranteId),
-                            contribution: item,
-                            canRegister:
-                                isTreasurer &&
-                                !item.isPaid &&
-                                !item.hasAbonoReportado,
-                            canPayTotal:
-                                isTreasurer &&
-                                !item.isPaid &&
-                                !item.hasAbonoReportado,
-                            canReport: !isTreasurer && item.canReport,
-                            canReview: isTreasurer && item.hasAbonoReportado,
-                            onDetail: () => _openDetail(item),
-                            onRegister: () => _registerAbono(item),
-                            onPayTotal: () => _pay(item),
-                            onReport: () => _reportAbono(item),
-                            onReview: () => _openDetail(item),
+        child: AppContent(
+          child: Column(
+            children: <Widget>[
+              AppTopBar(
+                title: 'Aportes',
+                onBack: () => context.pop(),
+                trailing: isTreasurer
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          IconButton(
+                            tooltip: 'Cuotas del mes',
+                            onPressed: _openBulk,
+                            icon: const Icon(
+                              LucideIcons.calendarPlus,
+                              size: 20,
+                            ),
                           ),
-                        ),
-                    ],
-                  ],
+                          PopupMenuButton<String>(
+                            tooltip: 'Excel y exportaciones',
+                            enabled: !_exporting && !_importing,
+                            onSelected: (String option) {
+                              switch (option) {
+                                case 'plantilla':
+                                  _downloadTemplate();
+                                  break;
+                                case 'importar':
+                                  _pickImport();
+                                  break;
+                                default:
+                                  _export(option);
+                              }
+                            },
+                            itemBuilder: (BuildContext context) =>
+                                const <PopupMenuEntry<String>>[
+                                  PopupMenuItem<String>(
+                                    value: 'plantilla',
+                                    child: Text('Descargar plantilla Excel'),
+                                  ),
+                                  PopupMenuItem<String>(
+                                    value: 'importar',
+                                    child: Text('Importar Excel'),
+                                  ),
+                                  PopupMenuDivider(),
+                                  PopupMenuItem<String>(
+                                    value: 'xlsx',
+                                    child: Text('Excel (libro completo)'),
+                                  ),
+                                  PopupMenuItem<String>(
+                                    value: 'csv',
+                                    child: Text('CSV (movimientos)'),
+                                  ),
+                                ],
+                            icon: _exporting || _importing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    LucideIcons.fileSpreadsheet,
+                                    size: 20,
+                                  ),
+                          ),
+                          RoundAddButton(
+                            onPressed: () => context.push('/contributions/new'),
+                          ),
+                        ],
+                      )
+                    : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: SegmentedTabs<_Tab>(
+                  options: _Tab.values,
+                  selected: _tab,
+                  labelOf: _labelFor,
+                  onChanged: _select,
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: contributions.refresh,
+                  color: AppColors.ink,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                    children: <Widget>[
+                      if (contributions.error != null) ...<Widget>[
+                        ErrorBanner(
+                          message: contributions.error!,
+                          onRetry: contributions.refresh,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (contributions.loading && contributions.items.isEmpty)
+                        const SizedBox(height: 360, child: LoadingView())
+                      else if (contributions.items.isEmpty)
+                        const EmptyState(
+                          icon: LucideIcons.wallet,
+                          title: 'Sin aportes',
+                          message: 'No hay aportes para este filtro.',
+                        )
+                      else ...<Widget>[
+                        SectionLabel(
+                          '${contributions.items.length} ${contributions.items.length == 1 ? 'registro' : 'registros'}',
+                        ),
+                        for (final Contribution item in contributions.items)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _ContributionTile(
+                              name: contributions.memberName(item.integranteId),
+                              contribution: item,
+                              canRegister:
+                                  isTreasurer &&
+                                  !item.isPaid &&
+                                  !item.hasAbonoReportado,
+                              canPayTotal:
+                                  isTreasurer &&
+                                  !item.isPaid &&
+                                  !item.hasAbonoReportado,
+                              canReport: !isTreasurer && item.canReport,
+                              canReview: isTreasurer && item.hasAbonoReportado,
+                              onDetail: () => _openDetail(item),
+                              onRegister: () => _registerAbono(item),
+                              onPayTotal: () => _pay(item),
+                              onReport: () => _reportAbono(item),
+                              onReview: () => _openDetail(item),
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

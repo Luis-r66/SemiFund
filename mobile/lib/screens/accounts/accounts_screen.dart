@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
@@ -50,70 +51,75 @@ class _AccountsScreenState extends State<AccountsScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(title: 'Cuentas', onBack: () => context.pop()),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: accounts.load,
-                color: AppColors.ink,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  children: <Widget>[
-                    if (accounts.error != null) ...<Widget>[
-                      ErrorBanner(
-                        message: accounts.error!,
-                        onRetry: accounts.load,
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (accounts.loading && accounts.accounts.isEmpty)
-                      const SizedBox(height: 360, child: LoadingView())
-                    else ...<Widget>[
-                      SectionLabel(
-                        'Solicitudes pendientes · ${accounts.pending.length}',
-                      ),
-                      if (accounts.pending.isEmpty)
-                        _Hint('No hay solicitudes pendientes.')
-                      else
+        child: AppContent(
+          child: Column(
+            children: <Widget>[
+              AppTopBar(title: 'Cuentas', onBack: () => context.pop()),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: accounts.load,
+                  color: AppColors.ink,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                    children: <Widget>[
+                      if (accounts.error != null) ...<Widget>[
+                        ErrorBanner(
+                          message: accounts.error!,
+                          onRetry: accounts.load,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      if (accounts.loading && accounts.accounts.isEmpty)
+                        const SizedBox(height: 360, child: LoadingView())
+                      else ...<Widget>[
+                        SectionLabel(
+                          'Solicitudes pendientes · ${accounts.pending.length}',
+                        ),
+                        if (accounts.pending.isEmpty)
+                          _Hint('No hay solicitudes pendientes.')
+                        else
+                          for (final MembershipAccount account
+                              in accounts.pending)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _PendingCard(
+                                account: account,
+                                busy: accounts.isBusy(account.id),
+                                onApprove: () =>
+                                    _run(() => accounts.approve(account)),
+                                onReject: () =>
+                                    _run(() => accounts.reject(account)),
+                              ),
+                            ),
+                        const SizedBox(height: 22),
+                        SectionLabel(
+                          'Integrantes con cuenta · ${accounts.members.length}',
+                        ),
                         for (final MembershipAccount account
-                            in accounts.pending)
+                            in accounts.members)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: _PendingCard(
+                            child: _MemberCard(
                               account: account,
+                              isMe: account.usuario?.id == myUserId,
+                              treasurerCount: accounts.activeTreasurers,
                               busy: accounts.isBusy(account.id),
-                              onApprove: () =>
-                                  _run(() => accounts.approve(account)),
-                              onReject: () =>
-                                  _run(() => accounts.reject(account)),
+                              onSetTreasurer: (bool value) => _run(
+                                () => accounts.setTreasurer(
+                                  account,
+                                  value: value,
+                                ),
+                              ),
                             ),
                           ),
-                      const SizedBox(height: 22),
-                      SectionLabel(
-                        'Integrantes con cuenta · ${accounts.members.length}',
-                      ),
-                      for (final MembershipAccount account in accounts.members)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _MemberCard(
-                            account: account,
-                            isMe: account.usuario?.id == myUserId,
-                            treasurerCount: accounts.activeTreasurers,
-                            busy: accounts.isBusy(account.id),
-                            onSetTreasurer: (bool value) => _run(
-                              () =>
-                                  accounts.setTreasurer(account, value: value),
-                            ),
-                          ),
-                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

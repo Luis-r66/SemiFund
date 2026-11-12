@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'core/layout/app_layout.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/session_provider.dart';
@@ -46,24 +44,7 @@ class _SemiFundAppState extends State<SemiFundApp> {
       ],
       routerConfig: _appRouter.router,
       builder: (BuildContext context, Widget? child) {
-        final Widget app = child ?? const SizedBox.shrink();
-        // En web la app ocupa todo el ancho del navegador, con un límite
-        // cómodo de lectura en pantallas grandes. Las pantallas de acceso
-        // reparten ese ancho en dos columnas.
-        final Widget content = kIsWeb
-            ? ColoredBox(
-                color: AppColors.paper,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppLayout.contentMaxWidth,
-                    ),
-                    child: SizedBox.expand(child: app),
-                  ),
-                ),
-              )
-            : app;
+        final Widget content = child ?? const SizedBox.shrink();
 
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(

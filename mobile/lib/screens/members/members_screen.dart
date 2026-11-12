@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/member.dart';
@@ -61,81 +62,85 @@ class _MembersScreenState extends State<MembersScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(
-              title: 'Integrantes',
-              onBack: () => context.pop(),
-              trailing: isTreasurer
-                  ? RoundAddButton(
-                      onPressed: () => context.push('/members/new'),
-                    )
-                  : null,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: SearchField(
-                controller: _search,
-                hintText: 'Buscar integrante',
-              ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: members.load,
-                color: AppColors.ink,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                  children: <Widget>[
-                    if (members.error != null) ...<Widget>[
-                      ErrorBanner(
-                        message: members.error!,
-                        onRetry: members.load,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (members.loading && members.members.isEmpty)
-                      const SizedBox(height: 360, child: LoadingView())
-                    else if (members.members.isEmpty)
-                      const EmptyState(
-                        icon: LucideIcons.users,
-                        title: 'Aún no hay integrantes',
-                        message: 'Cuando agregues integrantes aparecerán aquí.',
+        child: AppContent(
+          child: Column(
+            children: <Widget>[
+              AppTopBar(
+                title: 'Integrantes',
+                onBack: () => context.pop(),
+                trailing: isTreasurer
+                    ? RoundAddButton(
+                        onPressed: () => context.push('/members/new'),
                       )
-                    else ...<Widget>[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-                        child: Text(
-                          '${visible.length} ${visible.length == 1 ? 'integrante' : 'integrantes'}'
-                              .toUpperCase(),
-                          style: AppTextStyles.label,
-                        ),
-                      ),
-                      if (visible.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text(
-                            'Sin resultados para "${_search.text.trim()}"',
-                            textAlign: TextAlign.center,
-                            style: AppTextStyles.small.copyWith(
-                              color: AppColors.ink3,
-                            ),
-                          ),
-                        ),
-                      for (final Member member in visible)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _MemberTile(
-                            member: member,
-                            onTap: () => context.push('/members/${member.id}'),
-                          ),
-                        ),
-                    ],
-                  ],
+                    : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: SearchField(
+                  controller: _search,
+                  hintText: 'Buscar integrante',
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: members.load,
+                  color: AppColors.ink,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    children: <Widget>[
+                      if (members.error != null) ...<Widget>[
+                        ErrorBanner(
+                          message: members.error!,
+                          onRetry: members.load,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (members.loading && members.members.isEmpty)
+                        const SizedBox(height: 360, child: LoadingView())
+                      else if (members.members.isEmpty)
+                        const EmptyState(
+                          icon: LucideIcons.users,
+                          title: 'Aún no hay integrantes',
+                          message:
+                              'Cuando agregues integrantes aparecerán aquí.',
+                        )
+                      else ...<Widget>[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                          child: Text(
+                            '${visible.length} ${visible.length == 1 ? 'integrante' : 'integrantes'}'
+                                .toUpperCase(),
+                            style: AppTextStyles.label,
+                          ),
+                        ),
+                        if (visible.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Text(
+                              'Sin resultados para "${_search.text.trim()}"',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.small.copyWith(
+                                color: AppColors.ink3,
+                              ),
+                            ),
+                          ),
+                        for (final Member member in visible)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _MemberTile(
+                              member: member,
+                              onTap: () =>
+                                  context.push('/members/${member.id}'),
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
