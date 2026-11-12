@@ -18,7 +18,7 @@ class AuthScaffold extends StatelessWidget {
 
   /// Ancho y alto máximos del recuadro de escritorio.
   static const double _cardMaxWidth = 1000;
-  static const double _cardMaxHeight = 740;
+  static const double _cardMaxHeight = 780;
   static const double _cardMargin = 64;
   static const double _cardRadius = 20;
 
@@ -101,21 +101,79 @@ class AuthScaffold extends StatelessWidget {
 
 /// Columna derecha del recuadro: centra el formulario y deja que se desplace
 /// cuando no cabe en el alto disponible.
-class _FormPane extends StatelessWidget {
+class _FormPane extends StatefulWidget {
   const _FormPane({required this.form, required this.actions});
 
   final Widget form;
   final Widget actions;
 
+  @override
+  State<_FormPane> createState() => _FormPaneState();
+}
+
+class _FormPaneState extends State<_FormPane> {
   static const EdgeInsets _padding = EdgeInsets.symmetric(
     horizontal: 40,
-    vertical: 24,
+    vertical: 20,
   );
+
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
+        // Si el recuadro está limitado por la altura de la ventana, los botones
+        // se quedan fijos abajo y solo el formulario se desplaza: así la acción
+        // principal nunca queda fuera de la vista en pantallas bajas.
+        if (constraints.maxHeight < AuthScaffold._cardMaxHeight) {
+          return Column(
+            children: <Widget>[
+              Expanded(
+                child: Scrollbar(
+                  controller: _scroll,
+                  thumbVisibility: true,
+                  thickness: 4,
+                  radius: const Radius.circular(4),
+                  child: SingleChildScrollView(
+                    controller: _scroll,
+                    padding: const EdgeInsets.fromLTRB(40, 20, 40, 8),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: widget.form,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Barra fija: el formulario se desplaza por detrás y la acción
+              // principal siempre queda visible, incluso en ventanas bajas.
+              DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: AppColors.paper,
+                  border: Border(top: BorderSide(color: AppColors.line)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(40, 16, 40, 20),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: widget.actions,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
         return SingleChildScrollView(
           padding: _padding,
           child: ConstrainedBox(
@@ -128,7 +186,11 @@ class _FormPane extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[form, const SizedBox(height: 20), actions],
+                  children: <Widget>[
+                    widget.form,
+                    const SizedBox(height: 20),
+                    widget.actions,
+                  ],
                 ),
               ),
             ),
