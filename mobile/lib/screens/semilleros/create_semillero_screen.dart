@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/session_provider.dart';
@@ -73,85 +74,88 @@ class _CreateSemilleroScreenState extends State<CreateSemilleroScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(title: 'Crear semillero', onBack: () => context.pop()),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    LabeledField(
-                      label: 'Nombre del semillero',
-                      child: AppTextField(
-                        controller: _nameController,
-                        hintText: 'Ej. Semillero de Desarrollo Móvil',
-                        textInputAction: TextInputAction.done,
-                        textCapitalization: TextCapitalization.sentences,
-                        onSubmitted: (_) => _submit(),
+        child: AppContent(
+          maxWidth: AppLayout.formMaxWidth,
+          child: Column(
+            children: <Widget>[
+              AppTopBar(title: 'Crear semillero', onBack: () => context.pop()),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      LabeledField(
+                        label: 'Nombre del semillero',
+                        child: AppTextField(
+                          controller: _nameController,
+                          hintText: 'Ej. Semillero de Desarrollo Móvil',
+                          textInputAction: TextInputAction.done,
+                          textCapitalization: TextCapitalization.sentences,
+                          onSubmitted: (_) => _submit(),
+                        ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.mist,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const Padding(
-                            padding: EdgeInsets.only(top: 1),
-                            child: Icon(
-                              LucideIcons.shieldCheck,
-                              size: 18,
-                              color: AppColors.ink2,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text.rich(
-                              TextSpan(
-                                text: 'Quedarás como ',
-                                style: AppTextStyles.small.copyWith(
-                                  color: AppColors.ink2,
-                                ),
-                                children: const <TextSpan>[
-                                  TextSpan(
-                                    text: 'tesorero',
-                                    style: TextStyle(
-                                      color: AppColors.ink,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '. Podrás invitar integrantes con un código de 8 caracteres y aprobar sus cuentas.',
-                                  ),
-                                ],
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.mist,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Padding(
+                              padding: EdgeInsets.only(top: 1),
+                              child: Icon(
+                                LucideIcons.shieldCheck,
+                                size: 18,
+                                color: AppColors.ink2,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  text: 'Quedarás como ',
+                                  style: AppTextStyles.small.copyWith(
+                                    color: AppColors.ink2,
+                                  ),
+                                  children: const <TextSpan>[
+                                    TextSpan(
+                                      text: 'tesorero',
+                                      style: TextStyle(
+                                        color: AppColors.ink,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: '. Podrás invitar integrantes con un código de 8 caracteres y aprobar sus cuentas.',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    if (_error != null) ...<Widget>[
-                      const SizedBox(height: 16),
-                      ErrorBanner(message: _error!),
+                      if (_error != null) ...<Widget>[
+                        const SizedBox(height: 16),
+                        ErrorBanner(message: _error!),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: 'Crear semillero',
-                loading: _loading,
-                onPressed: _canSubmit ? _submit : null,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                child: PrimaryButton(
+                  label: 'Crear semillero',
+                  loading: _loading,
+                  onPressed: _canSubmit ? _submit : null,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

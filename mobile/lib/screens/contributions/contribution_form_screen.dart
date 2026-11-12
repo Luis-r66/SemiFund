@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/member.dart';
@@ -95,74 +96,77 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(title: 'Registrar aporte', onBack: () => context.pop()),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    LabeledField(
-                      label: 'Integrante',
-                      child: SelectField<Member>(
-                        value: _member,
-                        items: active,
-                        labelOf: (Member item) => item.nombre,
-                        hintText: members.loading
-                            ? 'Cargando integrantes...'
-                            : 'Selecciona un integrante',
-                        onChanged: (Member? value) =>
-                            setState(() => _member = value),
+        child: AppContent(
+          maxWidth: AppLayout.formMaxWidth,
+          child: Column(
+            children: <Widget>[
+              AppTopBar(title: 'Registrar aporte', onBack: () => context.pop()),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      LabeledField(
+                        label: 'Integrante',
+                        child: SelectField<Member>(
+                          value: _member,
+                          items: active,
+                          labelOf: (Member item) => item.nombre,
+                          hintText: members.loading
+                              ? 'Cargando integrantes...'
+                              : 'Selecciona un integrante',
+                          onChanged: (Member? value) =>
+                              setState(() => _member = value),
+                        ),
                       ),
-                    ),
-                    LabeledField(
-                      label: 'Mes',
-                      child: SelectField<String>(
-                        value: _month,
-                        items: _months,
-                        labelOf: formatMonth,
-                        hintText: 'Selecciona el mes',
-                        onChanged: (String? value) =>
-                            setState(() => _month = value),
+                      LabeledField(
+                        label: 'Mes',
+                        child: SelectField<String>(
+                          value: _month,
+                          items: _months,
+                          labelOf: formatMonth,
+                          hintText: 'Selecciona el mes',
+                          onChanged: (String? value) =>
+                              setState(() => _month = value),
+                        ),
                       ),
-                    ),
-                    LabeledField(
-                      label: 'Monto (COP)',
-                      child: MoneyField(controller: _amount),
-                    ),
-                    LabeledField(
-                      label: 'Concepto',
-                      child: AppTextField(
-                        controller: _concept,
-                        hintText: 'Ej. Cuota mensual',
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _save(),
+                      LabeledField(
+                        label: 'Monto (COP)',
+                        child: MoneyField(controller: _amount),
                       ),
-                    ),
-                    if (members.error != null) ...<Widget>[
-                      ErrorBanner(
-                        message: members.error!,
-                        onRetry: members.load,
+                      LabeledField(
+                        label: 'Concepto',
+                        child: AppTextField(
+                          controller: _concept,
+                          hintText: 'Ej. Cuota mensual',
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _save(),
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      if (members.error != null) ...<Widget>[
+                        ErrorBanner(
+                          message: members.error!,
+                          onRetry: members.load,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (_error != null) ErrorBanner(message: _error!),
                     ],
-                    if (_error != null) ErrorBanner(message: _error!),
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: 'Registrar aporte',
-                loading: _saving,
-                onPressed: _canSave ? _save : null,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                child: PrimaryButton(
+                  label: 'Registrar aporte',
+                  loading: _saving,
+                  onPressed: _canSave ? _save : null,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

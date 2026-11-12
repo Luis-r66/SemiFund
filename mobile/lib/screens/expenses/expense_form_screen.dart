@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
@@ -130,130 +131,133 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(title: 'Nuevo gasto', onBack: () => context.pop()),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    LabeledField(
-                      label: 'Descripción',
-                      child: AppTextField(
-                        controller: _description,
-                        hintText: 'Ej. Camisetas del semillero',
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.next,
-                      ),
-                    ),
-                    LabeledField(
-                      label: 'Categoría',
-                      child: SelectField<String>(
-                        value: _category,
-                        items: expenseCategories,
-                        labelOf: (String item) => item,
-                        hintText: 'Selecciona una categoría',
-                        onChanged: (String? value) {
-                          setState(() {
-                            _category = value;
-                            if (value != 'Otros') _customCategory.clear();
-                          });
-                        },
-                      ),
-                    ),
-                    if (_category == 'Otros')
+        child: AppContent(
+          maxWidth: AppLayout.formMaxWidth,
+          child: Column(
+            children: <Widget>[
+              AppTopBar(title: 'Nuevo gasto', onBack: () => context.pop()),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
                       LabeledField(
-                        label: 'Especifica la categoría',
+                        label: 'Descripción',
                         child: AppTextField(
-                          controller: _customCategory,
-                          hintText: 'Ej. Transporte',
+                          controller: _description,
+                          hintText: 'Ej. Camisetas del semillero',
                           textCapitalization: TextCapitalization.sentences,
                           textInputAction: TextInputAction.next,
                         ),
                       ),
-                    LabeledField(
-                      label: 'Monto (COP)',
-                      child: MoneyField(controller: _amount, invalid: over),
-                    ),
-                    LabeledField(
-                      label: 'Fecha',
-                      helper: 'Solo se pueden registrar gastos de hoy.',
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: _pickDate,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.paper,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.line),
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  formatShortDate(_fecha),
-                                  style: AppTextStyles.body,
-                                ),
-                              ),
-                              const Icon(
-                                LucideIcons.calendar,
-                                size: 18,
-                                color: AppColors.ink3,
-                              ),
-                            ],
-                          ),
+                      LabeledField(
+                        label: 'Categoría',
+                        child: SelectField<String>(
+                          value: _category,
+                          items: expenseCategories,
+                          labelOf: (String item) => item,
+                          hintText: 'Selecciona una categoría',
+                          onChanged: (String? value) {
+                            setState(() {
+                              _category = value;
+                              if (value != 'Otros') _customCategory.clear();
+                            });
+                          },
                         ),
                       ),
-                    ),
-                    if (over) ...<Widget>[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: ErrorBanner(
-                          message:
-                              'Saldo insuficiente. Disponible: ${formatCop(available)}',
+                      if (_category == 'Otros')
+                        LabeledField(
+                          label: 'Especifica la categoría',
+                          child: AppTextField(
+                            controller: _customCategory,
+                            hintText: 'Ej. Transporte',
+                            textCapitalization: TextCapitalization.sentences,
+                            textInputAction: TextInputAction.next,
+                          ),
                         ),
+                      LabeledField(
+                        label: 'Monto (COP)',
+                        child: MoneyField(controller: _amount, invalid: over),
                       ),
-                    ],
-                    if (!over && _montoValue > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16, left: 4),
-                        child: Text.rich(
-                          TextSpan(
-                            text: 'Saldo tras el gasto: ',
-                            style: AppTextStyles.small.copyWith(
-                              color: AppColors.ink2,
+                      LabeledField(
+                        label: 'Fecha',
+                        helper: 'Solo se pueden registrar gastos de hoy.',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _pickDate,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 14,
                             ),
-                            children: <TextSpan>[
-                              TextSpan(
-                                text: formatCop(remaining),
-                                style: AppTextStyles.moneyTiny.copyWith(
-                                  color: AppColors.ok,
+                            decoration: BoxDecoration(
+                              color: AppColors.paper,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.line),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(
+                                    formatShortDate(_fecha),
+                                    style: AppTextStyles.body,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const Icon(
+                                  LucideIcons.calendar,
+                                  size: 18,
+                                  color: AppColors.ink3,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    if (_error != null) ErrorBanner(message: _error!),
-                  ],
+                      if (over) ...<Widget>[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: ErrorBanner(
+                            message:
+                                'Saldo insuficiente. Disponible: ${formatCop(available)}',
+                          ),
+                        ),
+                      ],
+                      if (!over && _montoValue > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16, left: 4),
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Saldo tras el gasto: ',
+                              style: AppTextStyles.small.copyWith(
+                                color: AppColors.ink2,
+                              ),
+                              children: <TextSpan>[
+                                TextSpan(
+                                  text: formatCop(remaining),
+                                  style: AppTextStyles.moneyTiny.copyWith(
+                                    color: AppColors.ok,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (_error != null) ErrorBanner(message: _error!),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: 'Guardar gasto',
-                loading: _saving,
-                onPressed: _canSave ? _save : null,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                child: PrimaryButton(
+                  label: 'Guardar gasto',
+                  loading: _saving,
+                  onPressed: _canSave ? _save : null,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

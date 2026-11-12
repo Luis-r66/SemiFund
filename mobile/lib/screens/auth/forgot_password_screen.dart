@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/session_provider.dart';
@@ -133,106 +134,109 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(
-              title: 'Recuperar contraseña',
-              onBack: () {
-                if (_codeSent) {
-                  setState(() => _codeSent = false);
-                } else {
-                  context.pop();
-                }
-              },
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      _codeSent
-                          ? 'Escribe el código que enviamos a tu correo y define una nueva contraseña.'
-                          : 'Ingresa tu correo electrónico y te enviaremos un código de recuperación.',
-                      style: AppTextStyles.small.copyWith(
-                        color: AppColors.ink2,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    if (!_codeSent) ...<Widget>[
-                      LabeledField(
-                        label: 'Correo electrónico',
-                        error: _emailError,
-                        child: AppTextField(
-                          controller: _email,
-                          hintText: 'nombre@correo.com',
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const <String>[AutofillHints.email],
-                          onSubmitted: (_) => _sendCode(),
+        child: AppContent(
+          maxWidth: AppLayout.formMaxWidth,
+          child: Column(
+            children: <Widget>[
+              AppTopBar(
+                title: 'Recuperar contraseña',
+                onBack: () {
+                  if (_codeSent) {
+                    setState(() => _codeSent = false);
+                  } else {
+                    context.pop();
+                  }
+                },
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        _codeSent
+                            ? 'Escribe el código que enviamos a tu correo y define una nueva contraseña.'
+                            : 'Ingresa tu correo electrónico y te enviaremos un código de recuperación.',
+                        style: AppTextStyles.small.copyWith(
+                          color: AppColors.ink2,
                         ),
                       ),
-                      if (_error != null) ErrorBanner(message: _error!),
-                    ] else ...<Widget>[
-                      _InfoBanner(
-                        message:
-                            'Código enviado a ${_email.text.trim()}. Si no lo encuentras, revisa spam.',
-                      ),
-                      const SizedBox(height: 18),
-                      LabeledField(
-                        label: 'Código de recuperación',
-                        error: _codeError,
-                        child: NumericCodeField(controller: _code),
-                      ),
-                      LabeledField(
-                        label: 'Nueva contraseña',
-                        error: _passwordError,
-                        child: PasswordField(
-                          controller: _password,
-                          textInputAction: TextInputAction.next,
-                          autofillHints: const <String>[
-                            AutofillHints.newPassword,
-                          ],
+                      const SizedBox(height: 24),
+                      if (!_codeSent) ...<Widget>[
+                        LabeledField(
+                          label: 'Correo electrónico',
+                          error: _emailError,
+                          child: AppTextField(
+                            controller: _email,
+                            hintText: 'nombre@correo.com',
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const <String>[AutofillHints.email],
+                            onSubmitted: (_) => _sendCode(),
+                          ),
                         ),
-                      ),
-                      LabeledField(
-                        label: 'Confirmar contraseña',
-                        error: _confirmError,
-                        child: PasswordField(
-                          controller: _confirm,
-                          hintText: 'Repite la nueva contraseña',
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const <String>[
-                            AutofillHints.newPassword,
-                          ],
-                          onSubmitted: (_) => _resetPassword(),
+                        if (_error != null) ErrorBanner(message: _error!),
+                      ] else ...<Widget>[
+                        _InfoBanner(
+                          message:
+                              'Código enviado a ${_email.text.trim()}. Si no lo encuentras, revisa spam.',
                         ),
-                      ),
-                      if (_error != null) ErrorBanner(message: _error!),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton(
-                          onPressed: _loading ? null : _sendCode,
-                          child: const Text('Reenviar código'),
+                        const SizedBox(height: 18),
+                        LabeledField(
+                          label: 'Código de recuperación',
+                          error: _codeError,
+                          child: NumericCodeField(controller: _code),
                         ),
-                      ),
+                        LabeledField(
+                          label: 'Nueva contraseña',
+                          error: _passwordError,
+                          child: PasswordField(
+                            controller: _password,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const <String>[
+                              AutofillHints.newPassword,
+                            ],
+                          ),
+                        ),
+                        LabeledField(
+                          label: 'Confirmar contraseña',
+                          error: _confirmError,
+                          child: PasswordField(
+                            controller: _confirm,
+                            hintText: 'Repite la nueva contraseña',
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const <String>[
+                              AutofillHints.newPassword,
+                            ],
+                            onSubmitted: (_) => _resetPassword(),
+                          ),
+                        ),
+                        if (_error != null) ErrorBanner(message: _error!),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton(
+                            onPressed: _loading ? null : _sendCode,
+                            child: const Text('Reenviar código'),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: _codeSent ? 'Restablecer contraseña' : 'Enviar código',
-                loading: _loading,
-                onPressed: _loading
-                    ? null
-                    : (_codeSent ? _resetPassword : _sendCode),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                child: PrimaryButton(
+                  label: _codeSent ? 'Restablecer contraseña' : 'Enviar código',
+                  loading: _loading,
+                  onPressed: _loading
+                      ? null
+                      : (_codeSent ? _resetPassword : _sendCode),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

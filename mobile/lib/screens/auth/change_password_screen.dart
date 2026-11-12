@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/session_provider.dart';
@@ -101,72 +102,78 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(title: 'Cambiar contraseña', onBack: () => context.pop()),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Confirma tu contraseña actual y define una nueva.',
-                      style: AppTextStyles.small.copyWith(
-                        color: AppColors.ink2,
+        child: AppContent(
+          maxWidth: AppLayout.formMaxWidth,
+          child: Column(
+            children: <Widget>[
+              AppTopBar(
+                title: 'Cambiar contraseña',
+                onBack: () => context.pop(),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Confirma tu contraseña actual y define una nueva.',
+                        style: AppTextStyles.small.copyWith(
+                          color: AppColors.ink2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    LabeledField(
-                      label: 'Contraseña actual',
-                      error: _currentError,
-                      child: PasswordField(
-                        controller: _current,
-                        hintText: 'Tu contraseña actual',
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const <String>[AutofillHints.password],
+                      const SizedBox(height: 24),
+                      LabeledField(
+                        label: 'Contraseña actual',
+                        error: _currentError,
+                        child: PasswordField(
+                          controller: _current,
+                          hintText: 'Tu contraseña actual',
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const <String>[AutofillHints.password],
+                        ),
                       ),
-                    ),
-                    LabeledField(
-                      label: 'Nueva contraseña',
-                      error: _newError,
-                      helper: 'Mínimo 8 caracteres',
-                      child: PasswordField(
-                        controller: _newPassword,
-                        hintText: 'Nueva contraseña',
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const <String>[
-                          AutofillHints.newPassword,
-                        ],
+                      LabeledField(
+                        label: 'Nueva contraseña',
+                        error: _newError,
+                        helper: 'Mínimo 8 caracteres',
+                        child: PasswordField(
+                          controller: _newPassword,
+                          hintText: 'Nueva contraseña',
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const <String>[
+                            AutofillHints.newPassword,
+                          ],
+                        ),
                       ),
-                    ),
-                    LabeledField(
-                      label: 'Confirmar nueva contraseña',
-                      error: _confirmError,
-                      child: PasswordField(
-                        controller: _confirm,
-                        hintText: 'Repite la nueva contraseña',
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const <String>[
-                          AutofillHints.newPassword,
-                        ],
-                        onSubmitted: (_) => _save(),
+                      LabeledField(
+                        label: 'Confirmar nueva contraseña',
+                        error: _confirmError,
+                        child: PasswordField(
+                          controller: _confirm,
+                          hintText: 'Repite la nueva contraseña',
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const <String>[
+                            AutofillHints.newPassword,
+                          ],
+                          onSubmitted: (_) => _save(),
+                        ),
                       ),
-                    ),
-                    if (_error != null) ErrorBanner(message: _error!),
-                  ],
+                      if (_error != null) ErrorBanner(message: _error!),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: 'Guardar contraseña',
-                loading: _saving,
-                onPressed: _canSave ? _save : null,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                child: PrimaryButton(
+                  label: 'Guardar contraseña',
+                  loading: _saving,
+                  onPressed: _canSave ? _save : null,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -6,7 +6,6 @@
     "background_color": "#16181A",
     "theme_color": "#16181A",
     "description": "Gestión de tesorería para semilleros.",
-    "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
         {

@@ -182,6 +182,37 @@ Para publicar la app en Google Cloud Console se usan estas páginas del backend:
 
 Los archivos están en `backend/public/` y también hay una copia en `PRIVACIDAD.md`. Google exige ambas URLs para habilitar **Publicar app** cuando la app pasa de *Testing* a *In production*.
 
+En web, el mismo cliente OAuth de tipo **Aplicación web** debe tener registrados estos orígenes de JavaScript (sin barra final):
+
+- `https://luis-r66.github.io` (producción)
+- `http://localhost:8080` (desarrollo local)
+
+El `idToken` se obtiene con `clientId` y `serverClientId` iguales al Web Client ID, y el backend lo valida de la misma forma que en Android. En web hay que usar el botón oficial de Google (`google_sign_in_web`), porque el plugin no permite pedir el token con una llamada normal; el token llega por el evento de autenticación del propio botón.
+
+## Versión web
+
+- URL: `https://luis-r66.github.io/SemiFund/`
+- Es la misma aplicación Flutter compilada para navegador. El workflow `.github/workflows/flutter-web.yml` la publica en GitHub Pages en cada push que toque `mobile/**`.
+- Consume la misma API de Render: `https://semifund-api.onrender.com/api`.
+- En escritorio el contenido se limita a 1100 px y el login/registro usan un panel de marca a la izquierda. Por debajo de 1024 px se mantiene el diseño móvil.
+- La sesión se guarda en `localStorage`. Excel, CSV y PDF se descargan con el navegador, y los comprobantes se abren en una pestaña nueva.
+- La PWA ya no fuerza orientación vertical.
+
+Para probar en local:
+
+```bash
+cd mobile
+flutter run -d chrome --web-port 8080 \
+  --dart-define=API_BASE_URL=https://semifund-api.onrender.com/api
+```
+
+Para generar el build que publica GitHub Pages:
+
+```bash
+flutter build web --release --base-href /SemiFund/ \
+  --dart-define=API_BASE_URL=https://semifund-api.onrender.com/api
+```
+
 ## Comprobantes de abonos con Cloudinary
 
 - En el detalle de un aporte, cada abono tiene **Adjuntar comprobante** (integrante dueño o tesorero).

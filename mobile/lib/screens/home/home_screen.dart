@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
@@ -65,147 +66,158 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          'SemiFund · ${session.isTesorero ? 'Tesorero' : 'Integrante'}',
-                          style: AppTextStyles.tinyMedium.copyWith(
-                            color: AppColors.ink3,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        InkWell(
-                          onTap: () => showSemilleroSwitcher(context, session),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Flexible(
-                                  child: Text(
-                                    active.nombre,
-                                    style: AppTextStyles.h3,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                const Icon(
-                                  LucideIcons.chevronDown,
-                                  size: 18,
-                                  color: AppColors.ink2,
-                                ),
-                              ],
+        child: AppContent(
+          child: Column(
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'SemiFund · ${session.isTesorero ? 'Tesorero' : 'Integrante'}',
+                            style: AppTextStyles.tinyMedium.copyWith(
+                              color: AppColors.ink3,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          InkWell(
+                            onTap: () =>
+                                showSemilleroSwitcher(context, session),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Flexible(
+                                    child: Text(
+                                      active.nombre,
+                                      style: AppTextStyles.h3,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  const Icon(
+                                    LucideIcons.chevronDown,
+                                    size: 18,
+                                    color: AppColors.ink2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  InkWell(
-                    onTap: () => context.push('/profile'),
-                    customBorder: const CircleBorder(),
-                    child: MemberAvatar(
-                      name: name,
-                      initialsOverride: session.user?.initials,
-                      size: 40,
-                      light: true,
+                    const SizedBox(width: 10),
+                    InkWell(
+                      onTap: () => context.push('/profile'),
+                      customBorder: const CircleBorder(),
+                      child: MemberAvatar(
+                        name: name,
+                        initialsOverride: session.user?.initials,
+                        size: 40,
+                        light: true,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: home.refresh,
-                color: AppColors.ink,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                  children: <Widget>[
-                    if (home.error != null) ...<Widget>[
-                      ErrorBanner(message: home.error!, onRetry: home.refresh),
-                      const SizedBox(height: 14),
-                    ],
-                    if (snapshot == null)
-                      SizedBox(
-                        height: 380,
-                        child: LoadingView(
-                          message: home.loading
-                              ? 'Cargando información del semillero...'
-                              : 'Desliza hacia abajo para actualizar.',
-                        ),
-                      )
-                    else ...<Widget>[
-                      BalanceCard(
-                        saldo: snapshot.balance.saldoDisponible,
-                        updatedAt: snapshot.updatedAt,
-                      ),
-                      const SizedBox(height: 12),
-                      _TotalsCard(balance: snapshot.balance),
-                      const SizedBox(height: 28),
-                      const SectionLabel('Gestionar'),
-                      _ManageTile(
-                        icon: LucideIcons.users,
-                        title: 'Integrantes',
-                        subtitle:
-                            '${snapshot.activeMembers} ${snapshot.activeMembers == 1 ? 'activo' : 'activos'}',
-                        onTap: () => _open('/members'),
-                      ),
-                      const SizedBox(height: 10),
-                      _ManageTile(
-                        icon: LucideIcons.wallet,
-                        title: 'Aportes',
-                        subtitle: '${snapshot.pendingContributions} por cobrar',
-                        onTap: () => _open('/contributions'),
-                      ),
-                      const SizedBox(height: 10),
-                      _ManageTile(
-                        icon: LucideIcons.receipt,
-                        title: 'Gastos',
-                        subtitle: '${snapshot.expensesCount} registrados',
-                        onTap: () => _open('/expenses'),
-                      ),
-                      if (session.isTesorero) ...<Widget>[
-                        const SizedBox(height: 28),
-                        const SectionLabel('Administrar semillero'),
-                        _ManageTile(
-                          icon: LucideIcons.userPlus,
-                          title: 'Cuentas',
-                          subtitle: 'Solicitudes y roles',
-                          onTap: () => _open('/accounts'),
-                        ),
-                        const SizedBox(height: 10),
-                        _ManageTile(
-                          icon: LucideIcons.shieldCheck,
-                          title: 'Invitar integrantes',
-                          subtitle: 'Comparte el código del semillero',
-                          onTap: () => _open('/invite'),
-                        ),
-                        const SizedBox(height: 10),
-                        _ManageTile(
-                          icon: LucideIcons.history,
-                          title: 'Actividad',
-                          subtitle: 'Quién hizo qué y cuándo',
-                          onTap: () => _open('/activity'),
-                        ),
-                      ],
-                    ],
                   ],
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: home.refresh,
+                  color: AppColors.ink,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                    children: <Widget>[
+                      if (home.error != null) ...<Widget>[
+                        ErrorBanner(
+                          message: home.error!,
+                          onRetry: home.refresh,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      if (snapshot == null)
+                        SizedBox(
+                          height: 380,
+                          child: LoadingView(
+                            message: home.loading
+                                ? 'Cargando información del semillero...'
+                                : 'Desliza hacia abajo para actualizar.',
+                          ),
+                        )
+                      else ...<Widget>[
+                        BalanceCard(
+                          saldo: snapshot.balance.saldoDisponible,
+                          updatedAt: snapshot.updatedAt,
+                        ),
+                        const SizedBox(height: 12),
+                        _TotalsCard(balance: snapshot.balance),
+                        const SizedBox(height: 28),
+                        const SectionLabel('Gestionar'),
+                        _ManageGrid(
+                          children: <Widget>[
+                            _ManageTile(
+                              icon: LucideIcons.users,
+                              title: 'Integrantes',
+                              subtitle:
+                                  '${snapshot.activeMembers} ${snapshot.activeMembers == 1 ? 'activo' : 'activos'}',
+                              onTap: () => _open('/members'),
+                            ),
+                            _ManageTile(
+                              icon: LucideIcons.wallet,
+                              title: 'Aportes',
+                              subtitle:
+                                  '${snapshot.pendingContributions} por cobrar',
+                              onTap: () => _open('/contributions'),
+                            ),
+                            _ManageTile(
+                              icon: LucideIcons.receipt,
+                              title: 'Gastos',
+                              subtitle: '${snapshot.expensesCount} registrados',
+                              onTap: () => _open('/expenses'),
+                            ),
+                          ],
+                        ),
+                        if (session.isTesorero) ...<Widget>[
+                          const SizedBox(height: 28),
+                          const SectionLabel('Administrar semillero'),
+                          _ManageGrid(
+                            children: <Widget>[
+                              _ManageTile(
+                                icon: LucideIcons.userPlus,
+                                title: 'Cuentas',
+                                subtitle: 'Solicitudes y roles',
+                                onTap: () => _open('/accounts'),
+                              ),
+                              _ManageTile(
+                                icon: LucideIcons.shieldCheck,
+                                title: 'Invitar integrantes',
+                                subtitle: 'Comparte el código del semillero',
+                                onTap: () => _open('/invite'),
+                              ),
+                              _ManageTile(
+                                icon: LucideIcons.history,
+                                title: 'Actividad',
+                                subtitle: 'Quién hizo qué y cuándo',
+                                onTap: () => _open('/activity'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -268,6 +280,43 @@ class _TotalsCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ManageGrid extends StatelessWidget {
+  const _ManageGrid({required this.children});
+
+  final List<Widget> children;
+
+  static const double _gap = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AppLayout.isDesktop(context)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (int i = 0; i < children.length; i++) ...<Widget>[
+            if (i > 0) const SizedBox(height: _gap),
+            children[i],
+          ],
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double width = (constraints.maxWidth - _gap) / 2;
+        return Wrap(
+          spacing: _gap,
+          runSpacing: _gap,
+          children: <Widget>[
+            for (final Widget child in children)
+              SizedBox(width: width, child: child),
+          ],
+        );
+      },
     );
   }
 }

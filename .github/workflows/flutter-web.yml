@@ -40,7 +40,9 @@ jobs:
         run: flutter analyze
 
       - name: Pruebas (sin golden)
-        run: flutter test test/core test/models test/providers test/app_navigation_test.dart
+        run: >-
+          flutter test test/core test/models test/providers
+          test/app_navigation_test.dart test/app_desktop_layout_test.dart
 
       - name: Compilar web
         run: >-

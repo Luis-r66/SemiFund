@@ -9,6 +9,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../providers/session_provider.dart';
 import '../../services/google_auth_service.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/auth_scaffold.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/google_sign_in_button.dart';
@@ -76,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _googleSubmit() async {
+  Future<void> _googleSubmit({String? idToken}) async {
     FocusScope.of(context).unfocus();
     setState(() {
       _error = null;
@@ -84,9 +85,9 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final String? idToken = await _google.obtenerIdToken();
-      if (idToken == null || !mounted) return;
-      await context.read<SessionProvider>().loginWithGoogle(idToken);
+      final String? token = idToken ?? await _google.obtenerIdToken();
+      if (token == null || !mounted) return;
+      await context.read<SessionProvider>().loginWithGoogle(token);
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = error.message);
@@ -96,7 +97,8 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(
-        () => _error = 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
+        () =>
+            _error = 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
       );
     } finally {
       if (mounted) setState(() => _googleBusy = false);
@@ -108,128 +110,108 @@ class _LoginScreenState extends State<LoginScreen> {
     final SessionProvider session = context.watch<SessionProvider>();
     final String? visibleError = _error ?? session.notice;
 
-    return Scaffold(
-      backgroundColor: AppColors.paper,
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: () => context.pop(),
-                        tooltip: 'Atrás',
-                        icon: const Icon(LucideIcons.arrowLeft, size: 20),
-                        constraints: const BoxConstraints.tightFor(
-                          width: 40,
-                          height: 40,
-                        ),
-                        padding: EdgeInsets.zero,
+    return AuthScaffold(
+      form: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              onPressed: () => context.pop(),
+              tooltip: 'Atrás',
+              icon: const Icon(LucideIcons.arrowLeft, size: 20),
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text('Inicia sesión', style: AppTextStyles.h1),
+          const SizedBox(height: 6),
+          Text(
+            'Usa la cuenta con la que te registraste.',
+            style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+          ),
+          const SizedBox(height: 28),
+          LabeledField(
+            label: 'Correo electrónico',
+            error: _emailError,
+            child: AppTextField(
+              controller: _emailController,
+              focusNode: _emailFocus,
+              hintText: 'nombre@correo.com',
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const <String>[AutofillHints.email],
+              onChanged: (_) {
+                if (_emailError != null) {
+                  setState(() => _emailError = null);
+                }
+              },
+              onSubmitted: (_) => _passwordFocus.requestFocus(),
+            ),
+          ),
+          LabeledField(
+            label: 'Contraseña',
+            error: _passwordError,
+            child: PasswordField(
+              controller: _passwordController,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) {
+                if (_passwordError != null) {
+                  setState(() => _passwordError = null);
+                }
+              },
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
+          Center(
+            child: TextButton(
+              onPressed: () => context.push('/forgot-password'),
+              child: const Text('¿Olvidaste tu contraseña?'),
+            ),
+          ),
+          Center(
+            child: TextButton(
+              onPressed: () => context.push('/register'),
+              child: Text.rich(
+                TextSpan(
+                  text: '¿No tienes cuenta? ',
+                  style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+                  children: const <TextSpan>[
+                    TextSpan(
+                      text: 'Crear cuenta',
+                      style: TextStyle(
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text('Inicia sesión', style: AppTextStyles.h1),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Usa la cuenta con la que te registraste.',
-                      style: AppTextStyles.small.copyWith(
-                        color: AppColors.ink2,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    LabeledField(
-                      label: 'Correo electrónico',
-                      error: _emailError,
-                      child: AppTextField(
-                        controller: _emailController,
-                        focusNode: _emailFocus,
-                        hintText: 'nombre@correo.com',
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const <String>[AutofillHints.email],
-                        onChanged: (_) {
-                          if (_emailError != null) {
-                            setState(() => _emailError = null);
-                          }
-                        },
-                        onSubmitted: (_) => _passwordFocus.requestFocus(),
-                      ),
-                    ),
-                    LabeledField(
-                      label: 'Contraseña',
-                      error: _passwordError,
-                      child: PasswordField(
-                        controller: _passwordController,
-                        textInputAction: TextInputAction.done,
-                        onChanged: (_) {
-                          if (_passwordError != null) {
-                            setState(() => _passwordError = null);
-                          }
-                        },
-                        onSubmitted: (_) => _submit(),
-                      ),
-                    ),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => context.push('/forgot-password'),
-                        child: const Text('¿Olvidaste tu contraseña?'),
-                      ),
-                    ),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => context.push('/register'),
-                        child: Text.rich(
-                          TextSpan(
-                            text: '¿No tienes cuenta? ',
-                            style: AppTextStyles.small.copyWith(
-                              color: AppColors.ink2,
-                            ),
-                            children: const <TextSpan>[
-                              TextSpan(
-                                text: 'Crear cuenta',
-                                style: TextStyle(
-                                  color: AppColors.ink,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (visibleError != null) ...<Widget>[
-                      const SizedBox(height: 16),
-                      ErrorBanner(message: visibleError),
-                    ],
                   ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  PrimaryButton(
-                    label: 'Entrar',
-                    loading: session.isBusy,
-                    onPressed: session.isBusy || _googleBusy ? null : _submit,
-                  ),
-                  const SizedBox(height: 10),
-                  GoogleSignInButton(
-                    loading: _googleBusy,
-                    onPressed: session.isBusy ? null : _googleSubmit,
-                  ),
-                ],
-              ),
-            ),
+          ),
+          if (visibleError != null) ...<Widget>[
+            const SizedBox(height: 16),
+            ErrorBanner(message: visibleError),
           ],
-        ),
+        ],
+      ),
+      actions: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          PrimaryButton(
+            label: 'Entrar',
+            loading: session.isBusy,
+            onPressed: session.isBusy || _googleBusy ? null : _submit,
+          ),
+          const SizedBox(height: 10),
+          GoogleSignInButton(
+            loading: _googleBusy,
+            onPressed: session.isBusy ? null : _googleSubmit,
+            onIdToken: (String token) => _googleSubmit(idToken: token),
+            onError: (String message) => setState(() => _error = message),
+          ),
+        ],
       ),
     );
   }

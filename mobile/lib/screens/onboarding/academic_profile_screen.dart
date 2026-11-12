@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/input_formatters.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -145,143 +146,147 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(
-              title: widget.editMode
-                  ? 'Datos académicos'
-                  : 'Completa tu perfil',
-              onBack: widget.editMode ? () => context.pop() : null,
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      widget.editMode
-                          ? 'Actualiza tu información académica.'
-                          : 'Cuéntanos quién eres para personalizar tu cuenta.',
-                      style: AppTextStyles.small.copyWith(
-                        color: AppColors.ink2,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      '¿Cómo participas?',
-                      style: AppTextStyles.smallMedium.copyWith(
-                        color: AppColors.ink2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: _RoleCard(
-                            icon: LucideIcons.graduationCap,
-                            label: 'Estudiante',
-                            selected: _type == UserType.estudiante,
-                            onTap: () => _selectType(UserType.estudiante),
-                          ),
+        child: AppContent(
+          maxWidth: AppLayout.formMaxWidth,
+          child: Column(
+            children: <Widget>[
+              AppTopBar(
+                title: widget.editMode
+                    ? 'Datos académicos'
+                    : 'Completa tu perfil',
+                onBack: widget.editMode ? () => context.pop() : null,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        widget.editMode
+                            ? 'Actualiza tu información académica.'
+                            : 'Cuéntanos quién eres para personalizar tu cuenta.',
+                        style: AppTextStyles.small.copyWith(
+                          color: AppColors.ink2,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _RoleCard(
-                            icon: LucideIcons.briefcaseBusiness,
-                            label: 'Profesor',
-                            selected: _type == UserType.profesor,
-                            onTap: () => _selectType(UserType.profesor),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        '¿Cómo participas?',
+                        style: AppTextStyles.smallMedium.copyWith(
+                          color: AppColors.ink2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: _RoleCard(
+                              icon: LucideIcons.graduationCap,
+                              label: 'Estudiante',
+                              selected: _type == UserType.estudiante,
+                              onTap: () => _selectType(UserType.estudiante),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _RoleCard(
+                              icon: LucideIcons.briefcaseBusiness,
+                              label: 'Profesor',
+                              selected: _type == UserType.profesor,
+                              onTap: () => _selectType(UserType.profesor),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_typeError != null) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Text(
+                          _typeError!,
+                          style: AppTextStyles.smallMedium.copyWith(
+                            color: AppColors.bad,
                           ),
                         ),
                       ],
-                    ),
-                    if (_typeError != null) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Text(
-                        _typeError!,
-                        style: AppTextStyles.smallMedium.copyWith(
-                          color: AppColors.bad,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    LabeledField(
-                      label: 'Nombres',
-                      child: AppTextField(
-                        controller: _names,
-                        inputFormatters: lettersOnlyFormatters,
-                        hintText: 'Ej. Luis Ernesto',
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                      ),
-                    ),
-                    LabeledField(
-                      label: 'Apellidos',
-                      child: AppTextField(
-                        controller: _surnames,
-                        inputFormatters: lettersOnlyFormatters,
-                        hintText: 'Ej. Ríos Pérez',
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                      ),
-                    ),
-                    LabeledField(
-                      label: programLabel,
-                      child: AppTextField(
-                        controller: _program,
-                        inputFormatters: lettersOnlyFormatters,
-                        hintText: _isStudent
-                            ? 'Ej. Ingeniería de Sistemas'
-                            : 'Ej. Departamento de Sistemas',
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                      ),
-                    ),
-                    if (_isStudent)
+                      const SizedBox(height: 20),
                       LabeledField(
-                        label: 'Semestre',
-                        child: SelectField<int>(
-                          value: _semester,
-                          error: _semesterError,
-                          items: List<int>.generate(
-                            10,
-                            (int index) => index + 1,
+                        label: 'Nombres',
+                        child: AppTextField(
+                          controller: _names,
+                          inputFormatters: lettersOnlyFormatters,
+                          hintText: 'Ej. Luis Ernesto',
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                        ),
+                      ),
+                      LabeledField(
+                        label: 'Apellidos',
+                        child: AppTextField(
+                          controller: _surnames,
+                          inputFormatters: lettersOnlyFormatters,
+                          hintText: 'Ej. Ríos Pérez',
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                        ),
+                      ),
+                      LabeledField(
+                        label: programLabel,
+                        child: AppTextField(
+                          controller: _program,
+                          inputFormatters: lettersOnlyFormatters,
+                          hintText: _isStudent
+                              ? 'Ej. Ingeniería de Sistemas'
+                              : 'Ej. Departamento de Sistemas',
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                        ),
+                      ),
+                      if (_isStudent)
+                        LabeledField(
+                          label: 'Semestre',
+                          child: SelectField<int>(
+                            value: _semester,
+                            error: _semesterError,
+                            items: List<int>.generate(
+                              10,
+                              (int index) => index + 1,
+                            ),
+                            labelOf: (int value) => '$value° semestre',
+                            hintText: 'Selecciona tu semestre',
+                            onChanged: (int? value) =>
+                                setState(() => _semester = value),
                           ),
-                          labelOf: (int value) => '$value° semestre',
-                          hintText: 'Selecciona tu semestre',
-                          onChanged: (int? value) =>
-                              setState(() => _semester = value),
                         ),
-                      ),
-                    if (_error != null) ...<Widget>[
-                      const SizedBox(height: 8),
-                      ErrorBanner(message: _error!),
-                    ],
-                    if (!widget.editMode) ...<Widget>[
-                      const SizedBox(height: 18),
-                      Center(
-                        child: TextButton(
-                          onPressed: _saving
-                              ? null
-                              : () => context.read<SessionProvider>().logout(),
-                          child: const Text('Cerrar sesión'),
+                      if (_error != null) ...<Widget>[
+                        const SizedBox(height: 8),
+                        ErrorBanner(message: _error!),
+                      ],
+                      if (!widget.editMode) ...<Widget>[
+                        const SizedBox(height: 18),
+                        Center(
+                          child: TextButton(
+                            onPressed: _saving
+                                ? null
+                                : () =>
+                                      context.read<SessionProvider>().logout(),
+                            child: const Text('Cerrar sesión'),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: widget.editMode ? 'Guardar cambios' : 'Continuar',
-                loading: _saving,
-                onPressed: _canSave ? _save : null,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                child: PrimaryButton(
+                  label: widget.editMode ? 'Guardar cambios' : 'Continuar',
+                  loading: _saving,
+                  onPressed: _canSave ? _save : null,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

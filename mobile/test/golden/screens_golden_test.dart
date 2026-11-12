@@ -143,8 +143,9 @@ void main() {
     required SessionProvider session,
     HomeProvider? home,
     required String name,
+    Size size = const Size(390, 844),
   }) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -296,19 +297,18 @@ void main() {
         ),
       ],
     );
-    when(() => dashboard.contributions())
-        .thenAnswer(
-          (_) async => const <Contribution>[
-            Contribution(
-              id: 'c1',
-              integranteId: 'm2',
-              monto: 30000,
-              mes: '2026-10',
-              concepto: 'Cuota mensual',
-              estado: ContributionStatus.pendiente,
-            ),
-          ],
-        );
+    when(() => dashboard.contributions()).thenAnswer(
+      (_) async => const <Contribution>[
+        Contribution(
+          id: 'c1',
+          integranteId: 'm2',
+          monto: 30000,
+          mes: '2026-10',
+          concepto: 'Cuota mensual',
+          estado: ContributionStatus.pendiente,
+        ),
+      ],
+    );
     when(() => dashboard.expenses()).thenAnswer(
       (_) async => const <Expense>[
         Expense(
@@ -331,6 +331,49 @@ void main() {
       session: session,
       home: home,
       name: 'home',
+    );
+  });
+
+  testWidgets('desktop welcome', (WidgetTester tester) async {
+    await golden(
+      tester,
+      const WelcomeScreen(),
+      session: unauthenticatedSession(),
+      name: 'desktop_welcome',
+      size: const Size(1100, 900),
+    );
+  });
+
+  testWidgets('desktop login', (WidgetTester tester) async {
+    await golden(
+      tester,
+      const LoginScreen(),
+      session: unauthenticatedSession(),
+      name: 'desktop_login',
+      size: const Size(1100, 900),
+    );
+  });
+
+  testWidgets('desktop home', (WidgetTester tester) async {
+    when(() => dashboard.balance()).thenAnswer((_) async => Balance.empty);
+    when(() => dashboard.members(activo: true))
+        .thenAnswer((_) async => const <Member>[]);
+    when(() => dashboard.contributions())
+        .thenAnswer((_) async => const <Contribution>[]);
+    when(() => dashboard.expenses()).thenAnswer((_) async => const <Expense>[]);
+
+    final SessionProvider session = await authenticatedSession();
+    final HomeProvider home = HomeProvider(
+      dashboard,
+      now: () => DateTime(2026, 10, 4, 9, 41),
+    );
+    await golden(
+      tester,
+      const HomeScreen(),
+      session: session,
+      home: home,
+      name: 'desktop_home',
+      size: const Size(1100, 900),
     );
   });
 }

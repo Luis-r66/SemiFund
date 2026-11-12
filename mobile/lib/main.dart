@@ -19,13 +19,19 @@ import 'providers/members_provider.dart';
 import 'providers/session_provider.dart';
 import 'services/auth_service.dart';
 import 'services/dashboard_service.dart';
+import 'services/google_auth_service.dart';
 import 'services/management_service.dart';
 import 'services/semillero_service.dart';
 
 Future<void> main() async {
-  final WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  final WidgetsBinding widgetsBinding =
+      WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) {
     FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  } else {
+    // Carga el script de Google antes del primer clic para no perder el gesto
+    // del usuario (el navegador bloquearía la ventana de cuentas).
+    unawaited(GoogleAuthService.preparar());
   }
 
   await SystemChrome.setPreferredOrientations(<DeviceOrientation>[

@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +28,12 @@ import '../../widgets/loading_view.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
 import 'excel_import_sheet.dart';
+
+/// En web `externalApplication` no está soportado por url_launcher; el modo
+/// por defecto abre el enlace en una pestaña nueva.
+const LaunchMode _openMode = kIsWeb
+    ? LaunchMode.platformDefault
+    : LaunchMode.externalApplication;
 
 class ContributionsScreen extends StatefulWidget {
   const ContributionsScreen({super.key});
@@ -1033,9 +1040,9 @@ class _DetailSheetState extends State<_DetailSheet> {
         contentType: contentType,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comprobante adjuntado.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Comprobante adjuntado.')));
     } on ApiException catch (error) {
       _showError(error.message);
     } catch (_) {
@@ -1048,10 +1055,7 @@ class _DetailSheetState extends State<_DetailSheet> {
   Future<void> _openReceipt(Comprobante comprobante) async {
     final Uri uri = Uri.parse(comprobante.url);
     if (comprobante.esPdf) {
-      final bool opened = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      final bool opened = await launchUrl(uri, mode: _openMode);
       if (!opened) _showError('No se pudo abrir el comprobante.');
       return;
     }
@@ -1103,10 +1107,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   TextButton(
-                    onPressed: () => launchUrl(
-                      uri,
-                      mode: LaunchMode.externalApplication,
-                    ),
+                    onPressed: () => launchUrl(uri, mode: _openMode),
                     child: const Text('Abrir en el navegador'),
                   ),
                   TextButton(
@@ -1198,10 +1199,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                 ),
             if (widget.canReport) ...<Widget>[
               const SizedBox(height: 16),
-              PrimaryButton(
-                label: 'Reportar pago',
-                onPressed: widget.onReport,
-              ),
+              PrimaryButton(label: 'Reportar pago', onPressed: widget.onReport),
             ],
             if (widget.canRegister) ...<Widget>[
               const SizedBox(height: 16),
@@ -1310,7 +1308,10 @@ class _AbonoRow extends StatelessWidget {
               if (canApprove)
                 TextButton(onPressed: onReject, child: const Text('Rechazar')),
               if (canApprove)
-                FilledButton(onPressed: onApprove, child: const Text('Aprobar')),
+                FilledButton(
+                  onPressed: onApprove,
+                  child: const Text('Aprobar'),
+                ),
               if (canVoid)
                 TextButton(onPressed: onVoid, child: const Text('Anular')),
             ],

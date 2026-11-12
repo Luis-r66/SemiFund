@@ -10,6 +10,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../providers/session_provider.dart';
 import '../../services/google_auth_service.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/auth_scaffold.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/google_sign_in_button.dart';
@@ -135,7 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _googleSubmit() async {
+  Future<void> _googleSubmit({String? idToken}) async {
     FocusScope.of(context).unfocus();
     setState(() {
       _error = null;
@@ -143,9 +144,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final String? idToken = await _google.obtenerIdToken();
-      if (idToken == null || !mounted) return;
-      await context.read<SessionProvider>().loginWithGoogle(idToken);
+      final String? token = idToken ?? await _google.obtenerIdToken();
+      if (token == null || !mounted) return;
+      await context.read<SessionProvider>().loginWithGoogle(token);
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = error.message);
@@ -155,7 +156,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(
-        () => _error = 'No se pudo crear la cuenta con Google. Intenta de nuevo.',
+        () =>
+            _error = 'No se pudo crear la cuenta con Google. Intenta de nuevo.',
       );
     } finally {
       if (mounted) setState(() => _googleBusy = false);
@@ -167,166 +169,141 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final SessionProvider session = context.watch<SessionProvider>();
     final String? visibleError = _error ?? session.notice;
 
-    return Scaffold(
-      backgroundColor: AppColors.paper,
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: () => context.pop(),
-                        tooltip: 'Atrás',
-                        icon: const Icon(LucideIcons.arrowLeft, size: 20),
-                        constraints: const BoxConstraints.tightFor(
-                          width: 40,
-                          height: 40,
-                        ),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text('Crea tu cuenta', style: AppTextStyles.h1),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Una sola cuenta para todos tus semilleros.',
-                      style: AppTextStyles.small.copyWith(
-                        color: AppColors.ink2,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    LabeledField(
-                      label: 'Nombres',
-                      error: _namesError,
-                      child: AppTextField(
-                        controller: _namesController,
-                        inputFormatters: lettersOnlyFormatters,
-                        hintText: 'Ej. Luis Ernesto',
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        autofillHints: const <String>[AutofillHints.givenName],
-                        onChanged: (_) {
-                          if (_namesError != null) {
-                            setState(() => _namesError = null);
-                          }
-                        },
-                        onSubmitted: (_) => _surnamesFocus.requestFocus(),
-                      ),
-                    ),
-                    LabeledField(
-                      label: 'Apellidos',
-                      error: _surnamesError,
-                      child: AppTextField(
-                        controller: _surnamesController,
-                        inputFormatters: lettersOnlyFormatters,
-                        focusNode: _surnamesFocus,
-                        hintText: 'Ej. Ríos Pérez',
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        autofillHints: const <String>[AutofillHints.familyName],
-                        onChanged: (_) {
-                          if (_surnamesError != null) {
-                            setState(() => _surnamesError = null);
-                          }
-                        },
-                        onSubmitted: (_) => _emailFocus.requestFocus(),
-                      ),
-                    ),
-                    LabeledField(
-                      label: 'Correo electrónico',
-                      error: _emailError,
-                      child: AppTextField(
-                        controller: _emailController,
-                        focusNode: _emailFocus,
-                        hintText: 'nombre@correo.com',
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const <String>[
-                          AutofillHints.newUsername,
-                        ],
-                        onChanged: (_) {
-                          if (_emailError != null) {
-                            setState(() => _emailError = null);
-                          }
-                        },
-                        onSubmitted: (_) => _passwordFocus.requestFocus(),
-                      ),
-                    ),
-                    LabeledField(
-                      label: 'Contraseña',
-                      error: _passwordError,
-                      helper:
-                          '${_passwordController.text.length}/8 caracteres mínimos',
-                      child: PasswordField(
-                        controller: _passwordController,
-                        focusNode: _passwordFocus,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const <String>[
-                          AutofillHints.newPassword,
-                        ],
-                        onChanged: (_) {
-                          if (_passwordError != null) {
-                            setState(() => _passwordError = null);
-                          }
-                        },
-                        onSubmitted: (_) => _confirmFocus.requestFocus(),
-                      ),
-                    ),
-                    LabeledField(
-                      label: 'Confirmar contraseña',
-                      error: _confirmError,
-                      child: PasswordField(
-                        controller: _confirmController,
-                        focusNode: _confirmFocus,
-                        hintText: 'Repite tu contraseña',
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const <String>[
-                          AutofillHints.newPassword,
-                        ],
-                        onChanged: (_) {
-                          if (_confirmError != null) {
-                            setState(() => _confirmError = null);
-                          }
-                        },
-                        onSubmitted: (_) => _submit(),
-                      ),
-                    ),
-                    if (visibleError != null) ...<Widget>[
-                      const SizedBox(height: 8),
-                      ErrorBanner(message: visibleError),
-                    ],
-                  ],
-                ),
-              ),
+    return AuthScaffold(
+      form: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              onPressed: () => context.pop(),
+              tooltip: 'Atrás',
+              icon: const Icon(LucideIcons.arrowLeft, size: 20),
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              padding: EdgeInsets.zero,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  PrimaryButton(
-                    label: 'Crear cuenta',
-                    loading: session.isBusy,
-                    onPressed: _canSubmit && !session.isBusy && !_googleBusy
-                        ? _submit
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  GoogleSignInButton(
-                    loading: _googleBusy,
-                    onPressed: session.isBusy ? null : _googleSubmit,
-                  ),
-                ],
-              ),
+          ),
+          const SizedBox(height: 6),
+          Text('Crea tu cuenta', style: AppTextStyles.h1),
+          const SizedBox(height: 6),
+          Text(
+            'Una sola cuenta para todos tus semilleros.',
+            style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+          ),
+          const SizedBox(height: 24),
+          LabeledField(
+            label: 'Nombres',
+            error: _namesError,
+            child: AppTextField(
+              controller: _namesController,
+              inputFormatters: lettersOnlyFormatters,
+              hintText: 'Ej. Luis Ernesto',
+              textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.words,
+              autofillHints: const <String>[AutofillHints.givenName],
+              onChanged: (_) {
+                if (_namesError != null) {
+                  setState(() => _namesError = null);
+                }
+              },
+              onSubmitted: (_) => _surnamesFocus.requestFocus(),
             ),
+          ),
+          LabeledField(
+            label: 'Apellidos',
+            error: _surnamesError,
+            child: AppTextField(
+              controller: _surnamesController,
+              inputFormatters: lettersOnlyFormatters,
+              focusNode: _surnamesFocus,
+              hintText: 'Ej. Ríos Pérez',
+              textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.words,
+              autofillHints: const <String>[AutofillHints.familyName],
+              onChanged: (_) {
+                if (_surnamesError != null) {
+                  setState(() => _surnamesError = null);
+                }
+              },
+              onSubmitted: (_) => _emailFocus.requestFocus(),
+            ),
+          ),
+          LabeledField(
+            label: 'Correo electrónico',
+            error: _emailError,
+            child: AppTextField(
+              controller: _emailController,
+              focusNode: _emailFocus,
+              hintText: 'nombre@correo.com',
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const <String>[AutofillHints.newUsername],
+              onChanged: (_) {
+                if (_emailError != null) {
+                  setState(() => _emailError = null);
+                }
+              },
+              onSubmitted: (_) => _passwordFocus.requestFocus(),
+            ),
+          ),
+          LabeledField(
+            label: 'Contraseña',
+            error: _passwordError,
+            helper: '${_passwordController.text.length}/8 caracteres mínimos',
+            child: PasswordField(
+              controller: _passwordController,
+              focusNode: _passwordFocus,
+              textInputAction: TextInputAction.next,
+              autofillHints: const <String>[AutofillHints.newPassword],
+              onChanged: (_) {
+                if (_passwordError != null) {
+                  setState(() => _passwordError = null);
+                }
+              },
+              onSubmitted: (_) => _confirmFocus.requestFocus(),
+            ),
+          ),
+          LabeledField(
+            label: 'Confirmar contraseña',
+            error: _confirmError,
+            child: PasswordField(
+              controller: _confirmController,
+              focusNode: _confirmFocus,
+              hintText: 'Repite tu contraseña',
+              textInputAction: TextInputAction.done,
+              autofillHints: const <String>[AutofillHints.newPassword],
+              onChanged: (_) {
+                if (_confirmError != null) {
+                  setState(() => _confirmError = null);
+                }
+              },
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
+          if (visibleError != null) ...<Widget>[
+            const SizedBox(height: 8),
+            ErrorBanner(message: visibleError),
           ],
-        ),
+        ],
+      ),
+      actions: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          PrimaryButton(
+            label: 'Crear cuenta',
+            loading: session.isBusy,
+            onPressed: _canSubmit && !session.isBusy && !_googleBusy
+                ? _submit
+                : null,
+          ),
+          const SizedBox(height: 10),
+          GoogleSignInButton(
+            loading: _googleBusy,
+            onPressed: session.isBusy ? null : _googleSubmit,
+            onIdToken: (String token) => _googleSubmit(idToken: token),
+            onError: (String message) => setState(() => _error = message),
+          ),
+        ],
       ),
     );
   }

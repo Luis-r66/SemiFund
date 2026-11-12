@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/input_formatters.dart';
 import '../../models/member.dart';
@@ -142,79 +143,82 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            AppTopBar(
-              title: _isEdit ? 'Editar integrante' : 'Nuevo integrante',
-              onBack: () => context.pop(),
-            ),
-            Expanded(
-              child: _loading
-                  ? const LoadingView()
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          LabeledField(
-                            label: 'Nombres',
-                            child: AppTextField(
-                              controller: _names,
-                              inputFormatters: lettersOnlyFormatters,
-                              hintText: 'Ej. Juliana',
-                              textCapitalization: TextCapitalization.words,
-                              textInputAction: TextInputAction.next,
-                            ),
-                          ),
-                          LabeledField(
-                            label: 'Apellidos',
-                            child: AppTextField(
-                              controller: _surnames,
-                              inputFormatters: lettersOnlyFormatters,
-                              hintText: 'Ej. Herrera Pérez',
-                              textCapitalization: TextCapitalization.words,
-                              textInputAction: TextInputAction.next,
-                            ),
-                          ),
-                          LabeledField(
-                            label: 'Programa académico',
-                            child: AppTextField(
-                              controller: _program,
-                              inputFormatters: lettersOnlyFormatters,
-                              hintText: 'Ej. Ingeniería de Sistemas',
-                              textInputAction: TextInputAction.next,
-                            ),
-                          ),
-                          LabeledField(
-                            label: 'Semestre',
-                            error: semesterInvalid
-                                ? 'Ingresa un semestre entre 1 y 10.'
-                                : null,
-                            child: AppTextField(
-                              controller: _semester,
-                              hintText: '1 - 10',
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) => _save(),
-                            ),
-                          ),
-                          if (_error != null) ...<Widget>[
-                            const SizedBox(height: 8),
-                            ErrorBanner(message: _error!),
-                          ],
-                        ],
-                      ),
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: 'Guardar',
-                loading: _saving,
-                onPressed: _canSave ? _save : null,
+        child: AppContent(
+          maxWidth: AppLayout.formMaxWidth,
+          child: Column(
+            children: <Widget>[
+              AppTopBar(
+                title: _isEdit ? 'Editar integrante' : 'Nuevo integrante',
+                onBack: () => context.pop(),
               ),
-            ),
-          ],
+              Expanded(
+                child: _loading
+                    ? const LoadingView()
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            LabeledField(
+                              label: 'Nombres',
+                              child: AppTextField(
+                                controller: _names,
+                                inputFormatters: lettersOnlyFormatters,
+                                hintText: 'Ej. Juliana',
+                                textCapitalization: TextCapitalization.words,
+                                textInputAction: TextInputAction.next,
+                              ),
+                            ),
+                            LabeledField(
+                              label: 'Apellidos',
+                              child: AppTextField(
+                                controller: _surnames,
+                                inputFormatters: lettersOnlyFormatters,
+                                hintText: 'Ej. Herrera Pérez',
+                                textCapitalization: TextCapitalization.words,
+                                textInputAction: TextInputAction.next,
+                              ),
+                            ),
+                            LabeledField(
+                              label: 'Programa académico',
+                              child: AppTextField(
+                                controller: _program,
+                                inputFormatters: lettersOnlyFormatters,
+                                hintText: 'Ej. Ingeniería de Sistemas',
+                                textInputAction: TextInputAction.next,
+                              ),
+                            ),
+                            LabeledField(
+                              label: 'Semestre',
+                              error: semesterInvalid
+                                  ? 'Ingresa un semestre entre 1 y 10.'
+                                  : null,
+                              child: AppTextField(
+                                controller: _semester,
+                                hintText: '1 - 10',
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) => _save(),
+                              ),
+                            ),
+                            if (_error != null) ...<Widget>[
+                              const SizedBox(height: 8),
+                              ErrorBanner(message: _error!),
+                            ],
+                          ],
+                        ),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                child: PrimaryButton(
+                  label: 'Guardar',
+                  loading: _saving,
+                  onPressed: _canSave ? _save : null,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
