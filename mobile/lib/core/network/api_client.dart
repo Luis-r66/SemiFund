@@ -66,6 +66,33 @@ class ApiClient {
     return _execute(() => _dio.put<dynamic>(path, data: data));
   }
 
+  /// Sube un archivo como multipart (comprobantes de abonos).
+  Future<dynamic> postMultipart(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String contentType,
+    String field = 'comprobante',
+  }) {
+    final FormData data = FormData.fromMap(<String, dynamic>{
+      field: MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType.parse(contentType),
+      ),
+    });
+    return _execute(
+      () => _dio.post<dynamic>(
+        path,
+        data: data,
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      ),
+    );
+  }
+
   Future<dynamic> patch(String path, {Object? data}) {
     return _execute(() => _dio.patch<dynamic>(path, data: data));
   }

@@ -15,6 +15,14 @@ function errorHandler(err, req, res, next) {
     return res.status(413).json({ error: 'El archivo supera el límite permitido de 8 MB' });
   }
 
+  // Multer: archivo demasiado grande al subir un comprobante
+  if (err && err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'El comprobante supera el límite de 5 MB' });
+    }
+    return res.status(400).json({ error: 'No pudimos leer el archivo adjunto' });
+  }
+
   // Id malformado que pasó algún filtro (respaldo del validateObjectId)
   if (err && err.name === 'CastError') {
     return res.status(400).json({ error: 'El id no es válido' });

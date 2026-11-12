@@ -107,6 +107,23 @@ class ContributionsProvider extends ChangeNotifier {
     await refresh();
   }
 
+  Future<void> uploadReceipt(
+    Contribution contribution,
+    Abono abono, {
+    required Uint8List bytes,
+    required String filename,
+    required String contentType,
+  }) async {
+    await _writes.uploadReceipt(
+      contribution.id,
+      abono.id,
+      bytes: bytes,
+      filename: filename,
+      contentType: contentType,
+    );
+    await refresh();
+  }
+
   Future<void> approvePayment(Contribution contribution, Abono abono) async {
     await _writes.approvePayment(contribution.id, abono.id);
     await refresh();

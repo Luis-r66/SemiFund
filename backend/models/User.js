@@ -7,7 +7,16 @@ const userSchema = new mongoose.Schema(
     nombres: { type: String, trim: true, default: null },
     apellidos: { type: String, trim: true, default: null },
     email: { type: String, required: [true, 'El correo es requerido'], unique: true, lowercase: true, trim: true },
-    passwordHash: { type: String, required: [true, 'La contraseña es requerida'] },
+    googleId: { type: String, unique: true, sparse: true },
+    passwordHash: {
+      type: String,
+      required: [
+        function () {
+          return !this.googleId;
+        },
+        'La contraseña es requerida'
+      ]
+    },
     tipoUsuario: { type: String, enum: ['estudiante', 'profesor', null], default: null },
     programa: { type: String, trim: true, default: null },
     semestre: {
@@ -33,8 +42,10 @@ userSchema.method('toJSON', function () {
   return obj;
 });
 
-// Comparar contraseña candidata contra el hash almacenado
+// Comparar contraseña candidata contra el hash almacenado.
+// Las cuentas creadas solo con Google no tienen contraseña.
 userSchema.methods.compararPassword = async function (candidata) {
+  if (!this.passwordHash) return false;
   return bcrypt.compare(candidata, this.passwordHash);
 };
 

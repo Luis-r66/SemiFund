@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -923,7 +925,7 @@ class _ContributionTile extends StatelessWidget {
   }
 }
 
-class _DetailSheet extends StatelessWidget {
+class _DetailSheet extends StatefulWidget {
   const _DetailSheet({
     required this.name,
     required this.contribution,
@@ -949,11 +951,184 @@ class _DetailSheet extends StatelessWidget {
   final void Function(Abono abono) onVoid;
 
   @override
+  State<_DetailSheet> createState() => _DetailSheetState();
+}
+
+class _DetailSheetState extends State<_DetailSheet> {
+  String? _uploadingAbonoId;
+
+  Contribution get _item {
+    final ContributionsProvider provider = context
+        .watch<ContributionsProvider>();
+    for (final Contribution current in provider.items) {
+      if (current.id == widget.contribution.id) return current;
+    }
+    return widget.contribution;
+  }
+
+  String? _contentTypeFor(String filename) {
+    final String ext = filename.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'pdf':
+        return 'application/pdf';
+    }
+    return null;
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _attachReceipt(Abono abono) async {
+    if (_uploadingAbonoId != null) return;
+
+    final PlatformFile? file = await FilePicker.pickFile(
+      dialogTitle: 'Elige el comprobante',
+      type: FileType.custom,
+      allowedExtensions: <String>['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+    );
+    if (file == null) return;
+
+    final String? contentType = _contentTypeFor(file.name);
+    if (contentType == null) {
+      _showError('El comprobante debe ser JPG, PNG, WebP o PDF.');
+      return;
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (_) {
+      _showError('No se pudo leer el archivo seleccionado.');
+      return;
+    }
+    if (bytes.isEmpty) {
+      _showError('El archivo está vacío.');
+      return;
+    }
+    if (bytes.length > AppConfig.maxComprobanteBytes) {
+      _showError('El comprobante supera el límite de 5 MB.');
+      return;
+    }
+
+    if (!mounted) return;
+    final ContributionsProvider provider = context
+        .read<ContributionsProvider>();
+    setState(() => _uploadingAbonoId = abono.id);
+    try {
+      await provider.uploadReceipt(
+        _item,
+        abono,
+        bytes: bytes,
+        filename: file.name,
+        contentType: contentType,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Comprobante adjuntado.')),
+      );
+    } on ApiException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('No se pudo subir el comprobante. Intenta de nuevo.');
+    } finally {
+      if (mounted) setState(() => _uploadingAbonoId = null);
+    }
+  }
+
+  Future<void> _openReceipt(Comprobante comprobante) async {
+    final Uri uri = Uri.parse(comprobante.url);
+    if (comprobante.esPdf) {
+      final bool opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) _showError('No se pudo abrir el comprobante.');
+      return;
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => Dialog(
+        backgroundColor: AppColors.paper,
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Flexible(
+              child: InteractiveViewer(
+                maxScale: 5,
+                child: Image.network(
+                  comprobante.url,
+                  fit: BoxFit.contain,
+                  loadingBuilder:
+                      (
+                        BuildContext context,
+                        Widget child,
+                        ImageChunkEvent? progress,
+                      ) {
+                        if (progress == null) return child;
+                        return const Padding(
+                          padding: EdgeInsets.all(48),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.ink,
+                            ),
+                          ),
+                        );
+                      },
+                  errorBuilder:
+                      (BuildContext context, Object error, StackTrace? stack) =>
+                          const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text('No se pudo mostrar la imagen.'),
+                          ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  TextButton(
+                    onPressed: () => launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    child: const Text('Abrir en el navegador'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cerrar'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final Contribution item = contribution;
+    final Contribution item = _item;
     final double progress = item.monto <= 0
         ? 0
         : (item.cobrado / item.monto).clamp(0, 1).toDouble();
+    final bool canAttach = widget.isTreasurer || item.esPropio;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -961,7 +1136,7 @@ class _DetailSheet extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(name, style: AppTextStyles.h4),
+            Text(widget.name, style: AppTextStyles.h4),
             const SizedBox(height: 4),
             Text(
               item.concepto.isEmpty
@@ -1010,18 +1185,30 @@ class _DetailSheet extends StatelessWidget {
               for (final Abono abono in item.abonos)
                 _AbonoRow(
                   abono: abono,
-                  isTreasurer: isTreasurer,
-                  onApprove: () => onApprove(abono),
-                  onReject: () => onReject(abono),
-                  onVoid: () => onVoid(abono),
+                  isTreasurer: widget.isTreasurer,
+                  canAttach: canAttach && abono.estado != AbonoStatus.anulado,
+                  uploading: _uploadingAbonoId == abono.id,
+                  onApprove: () => widget.onApprove(abono),
+                  onReject: () => widget.onReject(abono),
+                  onVoid: () => widget.onVoid(abono),
+                  onAttach: () => _attachReceipt(abono),
+                  onViewReceipt: abono.comprobante == null
+                      ? null
+                      : () => _openReceipt(abono.comprobante!),
                 ),
-            if (canReport) ...<Widget>[
+            if (widget.canReport) ...<Widget>[
               const SizedBox(height: 16),
-              PrimaryButton(label: 'Reportar pago', onPressed: onReport),
+              PrimaryButton(
+                label: 'Reportar pago',
+                onPressed: widget.onReport,
+              ),
             ],
-            if (canRegister) ...<Widget>[
+            if (widget.canRegister) ...<Widget>[
               const SizedBox(height: 16),
-              SecondaryButton(label: 'Registrar abono', onPressed: onRegister),
+              SecondaryButton(
+                label: 'Registrar abono',
+                onPressed: widget.onRegister,
+              ),
             ],
           ],
         ),
@@ -1053,16 +1240,24 @@ class _AbonoRow extends StatelessWidget {
   const _AbonoRow({
     required this.abono,
     required this.isTreasurer,
+    required this.canAttach,
+    required this.uploading,
     required this.onApprove,
     required this.onReject,
     required this.onVoid,
+    required this.onAttach,
+    required this.onViewReceipt,
   });
 
   final Abono abono;
   final bool isTreasurer;
+  final bool canAttach;
+  final bool uploading;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onVoid;
+  final VoidCallback onAttach;
+  final VoidCallback? onViewReceipt;
 
   @override
   Widget build(BuildContext context) {
@@ -1093,24 +1288,33 @@ class _AbonoRow extends StatelessWidget {
               ),
             ],
           ),
-          if (canApprove || canVoid)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: <Widget>[
-                if (canApprove)
-                  TextButton(
-                    onPressed: onReject,
-                    child: const Text('Rechazar'),
+          Wrap(
+            alignment: WrapAlignment.end,
+            children: <Widget>[
+              if (onViewReceipt != null)
+                TextButton(
+                  onPressed: onViewReceipt,
+                  child: const Text('Ver comprobante'),
+                ),
+              if (canAttach)
+                TextButton(
+                  onPressed: uploading ? null : onAttach,
+                  child: Text(
+                    uploading
+                        ? 'Subiendo…'
+                        : (abono.comprobante == null
+                              ? 'Adjuntar comprobante'
+                              : 'Cambiar comprobante'),
                   ),
-                if (canApprove)
-                  FilledButton(
-                    onPressed: onApprove,
-                    child: const Text('Aprobar'),
-                  ),
-                if (canVoid)
-                  TextButton(onPressed: onVoid, child: const Text('Anular')),
-              ],
-            ),
+                ),
+              if (canApprove)
+                TextButton(onPressed: onReject, child: const Text('Rechazar')),
+              if (canApprove)
+                FilledButton(onPressed: onApprove, child: const Text('Aprobar')),
+              if (canVoid)
+                TextButton(onPressed: onVoid, child: const Text('Anular')),
+            ],
+          ),
         ],
       ),
     );

@@ -3,6 +3,7 @@ const Contribution = require('../models/Contribution');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 const { registrar } = require('../utils/audit');
+const { estaConfigurado, subirComprobante, borrarComprobante } = require('../services/cloudinary');
 const {
   round,
   montoPagadoDe,
@@ -445,6 +446,87 @@ const reject = asyncHandler(async (req, res) => {
   res.status(200).json(item);
 });
 
+// POST /api/contributions/:id/payments/:abonoId/comprobante
+// Recibe un archivo (imagen o PDF) y lo sube a Cloudinary desde el backend.
+const TIPOS_COMPROBANTE = {
+  'image/jpeg': { tipo: 'imagen', resourceType: 'image' },
+  'image/png': { tipo: 'imagen', resourceType: 'image' },
+  'image/webp': { tipo: 'imagen', resourceType: 'image' },
+  'application/pdf': { tipo: 'pdf', resourceType: 'raw' }
+};
+
+const attachReceipt = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.abonoId)) {
+    return res.status(400).json({ error: 'El id del abono no es válido' });
+  }
+  if (!estaConfigurado()) {
+    return res.status(503).json({ error: 'El almacenamiento de comprobantes no está configurado' });
+  }
+  if (!req.file || !req.file.buffer || req.file.buffer.length === 0) {
+    return res.status(400).json({ error: 'Adjunta un archivo de comprobante' });
+  }
+
+  const formato = TIPOS_COMPROBANTE[req.file.mimetype];
+  if (!formato) {
+    return res.status(415).json({
+      error: 'El comprobante debe ser una imagen JPG, PNG, WebP o un PDF'
+    });
+  }
+
+  const item = await Contribution.findOne({
+    _id: req.params.id,
+    semilleroId: req.semilleroId
+  });
+  if (!item) {
+    return res.status(404).json({ error: 'Aporte no encontrado' });
+  }
+  const abono = item.abonos.id(req.params.abonoId);
+  if (!abono) {
+    return res.status(404).json({ error: 'Abono no encontrado' });
+  }
+  if (abono.estado === 'anulado') {
+    return res.status(409).json({ error: 'No se puede adjuntar un comprobante a un abono anulado' });
+  }
+
+  const esTesorero = Boolean(req.membership.esTesorero);
+  const memberId = miMemberId(req);
+  const esPropio = Boolean(memberId) && item.integranteId.toString() === memberId;
+  if (!esTesorero && !esPropio) {
+    return res.status(403).json({ error: 'Solo puedes adjuntar comprobantes de tus propios aportes' });
+  }
+
+  let subido;
+  try {
+    subido = await subirComprobante(req.file.buffer, {
+      publicId: `${item._id}_${abono._id}_${Date.now()}`,
+      resourceType: formato.resourceType
+    });
+  } catch (error) {
+    return res.status(error.status || 502).json({ error: error.message });
+  }
+
+  const anterior = abono.comprobante ? abono.comprobante.publicId : null;
+  const anteriorTipo = abono.comprobante ? abono.comprobante.tipo : null;
+
+  abono.comprobante = {
+    url: subido.url,
+    publicId: subido.publicId,
+    tipo: formato.tipo,
+    nombre: req.file.originalname ? req.file.originalname.slice(0, 160) : null,
+    bytes: subido.bytes || req.file.size || null,
+    subidoPor: req.userId,
+    subidoEn: new Date()
+  };
+  await item.save();
+
+  if (anterior) {
+    await borrarComprobante(anterior, anteriorTipo === 'pdf' ? 'raw' : 'image');
+  }
+
+  await auditar(req, item, 'aporte.comprobante_adjuntado', `${abono._id}`);
+  res.status(200).json(item);
+});
+
 module.exports = {
   list,
   create,
@@ -456,5 +538,6 @@ module.exports = {
   approvePayment,
   rejectPayment,
   voidPayment,
+  attachReceipt,
   marcarVencidos
 };

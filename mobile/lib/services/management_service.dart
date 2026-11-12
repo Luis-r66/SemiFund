@@ -136,6 +136,22 @@ class ManagementService {
     return Contribution.fromJson(data);
   }
 
+  Future<Contribution> uploadReceipt(
+    String id,
+    String abonoId, {
+    required Uint8List bytes,
+    required String filename,
+    required String contentType,
+  }) async {
+    final dynamic data = await _api.postMultipart(
+      '/contributions/$id/payments/$abonoId/comprobante',
+      bytes: bytes,
+      filename: filename,
+      contentType: contentType,
+    );
+    return Contribution.fromJson(data);
+  }
+
   Future<Contribution> approvePayment(String id, String abonoId) async {
     final dynamic data = await _api.patch(
       '/contributions/$id/payments/$abonoId/approve',

@@ -22,6 +22,14 @@ class AuthService {
     return AuthResult.fromJson(data);
   }
 
+  Future<AuthResult> loginWithGoogle(String idToken) async {
+    final dynamic data = await _api.post(
+      '/auth/google',
+      data: <String, dynamic>{'idToken': idToken},
+    );
+    return AuthResult.fromJson(data);
+  }
+
   Future<UserModel> updateProfile(UpdateProfileRequest request) async {
     final dynamic data = await _api.patch('/auth/me', data: request.toJson());
     return UserModel.fromJson(data);

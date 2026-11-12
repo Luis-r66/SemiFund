@@ -107,4 +107,45 @@ void main() {
     expect(AbonoStatus.fromApi('algo raro'), AbonoStatus.reportado);
     expect(AbonoStatus.fromApi('Aprobado'), AbonoStatus.aprobado);
   });
+
+  test('parsea el comprobante adjunto de un abono', () {
+    final Abono abono = Abono.fromJson(<String, dynamic>{
+      'id': 'a1',
+      'monto': 15000,
+      'estado': 'reportado',
+      'comprobante': <String, dynamic>{
+        'url': 'https://res.cloudinary.com/demo/image/upload/v1/foto.jpg',
+        'publicId': 'semifund/comprobantes/c1_a1',
+        'tipo': 'imagen',
+        'nombre': 'transferencia.jpg',
+      },
+    });
+
+    expect(abono.comprobante, isNotNull);
+    expect(abono.comprobante!.tipo, 'imagen');
+    expect(abono.comprobante!.esPdf, isFalse);
+    expect(abono.comprobante!.nombre, 'transferencia.jpg');
+  });
+
+  test('un abono sin comprobante deja la referencia en null', () {
+    final Abono abono = Abono.fromJson(<String, dynamic>{
+      'id': 'a2',
+      'monto': 10000,
+      'estado': 'aprobado',
+      'comprobante': null,
+    });
+
+    expect(abono.comprobante, isNull);
+  });
+
+  test('marca como PDF el comprobante de tipo pdf', () {
+    const Comprobante comprobante = Comprobante(
+      url: 'https://res.cloudinary.com/demo/raw/upload/v1/transferencia.pdf',
+      publicId: 'semifund/comprobantes/c1_a1',
+      tipo: 'pdf',
+      nombre: 'transferencia.pdf',
+    );
+
+    expect(comprobante.esPdf, isTrue);
+  });
 }

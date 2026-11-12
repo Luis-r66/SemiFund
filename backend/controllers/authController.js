@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 
 const User = require('../models/User');
 const Membership = require('../models/Membership');
@@ -106,6 +107,118 @@ const login = asyncHandler(async (req, res) => {
 
   const token = firmarToken(user);
   res.status(200).json({ token, user: publicUser(user) });
+});
+
+function perfilCompleto(user) {
+  if (!user.tipoUsuario) return false;
+  if (!user.programa || !String(user.programa).trim()) return false;
+  if (user.tipoUsuario === 'estudiante' && user.semestre == null) return false;
+  return true;
+}
+
+function partirNombre(payload, email) {
+  const nombres = (payload.given_name || '').trim();
+  const apellidos = (payload.family_name || '').trim();
+  if (nombres && apellidos) {
+    return { nombres, apellidos, nombre: `${nombres} ${apellidos}` };
+  }
+
+  const completo = (payload.name || '').trim();
+  if (completo) {
+    const partes = completo.split(/\s+/).filter(Boolean);
+    if (partes.length > 1) {
+      const apellido = partes.pop();
+      return {
+        nombres: partes.join(' '),
+        apellidos: apellido,
+        nombre: completo
+      };
+    }
+    return { nombres: completo, apellidos: '', nombre: completo };
+  }
+
+  const alterno = nombres || email.split('@')[0] || 'Usuario';
+  return { nombres: alterno, apellidos: '', nombre: alterno };
+}
+
+// POST /api/auth/google  { idToken }
+// Valida el token de Google con el Web Client ID y vincula o crea la cuenta.
+const loginWithGoogle = asyncHandler(async (req, res) => {
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const idToken = typeof body.idToken === 'string' ? body.idToken.trim() : '';
+  if (!idToken) {
+    return res.status(400).json({ error: 'El token de Google es requerido' });
+  }
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  if (!googleClientId) {
+    return res.status(503).json({ error: 'El inicio de sesión con Google no está configurado' });
+  }
+
+  let payload;
+  try {
+    const client = new OAuth2Client(googleClientId);
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: googleClientId
+    });
+    payload = ticket.getPayload();
+  } catch (error) {
+    return res.status(401).json({ error: 'No pudimos validar tu cuenta de Google. Intenta de nuevo.' });
+  }
+
+  if (!payload || !payload.sub || !payload.email) {
+    return res.status(401).json({ error: 'La cuenta de Google no entregó los datos necesarios' });
+  }
+  if (payload.email_verified !== true && payload.email_verified !== 'true') {
+    return res.status(403).json({ error: 'Tu correo de Google no está verificado' });
+  }
+
+  const email = payload.email.toLowerCase().trim();
+  let user = await User.findOne({ googleId: payload.sub });
+  let creada = false;
+
+  if (!user) {
+    user = await User.findOne({ email });
+    if (user && user.googleId && user.googleId !== payload.sub) {
+      return res.status(409).json({ error: 'Ese correo ya está vinculado a otra cuenta de Google' });
+    }
+
+    const nombre = partirNombre(payload, email);
+    if (user) {
+      // Cuenta creada con contraseña: se vincula porque Google ya verificó el correo.
+      user.googleId = payload.sub;
+      if (!user.nombres) user.nombres = nombre.nombres;
+      if (!user.apellidos) user.apellidos = nombre.apellidos;
+      await user.save();
+    } else {
+      try {
+        user = await User.create({
+          nombre: nombre.nombre,
+          nombres: nombre.nombres,
+          apellidos: nombre.apellidos,
+          email,
+          googleId: payload.sub
+        });
+        creada = true;
+      } catch (error) {
+        if (error && error.code === 11000) {
+          user = await User.findOne({ email });
+          if (!user) throw error;
+          user.googleId = payload.sub;
+          await user.save();
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  const token = firmarToken(user);
+  res.status(creada ? 201 : 200).json({
+    token,
+    user: publicUser(user),
+    requierePerfil: !perfilCompleto(user)
+  });
 });
 
 // POST /api/auth/logout
@@ -311,6 +424,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 module.exports = {
   register,
   login,
+  loginWithGoogle,
   logout,
   me,
   updateMe,

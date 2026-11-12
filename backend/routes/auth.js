@@ -20,9 +20,11 @@ const registerLimiter = limiter(60 * 60 * 1000, 5, 'Demasiados registros desde e
 const forgotLimiter = limiter(15 * 60 * 1000, 5, 'Demasiadas solicitudes de recuperación. Intenta más tarde.');
 const resetLimiter = limiter(15 * 60 * 1000, 10, 'Demasiados intentos de recuperación. Intenta más tarde.');
 const passwordLimiter = limiter(15 * 60 * 1000, 5, 'Demasiados cambios de contraseña. Intenta más tarde.');
+const googleLimiter = limiter(15 * 60 * 1000, 20, 'Demasiados intentos con Google. Intenta más tarde.');
 
 router.post('/register', registerLimiter, c.register);
 router.post('/login', loginLimiter, c.login);
+router.post('/google', googleLimiter, c.loginWithGoogle);
 router.post('/logout', auth.requireAuth, c.logout);
 router.get('/me', auth.requireAuth, c.me);
 

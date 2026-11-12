@@ -4,12 +4,26 @@ const { montoPagadoDe, saldoPendiente, estadoCobro } = require('../utils/payment
 const ESTADOS = ['pendiente', 'pagado', 'vencido', 'reportado'];
 const ESTADOS_ABONO = ['reportado', 'aprobado', 'rechazado', 'anulado'];
 
+const comprobanteSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true, trim: true },
+    publicId: { type: String, required: true, trim: true },
+    tipo: { type: String, trim: true, default: null },
+    nombre: { type: String, trim: true, default: null },
+    bytes: { type: Number, default: null },
+    subidoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    subidoEn: { type: Date, default: Date.now }
+  },
+  { _id: false }
+);
+
 const abonoSchema = new mongoose.Schema(
   {
     monto: { type: Number, required: [true, 'El monto del abono es requerido'], min: [0.01, 'El monto debe ser mayor a 0'] },
     fecha: { type: Date, default: Date.now },
     referencia: { type: String, trim: true, maxlength: [120, 'La referencia no puede superar 120 caracteres'], default: null },
     estado: { type: String, enum: ESTADOS_ABONO, required: true },
+    comprobante: { type: comprobanteSchema, default: null },
     reportadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     revisadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     fechaRevision: { type: Date, default: null },

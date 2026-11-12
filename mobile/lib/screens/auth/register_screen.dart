@@ -8,9 +8,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/input_formatters.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/session_provider.dart';
+import '../../services/google_auth_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -36,6 +38,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _passwordError;
   String? _confirmError;
   String? _error;
+  bool _googleBusy = false;
+
+  final GoogleAuthService _google = GoogleAuthService();
 
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -127,6 +132,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'No se pudo crear la cuenta. Intenta de nuevo.');
+    }
+  }
+
+  Future<void> _googleSubmit() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _error = null;
+      _googleBusy = true;
+    });
+
+    try {
+      final String? idToken = await _google.obtenerIdToken();
+      if (idToken == null || !mounted) return;
+      await context.read<SessionProvider>().loginWithGoogle(idToken);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } on GoogleAuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(
+        () => _error = 'No se pudo crear la cuenta con Google. Intenta de nuevo.',
+      );
+    } finally {
+      if (mounted) setState(() => _googleBusy = false);
     }
   }
 
@@ -275,10 +307,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: PrimaryButton(
-                label: 'Crear cuenta',
-                loading: session.isBusy,
-                onPressed: _canSubmit && !session.isBusy ? _submit : null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  PrimaryButton(
+                    label: 'Crear cuenta',
+                    loading: session.isBusy,
+                    onPressed: _canSubmit && !session.isBusy && !_googleBusy
+                        ? _submit
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  GoogleSignInButton(
+                    loading: _googleBusy,
+                    onPressed: session.isBusy ? null : _googleSubmit,
+                  ),
+                ],
               ),
             ),
           ],

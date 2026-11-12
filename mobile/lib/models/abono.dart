@@ -19,6 +19,32 @@ enum AbonoStatus {
   }
 }
 
+class Comprobante {
+  const Comprobante({
+    required this.url,
+    required this.publicId,
+    this.tipo,
+    this.nombre,
+  });
+
+  final String url;
+  final String publicId;
+  final String? tipo;
+  final String? nombre;
+
+  bool get esPdf => (tipo ?? '').toLowerCase() == 'pdf';
+
+  factory Comprobante.fromJson(dynamic json) {
+    final Map<String, dynamic> map = asMap(json);
+    return Comprobante(
+      url: asString(map['url']),
+      publicId: asString(map['publicId']),
+      tipo: asNullableString(map['tipo']),
+      nombre: asNullableString(map['nombre']),
+    );
+  }
+}
+
 class Abono {
   const Abono({
     required this.id,
@@ -27,6 +53,7 @@ class Abono {
     this.fecha,
     this.referencia,
     this.motivo,
+    this.comprobante,
   });
 
   final String id;
@@ -35,6 +62,7 @@ class Abono {
   final DateTime? fecha;
   final String? referencia;
   final String? motivo;
+  final Comprobante? comprobante;
 
   factory Abono.fromJson(dynamic json) {
     final Map<String, dynamic> map = asMap(json);
@@ -45,6 +73,9 @@ class Abono {
       fecha: asDate(map['fecha']),
       referencia: asNullableString(map['referencia']),
       motivo: asNullableString(map['motivo']),
+      comprobante: map['comprobante'] == null
+          ? null
+          : Comprobante.fromJson(map['comprobante']),
     );
   }
 }

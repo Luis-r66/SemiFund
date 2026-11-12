@@ -39,6 +39,20 @@ BREVO_API_KEY=             # solo en Render o .env local, nunca en Git
 
 En Render configura `MAIL_MODE=brevo`, `MAIL_FROM` y `BREVO_API_KEY`.
 
+### Google y Cloudinary
+
+```
+GOOGLE_CLIENT_ID=571520017186-....apps.googleusercontent.com
+CLOUDINARY_CLOUD_NAME=gcfx7sd0
+CLOUDINARY_API_KEY=983957817848339
+CLOUDINARY_API_SECRET=...   # solo Render y backend/.env local
+```
+
+- `GOOGLE_CLIENT_ID` es el **Web Client ID** de Google Cloud Console (público).
+- El cliente OAuth **Android** debe tener el package `com.luisriascos.semi_fund` y el SHA-1 del keystore con el que se firma el APK.
+- `CLOUDINARY_API_SECRET` es como una contraseña: nunca se sube al repositorio ni viaja en el APK. Las subidas se hacen desde el backend.
+- Si Cloudinary no está configurado, el endpoint de comprobantes responde `503` con un mensaje claro.
+
 ## Levantar el backend
 
 ```bash
@@ -63,6 +77,7 @@ npm run sync:members                # aplicar
 |---|---|---|---|
 | POST | `/auth/register` `{nombres, apellidos, email, password}` | 201 `{token, user}` | 400, 409, 429 |
 | POST | `/auth/login` `{email, password}` | 200 `{token, user}` | 401, 429 |
+| POST | `/auth/google` `{idToken}` | 200 `{token, user, requierePerfil}` | 400, 401, 403, 409, 429, 503 |
 | GET | `/auth/me` | 200 perfil + semilleros | 401 |
 | PATCH | `/auth/me` `{nombres?, apellidos?, tipoUsuario?, programa?, semestre?}` | 200 perfil | 400 |
 | PATCH | `/auth/password` `{currentPassword, newPassword}` | 200 `{token}` | 400, 401, 429 |
@@ -96,6 +111,7 @@ npm run sync:members                # aplicar
 | PATCH | `/contributions/:id/payments/:abonoId/approve` | 200 | 404, 409 abono no reportado |
 | PATCH | `/contributions/:id/payments/:abonoId/reject` `{motivo?}` | 200 | 404, 409 abono no reportado |
 | PATCH | `/contributions/:id/payments/:abonoId/void` | 200 | 404, 409 abono no aprobado |
+| POST | `/contributions/:id/payments/:abonoId/comprobante` (multipart `comprobante`) | 200 aporte actualizado | 400, 403, 404, 409, 413, 415, 503 |
 | GET | `/expenses?category=&month=YYYY-MM` | 200 | 400 |
 | POST | `/expenses` `{descripcion, categoria, monto, fecha?}` (sin fecha futura) | 201 | 400, 409 saldo insuficiente |
 | GET | `/balance` → `{totalAportado, totalGastado, saldoDisponible}` | 200 | — |
@@ -146,8 +162,27 @@ Pruebas de las reglas puras:
 
 ```bash
 cd backend
-npm test    # 25 pruebas
+npm test    # 34 pruebas
 ```
+
+## Inicio de sesión con Google
+
+- La app pide el `idToken` con el plugin `google_sign_in` y lo envía a `POST /api/auth/google`.
+- El backend lo valida con `google-auth-library` usando `GOOGLE_CLIENT_ID` como audiencia.
+- Se exige `email_verified = true`.
+- Si el correo ya existe, la cuenta se vincula (Google ya verificó el correo). Si no existe, se crea sin contraseña y `requierePerfil: true` envía al onboarding.
+- Botón **Continuar con Google** en login y registro.
+- Si la pantalla de consentimiento está en modo *Testing*, agrega tu correo como usuario de prueba en Google Cloud Console.
+
+## Comprobantes de abonos con Cloudinary
+
+- En el detalle de un aporte, cada abono tiene **Adjuntar comprobante** (integrante dueño o tesorero).
+- Se aceptan JPG, PNG, WebP y PDF de hasta **5 MB**, uno por abono.
+- El backend recibe el archivo en memoria con `multer`, lo sube a Cloudinary y guarda `url`, `publicId`, `tipo` y `nombre` dentro del abono.
+- El APK solo muestra o abre el comprobante; **nunca** maneja el API secret.
+- Al reemplazar un comprobante se borra el anterior de Cloudinary (best-effort).
+- Al anular un abono el comprobante se conserva como evidencia.
+- Carpetas en Cloudinary: `semifund/comprobantes`.
 
 ## Mantener despierta la API en Render
 

@@ -115,6 +115,26 @@ class SessionProvider extends ChangeNotifier {
 
   bool get isProfileComplete => _user?.isProfileComplete ?? false;
 
+  Future<void> loginWithGoogle(String idToken) async {
+    _isBusy = true;
+    _notice = null;
+    notifyListeners();
+
+    try {
+      final AuthResult result = await _authService.loginWithGoogle(idToken);
+      await _store.saveToken(result.token);
+      _user = result.user;
+      _status = SessionStatus.authenticated;
+      await _reloadSemillerosSafely();
+    } on ApiException catch (error) {
+      _notice = error.message;
+      rethrow;
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> register({
     required String nombres,
     required String apellidos,
