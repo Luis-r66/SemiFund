@@ -54,7 +54,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
         child: AppContent(
           child: Column(
             children: <Widget>[
-              AppTopBar(title: 'Cuentas', onBack: () => context.pop()),
+              AppTopBar(
+                title: 'Cuentas',
+                onBack: AppLayout.isDesktop(context)
+                    ? null
+                    : () => context.pop(),
+              ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: accounts.load,

@@ -26,6 +26,7 @@ import '../screens/semilleros/join_semillero_screen.dart';
 import '../screens/semilleros/pending_request_screen.dart';
 import '../screens/semilleros/semilleros_screen.dart';
 import '../screens/splash/splash_screen.dart';
+import '../widgets/desktop_shell.dart';
 
 /// Rutas que requieren un semillero activo.
 const Set<String> _semilleroRoutes = <String>{'/home', '/accounts', '/invite'};
@@ -153,47 +154,68 @@ class AppRouter {
             path: '/change-password',
             builder: (_, _) => const ChangePasswordScreen(),
           ),
-          GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
-          GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
-          GoRoute(path: '/accounts', builder: (_, _) => const AccountsScreen()),
-          GoRoute(path: '/invite', builder: (_, _) => const InviteScreen()),
-          GoRoute(path: '/activity', builder: (_, _) => const ActivityScreen()),
-          GoRoute(
-            path: '/members',
-            builder: (_, _) => const MembersScreen(),
+          ShellRoute(
+            builder: (BuildContext context, GoRouterState state, Widget child) {
+              return DesktopShell(location: state.uri.path, child: child);
+            },
             routes: <RouteBase>[
-              GoRoute(path: 'new', builder: (_, _) => const MemberFormScreen()),
               GoRoute(
-                path: ':id',
-                builder: (_, GoRouterState state) =>
-                    MemberDetailScreen(memberId: state.pathParameters['id']!),
+                path: '/profile',
+                builder: (_, _) => const ProfileScreen(),
+              ),
+              GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+              GoRoute(
+                path: '/accounts',
+                builder: (_, _) => const AccountsScreen(),
+              ),
+              GoRoute(path: '/invite', builder: (_, _) => const InviteScreen()),
+              GoRoute(
+                path: '/activity',
+                builder: (_, _) => const ActivityScreen(),
+              ),
+              GoRoute(
+                path: '/members',
+                builder: (_, _) => const MembersScreen(),
                 routes: <RouteBase>[
                   GoRoute(
-                    path: 'edit',
-                    builder: (_, GoRouterState state) =>
-                        MemberFormScreen(memberId: state.pathParameters['id']),
+                    path: 'new',
+                    builder: (_, _) => const MemberFormScreen(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, GoRouterState state) => MemberDetailScreen(
+                      memberId: state.pathParameters['id']!,
+                    ),
+                    routes: <RouteBase>[
+                      GoRoute(
+                        path: 'edit',
+                        builder: (_, GoRouterState state) => MemberFormScreen(
+                          memberId: state.pathParameters['id'],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          GoRoute(
-            path: '/contributions',
-            builder: (_, _) => const ContributionsScreen(),
-            routes: <RouteBase>[
               GoRoute(
-                path: 'new',
-                builder: (_, _) => const ContributionFormScreen(),
+                path: '/contributions',
+                builder: (_, _) => const ContributionsScreen(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'new',
+                    builder: (_, _) => const ContributionFormScreen(),
+                  ),
+                ],
               ),
-            ],
-          ),
-          GoRoute(
-            path: '/expenses',
-            builder: (_, _) => const ExpensesScreen(),
-            routes: <RouteBase>[
               GoRoute(
-                path: 'new',
-                builder: (_, _) => const ExpenseFormScreen(),
+                path: '/expenses',
+                builder: (_, _) => const ExpensesScreen(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'new',
+                    builder: (_, _) => const ExpenseFormScreen(),
+                  ),
+                ],
               ),
             ],
           ),

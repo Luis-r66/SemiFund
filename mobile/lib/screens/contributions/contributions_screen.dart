@@ -445,7 +445,9 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
             children: <Widget>[
               AppTopBar(
                 title: 'Aportes',
-                onBack: () => context.pop(),
+                onBack: AppLayout.isDesktop(context)
+                    ? null
+                    : () => context.pop(),
                 trailing: isTreasurer
                     ? Row(
                         mainAxisSize: MainAxisSize.min,

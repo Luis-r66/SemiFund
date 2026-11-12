@@ -67,7 +67,9 @@ class _MembersScreenState extends State<MembersScreen> {
             children: <Widget>[
               AppTopBar(
                 title: 'Integrantes',
-                onBack: () => context.pop(),
+                onBack: AppLayout.isDesktop(context)
+                    ? null
+                    : () => context.pop(),
                 trailing: isTreasurer
                     ? RoundAddButton(
                         onPressed: () => context.push('/members/new'),

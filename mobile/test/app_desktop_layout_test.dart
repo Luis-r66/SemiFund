@@ -135,7 +135,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('el inicio usa rejilla de accesos en escritorio', (
+  testWidgets('el inicio muestra la barra lateral y el tablero en escritorio', (
     WidgetTester tester,
   ) async {
     setDesktopSize(tester);
@@ -147,10 +147,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeScreen), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('desktop-sidebar')),
+      findsOneWidget,
+    );
     expect(find.text('Integrantes'), findsOneWidget);
     expect(find.text('Aportes'), findsOneWidget);
     expect(find.text('Gastos'), findsOneWidget);
     expect(find.text('Cuentas'), findsOneWidget);
+    expect(find.text('RESUMEN'), findsOneWidget);
+    expect(find.text('GESTIONAR'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

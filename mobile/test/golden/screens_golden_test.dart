@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:semi_fund/app.dart';
 import 'package:semi_fund/core/theme/app_theme.dart';
 import 'package:semi_fund/models/balance.dart';
 import 'package:semi_fund/models/contribution.dart';
@@ -374,6 +375,42 @@ void main() {
       home: home,
       name: 'desktop_home',
       size: const Size(1100, 900),
+    );
+  });
+
+  testWidgets('desktop shell', (WidgetTester tester) async {
+    when(() => dashboard.balance()).thenAnswer((_) async => Balance.empty);
+    when(() => dashboard.members(activo: true))
+        .thenAnswer((_) async => const <Member>[]);
+    when(() => dashboard.contributions())
+        .thenAnswer((_) async => const <Contribution>[]);
+    when(() => dashboard.expenses()).thenAnswer((_) async => const <Expense>[]);
+
+    final SessionProvider session = await authenticatedSession();
+    final HomeProvider home = HomeProvider(
+      dashboard,
+      now: () => DateTime(2026, 10, 4, 9, 41),
+    );
+
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SessionProvider>.value(value: session),
+          ChangeNotifierProvider<HomeProvider>.value(value: home),
+        ],
+        child: SemiFundApp(session: session),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/desktop_shell.png'),
     );
   });
 }

@@ -63,6 +63,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final HomeSnapshot? snapshot = home.snapshot;
 
+    if (AppLayout.isDesktop(context)) {
+      return _DesktopHome(
+        session: session,
+        home: home,
+        active: active,
+        snapshot: snapshot,
+        onOpen: _open,
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.paper,
       body: SafeArea(
@@ -224,6 +234,282 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// Inicio de la web de escritorio: un tablero con el saldo, los totales y los
+/// pendientes del semillero. La navegación vive en la barra lateral.
+class _DesktopHome extends StatelessWidget {
+  const _DesktopHome({
+    required this.session,
+    required this.home,
+    required this.active,
+    required this.snapshot,
+    required this.onOpen,
+  });
+
+  final SessionProvider session;
+  final HomeProvider home;
+  final SemilleroMembership active;
+  final HomeSnapshot? snapshot;
+  final Future<void> Function(String path) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isTreasurer = session.isTesorero;
+
+    return Scaffold(
+      backgroundColor: AppColors.paper,
+      body: SafeArea(
+        child: AppContent(
+          maxWidth: 1280,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(32, 28, 32, 20),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text('Inicio', style: AppTextStyles.h1),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${active.nombre} · '
+                            '${isTreasurer ? 'Tesorero' : 'Integrante'}',
+                            style: AppTextStyles.small.copyWith(
+                              color: AppColors.ink2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isTreasurer) ...<Widget>[
+                      _HeaderAction(
+                        label: 'Nuevo gasto',
+                        filled: false,
+                        onPressed: () => onOpen('/expenses/new'),
+                      ),
+                      const SizedBox(width: 10),
+                      _HeaderAction(
+                        label: 'Nuevo aporte',
+                        filled: true,
+                        onPressed: () => onOpen('/contributions/new'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: home.refresh,
+                  color: AppColors.ink,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+                    children: <Widget>[
+                      if (home.error != null) ...<Widget>[
+                        ErrorBanner(
+                          message: home.error!,
+                          onRetry: home.refresh,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      if (snapshot == null)
+                        SizedBox(
+                          height: 380,
+                          child: LoadingView(
+                            message: home.loading
+                                ? 'Cargando información del semillero...'
+                                : 'Desliza hacia abajo para actualizar.',
+                          ),
+                        )
+                      else ...<Widget>[
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              Expanded(
+                                flex: 3,
+                                child: BalanceCard(
+                                  saldo: snapshot!.balance.saldoDisponible,
+                                  updatedAt: snapshot!.updatedAt,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                flex: 2,
+                                child: _TotalsCard(balance: snapshot!.balance),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        const SectionLabel('Resumen'),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: _StatCard(
+                                icon: LucideIcons.users,
+                                label: 'Integrantes activos',
+                                value: '${snapshot!.activeMembers}',
+                                onTap: () => onOpen('/members'),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _StatCard(
+                                icon: LucideIcons.wallet,
+                                label: 'Aportes por cobrar',
+                                value: '${snapshot!.pendingContributions}',
+                                onTap: () => onOpen('/contributions'),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _StatCard(
+                                icon: LucideIcons.receipt,
+                                label: 'Gastos registrados',
+                                value: '${snapshot!.expensesCount}',
+                                onTap: () => onOpen('/expenses'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.label,
+    required this.filled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool filled;
+  final VoidCallback onPressed;
+
+  static ButtonStyle _base() {
+    return ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll<Size>(Size(0, 44)),
+      padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+        EdgeInsets.symmetric(horizontal: 16),
+      ),
+      shape: WidgetStatePropertyAll<OutlinedBorder>(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      textStyle: WidgetStatePropertyAll<TextStyle>(AppTextStyles.smallSemibold),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget icon = const Icon(LucideIcons.plus, size: 16);
+
+    if (filled) {
+      return FilledButton.icon(
+        onPressed: onPressed,
+        style: _base().copyWith(
+          backgroundColor: const WidgetStatePropertyAll<Color>(AppColors.ink),
+          foregroundColor: const WidgetStatePropertyAll<Color>(AppColors.paper),
+        ),
+        icon: icon,
+        label: Text(label),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: _base().copyWith(
+        foregroundColor: const WidgetStatePropertyAll<Color>(AppColors.ink),
+        side: const WidgetStatePropertyAll<BorderSide>(
+          BorderSide(color: AppColors.line),
+        ),
+      ),
+      icon: icon,
+      label: Text(label),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.paper,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.mist,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: AppColors.ink),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: AppTextStyles.small.copyWith(
+                        color: AppColors.ink2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(value, style: AppTextStyles.h2),
+                  ],
+                ),
+              ),
+              const Icon(
+                LucideIcons.chevronRight,
+                size: 18,
+                color: AppColors.ink3,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TotalsCard extends StatelessWidget {
   const _TotalsCard({required this.balance});
 
@@ -238,43 +524,51 @@ class _TotalsCard extends StatelessWidget {
         border: Border.all(color: AppColors.line),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Total aportado',
-                  style: AppTextStyles.smallMedium.copyWith(
-                    color: AppColors.ink2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    formatCop(balance.totalAportado),
-                    style: AppTextStyles.moneyMedium,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                'Total gastado',
-                style: AppTextStyles.tiny.copyWith(color: AppColors.ink3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Total aportado',
+                      style: AppTextStyles.smallMedium.copyWith(
+                        color: AppColors.ink2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        formatCop(balance.totalAportado),
+                        style: AppTextStyles.moneyMedium,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                formatCop(balance.totalGastado),
-                style: AppTextStyles.moneyTiny.copyWith(color: AppColors.ink2),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  Text(
+                    'Total gastado',
+                    style: AppTextStyles.tiny.copyWith(color: AppColors.ink3),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    formatCop(balance.totalGastado),
+                    style: AppTextStyles.moneyTiny.copyWith(
+                      color: AppColors.ink2,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

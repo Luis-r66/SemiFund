@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
@@ -74,7 +75,7 @@ class _InviteScreenState extends State<InviteScreen> {
           children: <Widget>[
             AppTopBar(
               title: 'Invitar integrantes',
-              onBack: () => context.pop(),
+              onBack: AppLayout.isDesktop(context) ? null : () => context.pop(),
             ),
             Expanded(
               child: ListView(

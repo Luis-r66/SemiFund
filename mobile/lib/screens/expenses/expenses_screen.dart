@@ -45,7 +45,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             children: <Widget>[
               AppTopBar(
                 title: 'Gastos',
-                onBack: () => context.pop(),
+                onBack: AppLayout.isDesktop(context)
+                    ? null
+                    : () => context.pop(),
                 trailing: isTreasurer
                     ? RoundAddButton(
                         onPressed: () => context.push('/expenses/new'),

@@ -70,7 +70,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
         child: AppContent(
           child: Column(
             children: <Widget>[
-              AppTopBar(title: 'Actividad', onBack: () => context.pop()),
+              AppTopBar(
+                title: 'Actividad',
+                onBack: AppLayout.isDesktop(context)
+                    ? null
+                    : () => context.pop(),
+              ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _load,

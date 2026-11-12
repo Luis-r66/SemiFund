@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/semillero_membership.dart';
@@ -59,15 +60,17 @@ class ProfileScreen extends StatelessWidget {
           children: <Widget>[
             AppTopBar(
               title: 'Perfil',
-              onBack: () {
-                if (GoRouter.of(context).canPop()) {
-                  context.pop();
-                } else {
-                  context.go(
-                    session.hasActiveSemillero ? '/home' : '/semilleros',
-                  );
-                }
-              },
+              onBack: AppLayout.isDesktop(context)
+                  ? null
+                  : () {
+                      if (GoRouter.of(context).canPop()) {
+                        context.pop();
+                      } else {
+                        context.go(
+                          session.hasActiveSemillero ? '/home' : '/semilleros',
+                        );
+                      }
+                    },
             ),
             Expanded(
               child: ListView(

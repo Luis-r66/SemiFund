@@ -16,7 +16,7 @@ class AppLayout {
   static const double formMaxWidth = 640;
 
   /// Listas, tableros y contenido general.
-  static const double contentMaxWidth = 1100;
+  static const double contentMaxWidth = 1280;
 
   static double widthOf(BuildContext context) =>
       MediaQuery.sizeOf(context).width;

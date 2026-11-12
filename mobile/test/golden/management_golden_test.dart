@@ -31,6 +31,7 @@ import 'package:semi_fund/services/auth_service.dart';
 import 'package:semi_fund/services/dashboard_service.dart';
 import 'package:semi_fund/services/management_service.dart';
 import 'package:semi_fund/services/semillero_service.dart';
+import 'package:semi_fund/widgets/desktop_shell.dart';
 import 'package:semi_fund/widgets/form_controls.dart';
 
 import '../helpers/fakes.dart';
@@ -324,6 +325,32 @@ void main() {
           create: (_) => MembersProvider(reads, writes),
         ),
       ],
+    );
+  });
+
+  testWidgets('desktop members', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final SessionProvider s = await session();
+    await tester.pumpWidget(
+      wrap(
+        const DesktopShell(location: '/members', child: MembersScreen()),
+        s,
+        <ChangeNotifierProvider<ChangeNotifier>>[
+          ChangeNotifierProvider<MembersProvider>(
+            create: (_) => MembersProvider(reads, writes),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/desktop_members.png'),
     );
   });
 
