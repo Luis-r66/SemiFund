@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,6 +17,7 @@ import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
+import '../../widgets/pager.dart';
 import '../../widgets/status_badge.dart';
 
 class MembersScreen extends StatefulWidget {
@@ -26,38 +29,37 @@ class MembersScreen extends StatefulWidget {
 
 class _MembersScreenState extends State<MembersScreen> {
   final TextEditingController _search = TextEditingController();
-  String _query = '';
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _search.addListener(
-      () => setState(() => _query = _search.text.trim().toLowerCase()),
-    );
+    _search.addListener(_onSearchChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<MembersProvider>().load();
     });
   }
 
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      context.read<MembersProvider>().load(query: _search.text);
+    });
   }
 
-  List<Member> _filter(List<Member> members) {
-    if (_query.isEmpty) return members;
-    return members.where((Member member) {
-      return member.nombre.toLowerCase().contains(_query) ||
-          member.programa.toLowerCase().contains(_query);
-    }).toList();
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final MembersProvider members = context.watch<MembersProvider>();
     final bool isTreasurer = context.watch<SessionProvider>().isTesorero;
-    final List<Member> visible = _filter(members.members);
+    final bool buscando = members.query.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -101,33 +103,27 @@ class _MembersScreenState extends State<MembersScreen> {
                       if (members.loading && members.members.isEmpty)
                         const SizedBox(height: 360, child: LoadingView())
                       else if (members.members.isEmpty)
-                        const EmptyState(
-                          icon: LucideIcons.users,
-                          title: 'Aún no hay integrantes',
-                          message:
-                              'Cuando agregues integrantes aparecerán aquí.',
+                        EmptyState(
+                          icon: buscando
+                              ? LucideIcons.search
+                              : LucideIcons.users,
+                          title: buscando
+                              ? 'Sin resultados'
+                              : 'Aún no hay integrantes',
+                          message: buscando
+                              ? 'No encontramos integrantes para "${_search.text.trim()}".'
+                              : 'Cuando agregues integrantes aparecerán aquí.',
                         )
                       else ...<Widget>[
                         Padding(
                           padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
                           child: Text(
-                            '${visible.length} ${visible.length == 1 ? 'integrante' : 'integrantes'}'
+                            '${members.total} ${members.total == 1 ? 'integrante' : 'integrantes'}'
                                 .toUpperCase(),
                             style: AppTextStyles.label,
                           ),
                         ),
-                        if (visible.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Text(
-                              'Sin resultados para "${_search.text.trim()}"',
-                              textAlign: TextAlign.center,
-                              style: AppTextStyles.small.copyWith(
-                                color: AppColors.ink3,
-                              ),
-                            ),
-                          ),
-                        for (final Member member in visible)
+                        for (final Member member in members.members)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _MemberTile(
@@ -136,6 +132,13 @@ class _MembersScreenState extends State<MembersScreen> {
                                   context.push('/members/${member.id}'),
                             ),
                           ),
+                        Pager(
+                          page: members.page,
+                          pages: members.pages,
+                          loading: members.loadingMore,
+                          onPage: members.goToPage,
+                          onLoadMore: members.loadMore,
+                        ),
                       ],
                     ],
                   ),

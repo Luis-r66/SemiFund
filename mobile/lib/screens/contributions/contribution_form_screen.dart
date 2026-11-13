@@ -45,7 +45,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
     _amount.addListener(() => setState(() {}));
     _concept.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<MembersProvider>().load();
+      if (mounted) context.read<MembersProvider>().loadForPicker();
     });
   }
 
@@ -91,7 +91,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
   @override
   Widget build(BuildContext context) {
     final MembersProvider members = context.watch<MembersProvider>();
-    final List<Member> active = members.activeMembers;
+    final List<Member> active = members.pickerMembers;
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -148,7 +148,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
                       if (members.error != null) ...<Widget>[
                         ErrorBanner(
                           message: members.error!,
-                          onRetry: members.load,
+                          onRetry: members.loadForPicker,
                         ),
                         const SizedBox(height: 12),
                       ],

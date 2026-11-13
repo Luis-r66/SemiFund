@@ -26,6 +26,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
 import '../../widgets/loading_view.dart';
+import '../../widgets/pager.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
 import 'excel_import_sheet.dart';
@@ -111,7 +112,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         title: const Text('Pago total'),
         content: Text(
           '¿Confirmas el pago de ${formatCop(contribution.saldoPendiente)} de '
-          '${provider.memberName(contribution.integranteId)}?',
+          '${provider.nameOf(contribution)}?',
         ),
         actions: <Widget>[
           TextButton(
@@ -234,7 +235,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (BuildContext sheetContext) => _DetailSheet(
-        name: provider.memberName(item.integranteId),
+        name: provider.nameOf(item),
         contribution: item,
         isTreasurer: isTreasurer,
         canReport: !isTreasurer && item.canReport,
@@ -549,13 +550,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                         )
                       else ...<Widget>[
                         SectionLabel(
-                          '${contributions.items.length} ${contributions.items.length == 1 ? 'registro' : 'registros'}',
+                          '${contributions.total} ${contributions.total == 1 ? 'registro' : 'registros'}',
                         ),
                         for (final Contribution item in contributions.items)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _ContributionTile(
-                              name: contributions.memberName(item.integranteId),
+                              name: contributions.nameOf(item),
                               contribution: item,
                               canRegister:
                                   isTreasurer &&
@@ -574,6 +575,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                               onReview: () => _openDetail(item),
                             ),
                           ),
+                        Pager(
+                          page: contributions.page,
+                          pages: contributions.pages,
+                          loading: contributions.loadingMore,
+                          onPage: contributions.goToPage,
+                          onLoadMore: contributions.loadMore,
+                        ),
                       ],
                     ],
                   ),

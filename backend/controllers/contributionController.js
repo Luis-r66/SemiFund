@@ -4,6 +4,8 @@ const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 const { registrar } = require('../utils/audit');
 const { estaConfigurado, subirComprobante, borrarComprobante } = require('../services/cloudinary');
+const { parsePagination, paginatedBody } = require('../utils/pagination');
+const { invalidateBalance } = require('../utils/balance');
 const {
   round,
   montoPagadoDe,
@@ -23,13 +25,12 @@ const STATUS_MAP = {
   reported: 'reportado'
 };
 
-async function marcarVencidos(semilleroId) {
-  const now = new Date();
-  const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  await Contribution.updateMany(
-    { semilleroId, estado: 'pendiente', mes: { $lt: mesActual } },
-    { $set: { estado: 'vencido' } }
-  );
+// Nombres de los integrantes de la página consultada. Evita que el cliente
+// tenga que bajar toda la lista de integrantes solo para poner nombres.
+async function nombresDeIntegrantes(semilleroId, ids) {
+  if (!ids || ids.length === 0) return new Map();
+  const miembros = await Member.find({ _id: { $in: ids }, semilleroId }).select('nombre');
+  return new Map(miembros.map((m) => [m.id, m.nombre]));
 }
 
 function cuerpo(req) {
@@ -64,7 +65,9 @@ function miMemberId(req) {
 }
 
 const list = asyncHandler(async (req, res) => {
-  await marcarVencidos(req.semilleroId);
+  const paginacion = parsePagination(req.query);
+  if (paginacion.error) return res.status(400).json({ error: paginacion.error });
+
   const filter = { semilleroId: req.semilleroId };
   if (req.query.status) {
     const estado = STATUS_MAP[req.query.status];
@@ -81,15 +84,36 @@ const list = asyncHandler(async (req, res) => {
     }
     filter.integranteId = req.query.memberId;
   }
-  const items = await Contribution.find(filter).sort({ _id: -1 });
-  const memberId = miMemberId(req);
-  res.status(200).json(
-    items.map((item) => {
-      const data = item.toJSON();
-      data.esPropio = Boolean(memberId) && item.integranteId.toString() === memberId;
-      return data;
-    })
+
+  const consulta = Contribution.find(filter).sort({ _id: -1 });
+  if (!paginacion.paginated) {
+    const items = await consulta;
+    const memberId = miMemberId(req);
+    return res.status(200).json(
+      items.map((item) => {
+        const data = item.toJSON();
+        data.esPropio = Boolean(memberId) && item.integranteId.toString() === memberId;
+        return data;
+      })
+    );
+  }
+
+  const [docs, total] = await Promise.all([
+    consulta.skip(paginacion.skip).limit(paginacion.limit),
+    Contribution.countDocuments(filter)
+  ]);
+  const nombres = await nombresDeIntegrantes(
+    req.semilleroId,
+    [...new Set(docs.map((item) => String(item.integranteId)))]
   );
+  const memberId = miMemberId(req);
+  const items = docs.map((item) => {
+    const data = item.toJSON();
+    data.esPropio = Boolean(memberId) && item.integranteId.toString() === memberId;
+    data.integranteNombre = nombres.get(String(item.integranteId)) || null;
+    return data;
+  });
+  res.status(200).json(paginatedBody(items, total, paginacion.page, paginacion.limit));
 });
 
 const create = asyncHandler(async (req, res) => {
@@ -243,6 +267,7 @@ const addPayment = asyncHandler(async (req, res) => {
   agregarAbono(item, { monto, referencia, usuarioId: req.userId, aprobado: esTesorero, now });
   sincronizarEstado(item, now);
   await item.save();
+  invalidateBalance(req.semilleroId);
   await auditar(req, item, esTesorero ? 'aporte.abono_registrado' : 'aporte.abono_reportado', `${monto}`);
   res.status(201).json(item);
 });
@@ -272,6 +297,7 @@ const approvePayment = asyncHandler(async (req, res) => {
 
   aprobarAbono(item, abono, req.userId, new Date());
   await item.save();
+  invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.abono_aprobado', `${abono.monto}`);
   res.status(200).json(item);
 });
@@ -303,6 +329,7 @@ const rejectPayment = asyncHandler(async (req, res) => {
 
   rechazarAbono(item, abono, req.userId, typeof body.motivo === 'string' ? body.motivo.trim() || null : null, new Date());
   await item.save();
+  invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.abono_rechazado', `${abono.monto}`);
   res.status(200).json(item);
 });
@@ -335,6 +362,7 @@ const voidPayment = asyncHandler(async (req, res) => {
 
   anularAbono(item, abono, req.userId, typeof body.motivo === 'string' ? body.motivo.trim() || null : null, new Date());
   await item.save();
+  invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.abono_anulado', `${abono.monto}`);
   res.status(200).json(item);
 });
@@ -380,6 +408,7 @@ const report = asyncHandler(async (req, res) => {
   });
   sincronizarEstado(item, now);
   await item.save();
+  invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.reportado');
   res.status(200).json(item);
 });
@@ -409,6 +438,7 @@ const pay = asyncHandler(async (req, res) => {
   sincronizarEstado(item, now);
   item.fechaPago = now;
   await item.save();
+  invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.pago_total', `${item.monto}`);
   res.status(200).json(item);
 });
@@ -442,6 +472,7 @@ const reject = asyncHandler(async (req, res) => {
     sincronizarEstado(item, now);
   }
   await item.save();
+  invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.reporte_rechazado');
   res.status(200).json(item);
 });
@@ -538,6 +569,5 @@ module.exports = {
   approvePayment,
   rejectPayment,
   voidPayment,
-  attachReceipt,
-  marcarVencidos
+  attachReceipt
 };

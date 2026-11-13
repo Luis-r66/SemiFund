@@ -2,7 +2,6 @@ const Contribution = require('../models/Contribution');
 const Expense = require('../models/Expense');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
-const { marcarVencidos } = require('./contributionController');
 const { montoPagadoDe, saldoPendiente } = require('../utils/payments');
 const { getBalance } = require('../utils/balance');
 const { buildTemplate } = require('../services/excelTemplate');
@@ -52,7 +51,6 @@ function dinero(value) {
 }
 
 const movimientos = asyncHandler(async (req, res) => {
-  await marcarVencidos(req.semilleroId);
 
   const [members, contributions, expenses] = await Promise.all([
     Member.find({ semilleroId: req.semilleroId }).populate('userId', 'email'),
@@ -151,7 +149,6 @@ const movimientos = asyncHandler(async (req, res) => {
 
 // GET /api/reports/libro.xlsx  (tesorero)
 const libro = asyncHandler(async (req, res) => {
-  await marcarVencidos(req.semilleroId);
   const [members, contributions, expenses, balance] = await Promise.all([
     Member.find({ semilleroId: req.semilleroId }).populate('userId', 'email').sort({ nombre: 1 }),
     Contribution.find({ semilleroId: req.semilleroId }).sort({ mes: 1 }),
@@ -246,7 +243,6 @@ const libro = asyncHandler(async (req, res) => {
 // Plantilla para importar datos: incluye instrucciones, listas, validaciones
 // y los registros actuales del semillero (con ID, para no duplicarlos).
 const plantilla = asyncHandler(async (req, res) => {
-  await marcarVencidos(req.semilleroId);
   const [members, contributions, expenses, balance] = await Promise.all([
     Member.find({ semilleroId: req.semilleroId }).sort({ nombre: 1 }),
     Contribution.find({ semilleroId: req.semilleroId }).sort({ mes: 1 }),

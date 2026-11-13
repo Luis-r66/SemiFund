@@ -4,53 +4,59 @@ import '../core/network/api_exception.dart';
 import '../models/abono.dart';
 import '../models/contribution.dart';
 import '../models/import_result.dart';
-import '../models/member.dart';
+import '../models/paged.dart';
 import '../services/dashboard_service.dart';
 import '../services/management_service.dart';
 
 class ContributionsProvider extends ChangeNotifier {
-  ContributionsProvider(this._reads, this._writes);
+  ContributionsProvider(this._reads, this._writes, {this.pageSize = 20});
 
   final DashboardService _reads;
   final ManagementService _writes;
+  final int pageSize;
 
   List<Contribution> _items = <Contribution>[];
-  List<Member> _members = <Member>[];
   ContributionStatus? _filter;
+  int _total = 0;
+  int _page = 1;
+  int _pages = 1;
   bool _loading = false;
+  bool _loadingMore = false;
   String? _error;
   int _requestId = 0;
 
   List<Contribution> get items => List.unmodifiable(_items);
-  List<Member> get members => List.unmodifiable(_members);
   ContributionStatus? get filter => _filter;
+  int get total => _total;
+  int get page => _page;
+  int get pages => _pages;
+  bool get hasMore => _page < _pages;
   bool get loading => _loading;
+  bool get loadingMore => _loadingMore;
   String? get error => _error;
 
-  String memberName(String integranteId) {
-    for (final Member member in _members) {
-      if (member.id == integranteId) return member.nombre;
-    }
-    return 'Integrante no disponible';
-  }
+  String nameOf(Contribution item) =>
+      item.integranteNombre ?? 'Integrante no disponible';
 
   Future<void> load({ContributionStatus? status}) async {
     final int request = ++_requestId;
     _filter = status;
+    _page = 1;
     _loading = true;
     _error = null;
     _items = <Contribution>[];
     notifyListeners();
     try {
-      final List<dynamic> results = await Future.wait<dynamic>(
-        <Future<dynamic>>[
-          _reads.contributions(status: status),
-          _reads.members(),
-        ],
+      final Paged<Contribution> result = await _reads.contributionsPage(
+        status: status,
+        page: 1,
+        limit: pageSize,
       );
       if (request != _requestId) return;
-      _items = results[0] as List<Contribution>;
-      _members = results[1] as List<Member>;
+      _items = result.items;
+      _total = result.total;
+      _pages = result.pages;
+      _page = result.page;
     } on ApiException catch (error) {
       if (request != _requestId) return;
       _error = error.message;
@@ -62,7 +68,112 @@ class ContributionsProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> refresh() => load(status: _filter);
+  Future<void> goToPage(int page) async {
+    if (page < 1 || page > _pages || page == _page) return;
+    final int request = ++_requestId;
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final Paged<Contribution> result = await _reads.contributionsPage(
+        status: _filter,
+        page: page,
+        limit: pageSize,
+      );
+      if (request != _requestId) return;
+      _items = result.items;
+      _total = result.total;
+      _pages = result.pages;
+      _page = result.page;
+    } on ApiException catch (error) {
+      if (request != _requestId) return;
+      _error = error.message;
+    } finally {
+      if (request == _requestId) {
+        _loading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (_loading || _loadingMore || !hasMore) return;
+    final int request = _requestId;
+    _loadingMore = true;
+    notifyListeners();
+    try {
+      final Paged<Contribution> result = await _reads.contributionsPage(
+        status: _filter,
+        page: _page + 1,
+        limit: pageSize,
+      );
+      if (request != _requestId) return;
+      final Set<String> existentes = _items
+          .map((Contribution item) => item.id)
+          .toSet();
+      _items = <Contribution>[
+        ..._items,
+        ...result.items.where(
+          (Contribution item) => !existentes.contains(item.id),
+        ),
+      ];
+      _total = result.total;
+      _pages = result.pages;
+      _page = result.page;
+    } on ApiException catch (error) {
+      if (request != _requestId) return;
+      _error = error.message;
+    } finally {
+      if (request == _requestId) {
+        _loadingMore = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> refresh() => _reload(_page);
+
+  /// Vuelve a la primera página manteniendo el filtro activo.
+  Future<void> reloadFirstPage() => _reload(1);
+
+  Future<void> _reload(int page) async {
+    final int request = ++_requestId;
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      Paged<Contribution> result = await _reads.contributionsPage(
+        status: _filter,
+        page: page.clamp(1, _pages < 1 ? 1 : _pages),
+        limit: pageSize,
+      );
+      if (request != _requestId) return;
+      // Si la última página quedó vacía (se pagó o rechazó el único registro),
+      // se muestra la última página que sí tiene datos.
+      if (result.items.isEmpty &&
+          result.total > 0 &&
+          result.page > result.pages) {
+        result = await _reads.contributionsPage(
+          status: _filter,
+          page: result.pages,
+          limit: pageSize,
+        );
+        if (request != _requestId) return;
+      }
+      _items = result.items;
+      _total = result.total;
+      _pages = result.pages;
+      _page = result.page;
+    } on ApiException catch (error) {
+      if (request != _requestId) return;
+      _error = error.message;
+    } finally {
+      if (request == _requestId) {
+        _loading = false;
+        notifyListeners();
+      }
+    }
+  }
 
   Future<void> create({
     required String integranteId,
@@ -76,7 +187,7 @@ class ContributionsProvider extends ChangeNotifier {
       mes: mes,
       concepto: concepto,
     );
-    await refresh();
+    await reloadFirstPage();
   }
 
   Future<void> pay(Contribution contribution) async {
@@ -157,7 +268,7 @@ class ContributionsProvider extends ChangeNotifier {
       monto: monto,
       concepto: concepto,
     );
-    await refresh();
+    await reloadFirstPage();
     return result;
   }
 

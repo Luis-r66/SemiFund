@@ -68,6 +68,8 @@ const contributionSchema = new mongoose.Schema(
 
 contributionSchema.index({ integranteId: 1, estado: 1 });
 contributionSchema.index({ semilleroId: 1, integranteId: 1, mes: 1 });
+// Listado paginado y conteo de cuotas por cobrar del inicio.
+contributionSchema.index({ semilleroId: 1, estado: 1, _id: -1 });
 
 contributionSchema.method('toJSON', function () {
   const obj = this.toObject();

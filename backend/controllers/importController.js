@@ -1,5 +1,5 @@
 const asyncHandler = require('../middleware/asyncHandler');
-const { marcarVencidos } = require('./contributionController');
+const { invalidateBalance } = require('../utils/balance');
 const {
   analizarImportacion,
   aplicarImportacion,
@@ -20,7 +20,6 @@ function validarArchivo(req) {
 // Recibe el .xlsx como cuerpo binario y devuelve el análisis fila por fila.
 const preview = asyncHandler(async (req, res) => {
   validarArchivo(req);
-  await marcarVencidos(req.semilleroId);
   const analisis = await analizarImportacion({
     buffer: req.body,
     semilleroId: req.semilleroId
@@ -32,7 +31,6 @@ const preview = asyncHandler(async (req, res) => {
 // Vuelve a validar contra la base actual y guarda solo si no hay errores.
 const confirm = asyncHandler(async (req, res) => {
   validarArchivo(req);
-  await marcarVencidos(req.semilleroId);
   const analisis = await analizarImportacion({
     buffer: req.body,
     semilleroId: req.semilleroId
@@ -56,6 +54,7 @@ const confirm = asyncHandler(async (req, res) => {
     semilleroId: req.semilleroId,
     usuarioId: req.userId
   });
+  invalidateBalance(req.semilleroId);
 
   res.status(201).json({
     ...resultado,

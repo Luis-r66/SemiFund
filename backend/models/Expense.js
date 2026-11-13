@@ -11,6 +11,7 @@ const expenseSchema = new mongoose.Schema(
   { collection: 'expenses', timestamps: false }
 );
 
+expenseSchema.index({ semilleroId: 1, fecha: -1 });
 expenseSchema.index({ categoria: 1, fecha: 1 });
 
 expenseSchema.method('toJSON', function () {

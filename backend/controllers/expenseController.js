@@ -1,11 +1,15 @@
 const Expense = require('../models/Expense');
 const asyncHandler = require('../middleware/asyncHandler');
-const { getBalance } = require('../utils/balance');
+const { getBalance, invalidateBalance } = require('../utils/balance');
 const { hoyBogota } = require('../utils/validators');
 const { registrar } = require('../utils/audit');
+const { parsePagination, paginatedBody } = require('../utils/pagination');
 
-// GET /api/expenses?category=&month=YYYY-MM  (filtrado por semillero activo)
+// GET /api/expenses?category=&month=YYYY-MM&page=1&limit=20  (filtrado por semillero activo)
 const list = asyncHandler(async (req, res) => {
+  const paginacion = parsePagination(req.query);
+  if (paginacion.error) return res.status(400).json({ error: paginacion.error });
+
   const filter = { semilleroId: req.semilleroId };
   if (req.query.category) filter.categoria = String(req.query.category).toLowerCase();
 
@@ -20,8 +24,16 @@ const list = asyncHandler(async (req, res) => {
     };
   }
 
-  const items = await Expense.find(filter).sort({ fecha: -1 });
-  res.status(200).json(items);
+  const consulta = Expense.find(filter).sort({ fecha: -1 });
+  if (!paginacion.paginated) {
+    return res.status(200).json(await consulta);
+  }
+
+  const [items, total] = await Promise.all([
+    consulta.skip(paginacion.skip).limit(paginacion.limit),
+    Expense.countDocuments(filter)
+  ]);
+  res.status(200).json(paginatedBody(items, total, paginacion.page, paginacion.limit));
 });
 
 // POST /api/expenses  { descripcion, categoria, monto, fecha? }
@@ -57,6 +69,7 @@ const create = asyncHandler(async (req, res) => {
     semilleroId: req.semilleroId,
     ...(fechaGasto ? { fecha: fechaGasto } : {})
   });
+  invalidateBalance(req.semilleroId);
   await registrar({
     semilleroId: req.semilleroId,
     usuarioId: req.userId,

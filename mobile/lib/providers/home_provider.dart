@@ -2,9 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/network/api_exception.dart';
 import '../models/balance.dart';
-import '../models/contribution.dart';
-import '../models/expense.dart';
-import '../models/member.dart';
+import '../models/home_summary.dart';
 import '../services/dashboard_service.dart';
 
 class HomeSnapshot {
@@ -56,32 +54,15 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final List<dynamic> results = await Future.wait<dynamic>(
-        <Future<dynamic>>[
-          _service.balance(),
-          _service.members(activo: true),
-          _service.contributions(),
-          _service.expenses(),
-        ],
-      );
+      final HomeSummary summary = await _service.summary();
 
       if (request != _requestId) return;
 
-      final Balance balance = results[0] as Balance;
-      final List<Member> members = results[1] as List<Member>;
-      final List<Contribution> contributions = results[2] as List<Contribution>;
-      final List<Expense> expenses = results[3] as List<Expense>;
-
       _snapshot = HomeSnapshot(
-        balance: balance,
-        activeMembers: members.where((Member member) => member.activo).length,
-        pendingContributions: contributions
-            .where(
-              (Contribution item) =>
-                  item.estado != ContributionStatus.pagado,
-            )
-            .length,
-        expensesCount: expenses.length,
+        balance: summary.balance,
+        activeMembers: summary.activeMembers,
+        pendingContributions: summary.pendingContributions,
+        expensesCount: summary.expensesCount,
         updatedAt: _now(),
       );
       _error = null;

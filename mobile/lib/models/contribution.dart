@@ -40,6 +40,7 @@ class Contribution {
     this.motivoRechazo,
     this.montoPagado,
     this.abonos = const <Abono>[],
+    this.integranteNombre,
   });
 
   final String id;
@@ -57,12 +58,16 @@ class Contribution {
   final double? montoPagado;
   final List<Abono> abonos;
 
+  /// Nombre del integrante que llega con el listado paginado.
+  final String? integranteNombre;
+
   bool get isPaid => estado == ContributionStatus.pagado;
 
   /// Dinero ya cobrado. Si el backend no lo envía (datos antiguos), un pagado cuenta completo.
   double get cobrado => montoPagado ?? (isPaid ? monto : 0);
 
-  double get saldoPendiente => (monto - cobrado).clamp(0, double.infinity).toDouble();
+  double get saldoPendiente =>
+      (monto - cobrado).clamp(0, double.infinity).toDouble();
 
   bool get isParcial => cobrado > 0 && saldoPendiente > 0;
 
@@ -91,8 +96,11 @@ class Contribution {
       referencia: asNullableString(map['referencia']),
       fechaReporte: asDate(map['fechaReporte']),
       motivoRechazo: asNullableString(map['motivoRechazo']),
-      montoPagado: map['montoPagado'] == null ? null : asDouble(map['montoPagado']),
+      montoPagado: map['montoPagado'] == null
+          ? null
+          : asDouble(map['montoPagado']),
       abonos: asList(map['abonos']).map(Abono.fromJson).toList(),
+      integranteNombre: asNullableString(map['integranteNombre']),
     );
   }
 

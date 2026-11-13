@@ -7,6 +7,7 @@ import 'package:semi_fund/models/contribution.dart';
 import 'package:semi_fund/models/expense.dart';
 import 'package:semi_fund/models/member.dart';
 import 'package:semi_fund/models/membership_account.dart';
+import 'package:semi_fund/models/paged.dart';
 import 'package:semi_fund/models/semillero_membership.dart';
 import 'package:semi_fund/models/user.dart';
 import 'package:semi_fund/providers/accounts_provider.dart';
@@ -157,7 +158,21 @@ void main() {
       reads = MockDashboardService();
       writes = MockManagementService();
       provider = MembersProvider(reads, writes);
-      when(() => reads.members()).thenAnswer((_) async => <Member>[ana]);
+      when(
+        () => reads.membersPage(
+          search: any(named: 'search'),
+          page: any(named: 'page'),
+          limit: any(named: 'limit'),
+        ),
+      ).thenAnswer(
+        (_) async => const Paged<Member>(
+          items: <Member>[ana],
+          total: 1,
+          page: 1,
+          limit: 20,
+          pages: 1,
+        ),
+      );
     });
 
     test('reactivar envía solo activo en la allowlist', () async {
@@ -175,21 +190,80 @@ void main() {
     });
 
     test('activeMembers excluye inactivos', () async {
-      when(() => reads.members()).thenAnswer(
-        (_) async => <Member>[
-          ana,
-          const Member(
-            id: 'm2',
-            nombre: 'Luis',
-            programa: 'Sistemas',
-            semestre: 3,
-            activo: false,
-          ),
-        ],
+      when(
+        () => reads.membersPage(
+          search: any(named: 'search'),
+          page: any(named: 'page'),
+          limit: any(named: 'limit'),
+        ),
+      ).thenAnswer(
+        (_) async => const Paged<Member>(
+          items: <Member>[
+            ana,
+            Member(
+              id: 'm2',
+              nombre: 'Luis',
+              programa: 'Sistemas',
+              semestre: 3,
+              activo: false,
+            ),
+          ],
+          total: 2,
+          page: 1,
+          limit: 20,
+          pages: 1,
+        ),
       );
       await provider.load();
       expect(provider.members, hasLength(2));
       expect(provider.activeMembers.map((Member m) => m.id), <String>['m1']);
+    });
+
+    test('cargar más acumula la página siguiente sin duplicados', () async {
+      // El stub genérico del setUp se registró primero y mocktail usa el
+      // primero que coincide; se limpia para definir páginas concretas.
+      reset(reads);
+      when(
+        () =>
+            reads.membersPage(search: any(named: 'search'), page: 1, limit: 20),
+      ).thenAnswer(
+        (_) async => const Paged<Member>(
+          items: <Member>[ana],
+          total: 2,
+          page: 1,
+          limit: 20,
+          pages: 2,
+        ),
+      );
+      when(
+        () =>
+            reads.membersPage(search: any(named: 'search'), page: 2, limit: 20),
+      ).thenAnswer(
+        (_) async => const Paged<Member>(
+          items: <Member>[
+            ana,
+            Member(
+              id: 'm2',
+              nombre: 'Luis',
+              programa: 'Sistemas',
+              semestre: 3,
+              activo: true,
+            ),
+          ],
+          total: 2,
+          page: 2,
+          limit: 20,
+          pages: 2,
+        ),
+      );
+
+      await provider.load();
+      expect(provider.total, 2);
+      expect(provider.hasMore, isTrue);
+
+      await provider.loadMore();
+      expect(provider.members.map((Member m) => m.id), <String>['m1', 'm2']);
+      expect(provider.hasMore, isFalse);
     });
   });
 
@@ -205,31 +279,46 @@ void main() {
       'mes': '2026-10',
       'concepto': 'Cuota',
       'estado': 'pendiente',
+      'integranteNombre': 'Ana Torres',
     });
 
     setUp(() {
       reads = MockDashboardService();
       writes = MockManagementService();
       provider = ContributionsProvider(reads, writes);
-      when(() => reads.contributions(status: any(named: 'status')))
-          .thenAnswer((_) async => <Contribution>[pendingItem]);
-      when(() => reads.members()).thenAnswer(
-        (_) async => <Member>[
-          const Member(
-            id: 'm1',
-            nombre: 'Ana Torres',
-            programa: 'Software',
-            semestre: 5,
-            activo: true,
-          ),
-        ],
+      when(
+        () => reads.contributionsPage(
+          status: any(named: 'status'),
+          page: any(named: 'page'),
+          limit: any(named: 'limit'),
+        ),
+      ).thenAnswer(
+        (_) async => Paged<Contribution>(
+          items: <Contribution>[pendingItem],
+          total: 1,
+          page: 1,
+          limit: 20,
+          pages: 1,
+        ),
       );
     });
 
-    test('resuelve el nombre del integrante desde la lista', () async {
+    test('usa el nombre que llega con el listado paginado', () async {
       await provider.load();
-      expect(provider.memberName('m1'), 'Ana Torres');
-      expect(provider.memberName('desconocido'), 'Integrante no disponible');
+      expect(provider.nameOf(pendingItem), 'Ana Torres');
+      expect(
+        provider.nameOf(
+          Contribution.fromJson(<String, dynamic>{
+            'id': 'c9',
+            'integranteId': 'm9',
+            'monto': 1000,
+            'mes': '2026-10',
+            'concepto': 'Cuota',
+            'estado': 'pendiente',
+          }),
+        ),
+        'Integrante no disponible',
+      );
     });
 
     test('pagar llama al endpoint y recarga con el filtro actual', () async {
@@ -238,20 +327,31 @@ void main() {
       await provider.load(status: ContributionStatus.pendiente);
       await provider.pay(pendingItem);
       verify(() => writes.payContribution('c1')).called(1);
-      verify(() => reads.contributions(status: ContributionStatus.pendiente))
-          .called(2);
+      verify(
+        () => reads.contributionsPage(
+          status: ContributionStatus.pendiente,
+          page: 1,
+          limit: 20,
+        ),
+      ).called(2);
     });
 
     test('reportar y rechazar llaman al endpoint y recargan', () async {
-      when(() => writes.reportContribution(any(), referencia: any(named: 'referencia')))
-          .thenAnswer((_) async => pendingItem);
+      when(
+        () => writes.reportContribution(
+          any(),
+          referencia: any(named: 'referencia'),
+        ),
+      ).thenAnswer((_) async => pendingItem);
       when(() => writes.rejectContribution(any(), motivo: any(named: 'motivo')))
           .thenAnswer((_) async => pendingItem);
       await provider.load();
       await provider.report(pendingItem, referencia: 'TRX-1');
       await provider.reject(pendingItem, motivo: 'Revisar');
-      verify(() => writes.reportContribution('c1', referencia: 'TRX-1')).called(1);
-      verify(() => writes.rejectContribution('c1', motivo: 'Revisar')).called(1);
+      verify(() => writes.reportContribution('c1', referencia: 'TRX-1'))
+          .called(1);
+      verify(() => writes.rejectContribution('c1', motivo: 'Revisar'))
+          .called(1);
     });
   });
 
@@ -264,15 +364,26 @@ void main() {
       reads = MockDashboardService();
       writes = MockManagementService();
       provider = ExpensesProvider(reads, writes);
-      when(() => reads.expenses()).thenAnswer(
-        (_) async => <Expense>[
-          const Expense(
-            id: 'e1',
-            descripcion: 'Hosting',
-            categoria: 'infraestructura',
-            monto: 185000,
-          ),
-        ],
+      when(
+        () => reads.expensesPage(
+          page: any(named: 'page'),
+          limit: any(named: 'limit'),
+        ),
+      ).thenAnswer(
+        (_) async => const Paged<Expense>(
+          items: <Expense>[
+            Expense(
+              id: 'e1',
+              descripcion: 'Hosting',
+              categoria: 'infraestructura',
+              monto: 185000,
+            ),
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+          pages: 1,
+        ),
       );
       when(() => reads.balance()).thenAnswer(
         (_) async => const Balance(

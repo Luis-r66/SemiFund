@@ -9,6 +9,7 @@ const members = require('./routes/members');
 const contributions = require('./routes/contributions');
 const expenses = require('./routes/expenses');
 const balance = require('./routes/balance');
+const summary = require('./routes/summary');
 const auth = require('./routes/auth');
 const semilleros = require('./routes/semilleros');
 const reports = require('./routes/reports');
@@ -20,7 +21,26 @@ const app = express();
 // Render está detrás de un proxy; esto permite rate limiting por IP real.
 app.set('trust proxy', 1);
 
-app.use(cors());
+// Solo la web publicada y el desarrollo local. La app Android no envía
+// Origin, así que se permite la petición sin ese encabezado.
+const origenesPermitidos = String(
+  process.env.CORS_ORIGINS ||
+    'https://luis-r66.github.io,http://localhost:8081,http://127.0.0.1:8081,http://localhost:8080,http://127.0.0.1:8080'
+)
+  .split(',')
+  .map((origen) => origen.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origen, callback) {
+      if (!origen || origenesPermitidos.includes(origen)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    }
+  })
+);
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -43,6 +63,7 @@ app.use('/api/members', requireAuth, requireSemillero, members);
 app.use('/api/contributions', requireAuth, requireSemillero, contributions);
 app.use('/api/expenses', requireAuth, requireSemillero, expenses);
 app.use('/api/balance', requireAuth, requireSemillero, balance);
+app.use('/api/summary', requireAuth, requireSemillero, summary);
 app.use('/api/reports', reports);
 app.use('/api/audit', requireAuth, requireSemillero, requireTesorero, audit);
 app.use('/api/import', requireAuth, requireSemillero, requireTesorero, imports);

@@ -28,6 +28,10 @@ const memberSchema = new mongoose.Schema(
   { collection: 'members', timestamps: false }
 );
 
+// Listado y conteo por semillero; el inicio y la paginación filtran por activo.
+memberSchema.index({ semilleroId: 1, activo: 1, fechaIngreso: -1 });
+memberSchema.index({ semilleroId: 1, fechaIngreso: -1 });
+
 // Expone `id` además de `_id` para facilitar el consumo desde Android
 memberSchema.method('toJSON', function () {
   const obj = this.toObject();

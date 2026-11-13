@@ -4,8 +4,8 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { nombreValido } = require('../utils/validators');
 const { registrar } = require('../utils/audit');
 const Contribution = require('../models/Contribution');
-const { marcarVencidos } = require('./contributionController');
 const { round, montoPagadoDe, saldoPendiente } = require('../utils/payments');
+const { parsePagination, paginatedBody } = require('../utils/pagination');
 
 const MSG_NOMBRES = 'nombres y apellidos son requeridos y solo pueden tener letras';
 
@@ -25,16 +25,37 @@ function extraerNombre(body) {
   return null;
 }
 
-// GET /api/members?activo=true|false  (filtrado por semillero activo)
+function escaparRegex(texto) {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// GET /api/members?activo=true|false&q=texto&page=1&limit=20
 const list = asyncHandler(async (req, res) => {
+  const paginacion = parsePagination(req.query);
+  if (paginacion.error) return res.status(400).json({ error: paginacion.error });
+
   const filter = { semilleroId: req.semilleroId };
   if (req.query.activo !== undefined) {
     if (req.query.activo === 'true') filter.activo = true;
     else if (req.query.activo === 'false') filter.activo = false;
     else return res.status(400).json({ error: 'El filtro activo debe ser true o false' });
   }
-  const members = await Member.find(filter).sort({ fechaIngreso: -1 });
-  res.status(200).json(members);
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (q) {
+    const patron = new RegExp(escaparRegex(q), 'i');
+    filter.$or = [{ nombre: patron }, { programa: patron }];
+  }
+
+  const consulta = Member.find(filter).sort({ fechaIngreso: -1 });
+  if (!paginacion.paginated) {
+    return res.status(200).json(await consulta);
+  }
+
+  const [items, total] = await Promise.all([
+    consulta.skip(paginacion.skip).limit(paginacion.limit),
+    Member.countDocuments(filter)
+  ]);
+  res.status(200).json(paginatedBody(items, total, paginacion.page, paginacion.limit));
 });
 
 // GET /api/members/:id  (solo si pertenece al semillero activo)
@@ -146,7 +167,6 @@ const statement = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Solo el tesorero puede ver el estado de cuenta de otro integrante' });
   }
 
-  await marcarVencidos(req.semilleroId);
   const cuotas = await Contribution.find({ semilleroId: req.semilleroId, integranteId: member._id }).sort({ mes: 1 });
   const resumen = { esperado: 0, cobrado: 0, saldo: 0, vencido: 0 };
   for (const cuota of cuotas) {

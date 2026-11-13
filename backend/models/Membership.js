@@ -13,6 +13,8 @@ const membershipSchema = new mongoose.Schema(
 
 // Un usuario solo puede tener una membresía por semillero
 membershipSchema.index({ userId: 1, semilleroId: 1 }, { unique: true });
+// Solicitudes y roles de un semillero (cuentas, conteos por estado).
+membershipSchema.index({ semilleroId: 1, estado: 1 });
 
 membershipSchema.method('toJSON', function () {
   const obj = this.toObject();

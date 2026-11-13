@@ -10,6 +10,7 @@ import 'package:semi_fund/models/contribution.dart';
 import 'package:semi_fund/models/expense.dart';
 import 'package:semi_fund/models/member.dart';
 import 'package:semi_fund/models/membership_account.dart';
+import 'package:semi_fund/models/paged.dart';
 import 'package:semi_fund/models/semillero_detail.dart';
 import 'package:semi_fund/models/semillero_membership.dart';
 import 'package:semi_fund/models/user.dart';
@@ -151,6 +152,22 @@ void main() {
     when(() => semilleros.detail()).thenAnswer((_) async => detail);
 
     when(() => reads.members()).thenAnswer((_) async => members);
+    when(() => reads.members(activo: true)).thenAnswer((_) async => members);
+    when(
+      () => reads.membersPage(
+        search: any(named: 'search'),
+        page: any(named: 'page'),
+        limit: any(named: 'limit'),
+      ),
+    ).thenAnswer(
+      (_) async => Paged<Member>(
+        items: members,
+        total: members.length,
+        page: 1,
+        limit: 20,
+        pages: 1,
+      ),
+    );
     when(() => reads.member('m1')).thenAnswer((_) async => members.first);
     when(() => reads.contributions(memberId: 'm1')).thenAnswer(
       (_) async => const <Contribution>[
@@ -200,6 +217,49 @@ void main() {
         ),
       ],
     );
+    when(
+      () => reads.contributionsPage(
+        status: any(named: 'status'),
+        page: any(named: 'page'),
+        limit: any(named: 'limit'),
+      ),
+    ).thenAnswer(
+      (_) async => const Paged<Contribution>(
+        items: <Contribution>[
+          Contribution(
+            id: 'c3',
+            integranteId: 'm1',
+            monto: 30000,
+            mes: '2026-10',
+            concepto: 'Cuota',
+            estado: ContributionStatus.pagado,
+            integranteNombre: 'Valentina Ríos',
+          ),
+          Contribution(
+            id: 'c4',
+            integranteId: 'm2',
+            monto: 30000,
+            mes: '2026-10',
+            concepto: 'Cuota',
+            estado: ContributionStatus.pendiente,
+            integranteNombre: 'Santiago Morales',
+          ),
+          Contribution(
+            id: 'c5',
+            integranteId: 'm2',
+            monto: 30000,
+            mes: '2026-08',
+            concepto: 'Cuota',
+            estado: ContributionStatus.vencido,
+            integranteNombre: 'Santiago Morales',
+          ),
+        ],
+        total: 3,
+        page: 1,
+        limit: 20,
+        pages: 1,
+      ),
+    );
     when(() => reads.expenses()).thenAnswer(
       (_) async => <Expense>[
         Expense(
@@ -217,6 +277,35 @@ void main() {
           fecha: DateTime(2026, 9, 20),
         ),
       ],
+    );
+    when(
+      () => reads.expensesPage(
+        page: any(named: 'page'),
+        limit: any(named: 'limit'),
+      ),
+    ).thenAnswer(
+      (_) async => Paged<Expense>(
+        items: <Expense>[
+          Expense(
+            id: 'e1',
+            descripcion: 'Dominio y hosting del sitio',
+            categoria: 'infraestructura',
+            monto: 185000,
+            fecha: DateTime(2026, 9, 28),
+          ),
+          Expense(
+            id: 'e2',
+            descripcion: 'Refrigerios hackathon interna',
+            categoria: 'eventos',
+            monto: 142000,
+            fecha: DateTime(2026, 9, 20),
+          ),
+        ],
+        total: 2,
+        page: 1,
+        limit: 20,
+        pages: 1,
+      ),
     );
     when(() => reads.balance()).thenAnswer(
       (_) async => const Balance(

@@ -14,6 +14,7 @@ import '../../widgets/app_top_bar.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
+import '../../widgets/pager.dart';
 import '../../widgets/section_label.dart';
 
 class ExpensesScreen extends StatefulWidget {
@@ -101,14 +102,19 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                 'Los gastos del semillero aparecerán aquí.',
                           )
                         else ...<Widget>[
-                          SectionLabel(
-                            '${expenses.expenses.length} registrados',
-                          ),
+                          SectionLabel('${expenses.total} registrados'),
                           for (final Expense expense in expenses.expenses)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _ExpenseTile(expense: expense),
                             ),
+                          Pager(
+                            page: expenses.page,
+                            pages: expenses.pages,
+                            loading: expenses.loadingMore,
+                            onPage: expenses.goToPage,
+                            onLoadMore: expenses.loadMore,
+                          ),
                         ],
                       ],
                     ],

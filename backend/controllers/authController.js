@@ -359,16 +359,14 @@ const forgotPassword = asyncHandler(async (req, res) => {
     expiresAt: new Date(Date.now() + RESET_EXPIRES_MS)
   });
 
-  try {
-    await sendResetCode({ to: user.email, nombre: user.nombre, code });
-  } catch (error) {
-    console.error('No se pudo enviar el código de recuperación:', error.message);
-    return res.status(503).json({
-      error: 'No pudimos enviar el código de recuperación. Intenta más tarde.'
-    });
-  }
-
+  // El código se envía fuera de la petición: si Brevo tarda o falla, la
+  // respuesta ya salió y el usuario no queda esperando.
   res.status(200).json(mensajeGenerico);
+  setImmediate(() => {
+    sendResetCode({ to: user.email, nombre: user.nombre, code }).catch((error) => {
+      console.error('No se pudo enviar el código de recuperación:', error.message);
+    });
+  });
 });
 
 // POST /api/auth/reset-password

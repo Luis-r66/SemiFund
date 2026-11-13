@@ -7,9 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:semi_fund/app.dart';
 import 'package:semi_fund/core/theme/app_theme.dart';
 import 'package:semi_fund/models/balance.dart';
-import 'package:semi_fund/models/contribution.dart';
-import 'package:semi_fund/models/expense.dart';
-import 'package:semi_fund/models/member.dart';
+import 'package:semi_fund/models/home_summary.dart';
 import 'package:semi_fund/models/semillero_membership.dart';
 import 'package:semi_fund/models/user.dart';
 import 'package:semi_fund/providers/home_provider.dart';
@@ -273,52 +271,17 @@ void main() {
   });
 
   testWidgets('home', (WidgetTester tester) async {
-    when(() => dashboard.balance()).thenAnswer(
-      (_) async => const Balance(
-        totalAportado: 1250000,
-        totalGastado: 470000,
-        saldoDisponible: 780000,
+    when(() => dashboard.summary()).thenAnswer(
+      (_) async => const HomeSummary(
+        balance: Balance(
+          totalAportado: 1250000,
+          totalGastado: 470000,
+          saldoDisponible: 780000,
+        ),
+        activeMembers: 2,
+        pendingContributions: 1,
+        expensesCount: 1,
       ),
-    );
-    when(() => dashboard.members(activo: true)).thenAnswer(
-      (_) async => const <Member>[
-        Member(
-          id: 'm1',
-          nombre: 'Valentina Ríos',
-          programa: 'Ingeniería de Sistemas',
-          semestre: 7,
-          activo: true,
-        ),
-        Member(
-          id: 'm2',
-          nombre: 'Santiago Morales',
-          programa: 'Ingeniería de Software',
-          semestre: 5,
-          activo: true,
-        ),
-      ],
-    );
-    when(() => dashboard.contributions()).thenAnswer(
-      (_) async => const <Contribution>[
-        Contribution(
-          id: 'c1',
-          integranteId: 'm2',
-          monto: 30000,
-          mes: '2026-10',
-          concepto: 'Cuota mensual',
-          estado: ContributionStatus.pendiente,
-        ),
-      ],
-    );
-    when(() => dashboard.expenses()).thenAnswer(
-      (_) async => const <Expense>[
-        Expense(
-          id: 'e1',
-          descripcion: 'Dominio y hosting',
-          categoria: 'infraestructura',
-          monto: 185000,
-        ),
-      ],
     );
 
     final SessionProvider session = await authenticatedSession();
@@ -356,12 +319,14 @@ void main() {
   });
 
   testWidgets('desktop home', (WidgetTester tester) async {
-    when(() => dashboard.balance()).thenAnswer((_) async => Balance.empty);
-    when(() => dashboard.members(activo: true))
-        .thenAnswer((_) async => const <Member>[]);
-    when(() => dashboard.contributions())
-        .thenAnswer((_) async => const <Contribution>[]);
-    when(() => dashboard.expenses()).thenAnswer((_) async => const <Expense>[]);
+    when(() => dashboard.summary()).thenAnswer(
+      (_) async => const HomeSummary(
+        balance: Balance.empty,
+        activeMembers: 0,
+        pendingContributions: 0,
+        expensesCount: 0,
+      ),
+    );
 
     final SessionProvider session = await authenticatedSession();
     final HomeProvider home = HomeProvider(
@@ -379,12 +344,14 @@ void main() {
   });
 
   testWidgets('desktop shell', (WidgetTester tester) async {
-    when(() => dashboard.balance()).thenAnswer((_) async => Balance.empty);
-    when(() => dashboard.members(activo: true))
-        .thenAnswer((_) async => const <Member>[]);
-    when(() => dashboard.contributions())
-        .thenAnswer((_) async => const <Contribution>[]);
-    when(() => dashboard.expenses()).thenAnswer((_) async => const <Expense>[]);
+    when(() => dashboard.summary()).thenAnswer(
+      (_) async => const HomeSummary(
+        balance: Balance.empty,
+        activeMembers: 0,
+        pendingContributions: 0,
+        expensesCount: 0,
+      ),
+    );
 
     final SessionProvider session = await authenticatedSession();
     final HomeProvider home = HomeProvider(

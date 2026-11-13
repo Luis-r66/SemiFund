@@ -4,9 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:semi_fund/app.dart';
 import 'package:semi_fund/models/balance.dart';
-import 'package:semi_fund/models/contribution.dart';
-import 'package:semi_fund/models/expense.dart';
-import 'package:semi_fund/models/member.dart';
+import 'package:semi_fund/models/home_summary.dart';
 import 'package:semi_fund/models/semillero_membership.dart';
 import 'package:semi_fund/models/user.dart';
 import 'package:semi_fund/providers/home_provider.dart';
@@ -59,12 +57,14 @@ void main() {
     dashboard = MockDashboardService();
     store = FakeSessionStore();
 
-    when(() => dashboard.balance()).thenAnswer((_) async => Balance.empty);
-    when(() => dashboard.members(activo: true))
-        .thenAnswer((_) async => const <Member>[]);
-    when(() => dashboard.contributions())
-        .thenAnswer((_) async => const <Contribution>[]);
-    when(() => dashboard.expenses()).thenAnswer((_) async => const <Expense>[]);
+    when(() => dashboard.summary()).thenAnswer(
+      (_) async => const HomeSummary(
+        balance: Balance.empty,
+        activeMembers: 0,
+        pendingContributions: 0,
+        expensesCount: 0,
+      ),
+    );
   });
 
   SessionProvider buildSession() {
