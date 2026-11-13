@@ -14,13 +14,13 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
-// Envía el código de recuperación por Brevo. En desarrollo se puede usar
-// MAIL_MODE=console para leer el código en la consola sin sacar correos.
-async function sendResetCode({ to, nombre, code }) {
+// Envío genérico por Brevo. En desarrollo se puede usar MAIL_MODE=console
+// para ver el correo en la consola sin sacar mensajes reales.
+async function enviarCorreo({ to, subject, textContent, htmlContent, etiqueta = 'correo' }) {
   const mode = mailMode();
 
   if (mode === 'console') {
-    console.log(`[MAIL:console] reset_code=${code} email=${to}`);
+    console.log(`[MAIL:console] ${etiqueta} email=${to} asunto="${subject}"`);
     return { mode };
   }
 
@@ -35,25 +35,6 @@ async function sendResetCode({ to, nombre, code }) {
   }
 
   const senderName = process.env.MAIL_FROM_NAME || 'SemiFund';
-  const nombreSeguro = escapeHtml(nombre || '');
-  const subject = 'Código de recuperación - SemiFund';
-  const textContent = [
-    `Hola${nombreSeguro ? ` ${nombreSeguro}` : ''},`,
-    '',
-    `Tu código de recuperación de SemiFund es: ${code}`,
-    '',
-    'El código vence en 15 minutos y solo se puede usar una vez.',
-    'Si no solicitaste este cambio, ignora este mensaje.'
-  ].join('\n');
-  const htmlContent = `
-    <div style="font-family: Arial, sans-serif; color: #16181A; line-height: 1.5;">
-      <p>Hola${nombreSeguro ? ` ${nombreSeguro}` : ''},</p>
-      <p>Tu código de recuperación de <strong>SemiFund</strong> es:</p>
-      <p style="font-size: 30px; letter-spacing: 8px; font-weight: bold; margin: 18px 0;">${code}</p>
-      <p>El código vence en <strong>15 minutos</strong> y solo se puede usar una vez.</p>
-      <p style="color: #5D6268;">Si no solicitaste este cambio, ignora este mensaje.</p>
-    </div>
-  `;
 
   const response = await fetch(BREVO_URL, {
     method: 'POST',
@@ -79,4 +60,35 @@ async function sendResetCode({ to, nombre, code }) {
   return { mode };
 }
 
-module.exports = { sendResetCode };
+// Envía el código de recuperación por Brevo.
+async function sendResetCode({ to, nombre, code }) {
+  const nombreSeguro = escapeHtml(nombre || '');
+  const subject = 'Código de recuperación - SemiFund';
+  const textContent = [
+    `Hola${nombreSeguro ? ` ${nombreSeguro}` : ''},`,
+    '',
+    `Tu código de recuperación de SemiFund es: ${code}`,
+    '',
+    'El código vence en 15 minutos y solo se puede usar una vez.',
+    'Si no solicitaste este cambio, ignora este mensaje.'
+  ].join('\n');
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; color: #16181A; line-height: 1.5;">
+      <p>Hola${nombreSeguro ? ` ${nombreSeguro}` : ''},</p>
+      <p>Tu código de recuperación de <strong>SemiFund</strong> es:</p>
+      <p style="font-size: 30px; letter-spacing: 8px; font-weight: bold; margin: 18px 0;">${code}</p>
+      <p>El código vence en <strong>15 minutos</strong> y solo se puede usar una vez.</p>
+      <p style="color: #5D6268;">Si no solicitaste este cambio, ignora este mensaje.</p>
+    </div>
+  `;
+
+  return enviarCorreo({
+    to,
+    subject,
+    textContent,
+    htmlContent,
+    etiqueta: 'reset_code'
+  });
+}
+
+module.exports = { enviarCorreo, sendResetCode, mailMode, escapeHtml };

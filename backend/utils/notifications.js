@@ -1,16 +1,8 @@
 const Notification = require('../models/Notification');
 const Membership = require('../models/Membership');
 const Member = require('../models/Member');
-
-const formatoCop = new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  maximumFractionDigits: 0
-});
-
-function dinero(valor) {
-  return formatoCop.format(Number(valor) || 0);
-}
+const { dinero } = require('./dinero');
+const { programarCorreos } = require('./emailAvisos');
 
 // Quita repetidos y nulos antes de insertar.
 function destinatariosUnicos(lista = []) {
@@ -60,9 +52,16 @@ async function notificar({
       actorNombre
     }));
     const creadas = await Notification.insertMany(docs, { ordered: false });
+    // El correo se envía en segundo plano y sin duplicados.
+    programarCorreos(creadas.map((doc) => doc._id));
     return creadas.length;
   } catch (error) {
     console.error('No se pudo registrar la notificación:', error.message);
+    // insertMany puede insertar parte del lote antes de fallar.
+    if (error.insertedDocs && error.insertedDocs.length > 0) {
+      programarCorreos(error.insertedDocs.map((doc) => doc._id));
+      return error.insertedDocs.length;
+    }
     return 0;
   }
 }

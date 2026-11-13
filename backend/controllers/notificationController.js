@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const asyncHandler = require('../middleware/asyncHandler');
 const { parsePagination, paginatedBody } = require('../utils/pagination');
 
@@ -56,4 +57,33 @@ const markRead = asyncHandler(async (req, res) => {
   res.status(200).json(item);
 });
 
-module.exports = { list, unreadCount, markAllRead, markRead };
+// GET /api/notifications/preferences
+const getPreferences = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.userId).select('avisosPorCorreo');
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+  res.status(200).json({ avisosPorCorreo: user.avisosPorCorreo !== false });
+});
+
+// PATCH /api/notifications/preferences  { avisosPorCorreo }
+const updatePreferences = asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  if (typeof body.avisosPorCorreo !== 'boolean') {
+    return res.status(400).json({ error: 'avisosPorCorreo debe ser verdadero o falso' });
+  }
+  const user = await User.findByIdAndUpdate(
+    req.userId,
+    { $set: { avisosPorCorreo: body.avisosPorCorreo } },
+    { new: true }
+  ).select('avisosPorCorreo');
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+  res.status(200).json({ avisosPorCorreo: user.avisosPorCorreo });
+});
+
+module.exports = {
+  list,
+  unreadCount,
+  markAllRead,
+  markRead,
+  getPreferences,
+  updatePreferences
+};

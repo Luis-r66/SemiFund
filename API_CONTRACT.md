@@ -143,12 +143,28 @@ Crear:
 GET /api/balance -> 200 { totalAportado, totalGastado, saldoDisponible }
 ```
 
+### Avisos y resumen
+
+```
+GET   /api/summary -> 200 { balance, activeMembers, pendingContributions, expensesCount, generatedAt }
+GET   /api/notifications?page=1&limit=20&unread=true
+GET   /api/notifications/unread-count -> 200 { count }
+POST  /api/notifications/read-all -> 200 { updated }
+PATCH /api/notifications/:id/read
+GET   /api/notifications/preferences -> 200 { avisosPorCorreo }
+PATCH /api/notifications/preferences -> 200 { avisosPorCorreo }
+```
+
+- Listados sin `page`/`limit` devuelven el arreglo completo (compatibilidad con la app Android).
+- Eventos: `abono_reportado`, `abono_aprobado`, `abono_rechazado`, `cuota_nueva` e `invitacion_aceptada`.
+- Cada aviso se guarda por usuario y semillero; también se envía por correo (Brevo) salvo que el usuario lo desactive.
+- Fichas sin cuenta vinculada no reciben avisos.
+
 ### Reportes
 
 ```
 GET /api/reports/movimientos.csv -> 200 text/csv | 403
 ```
-
 - Solo tesorero del semillero activo.
 - Un solo archivo con aportes y gastos, separados por la columna `tipo_registro`.
 - Columnas: `tipo_registro, semillero_codigo, semillero_nombre, periodo, fecha, fecha_pago, integrante_nombre, integrante_email, programa, semestre, descripcion, categoria, monto, moneda, estado, referencia, id_origen`.

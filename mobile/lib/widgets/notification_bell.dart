@@ -233,6 +233,47 @@ class _NotificationsPanel extends StatelessWidget {
               ),
             ),
           ),
+        if (!provider.loading) ...<Widget>[
+          const Divider(height: 1, color: AppColors.line),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 12, 6),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Avisos por correo',
+                        style: AppTextStyles.smallSemibold.copyWith(
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Te escribimos cuando hay movimiento en el semillero.',
+                        style: AppTextStyles.tiny.copyWith(
+                          color: AppColors.ink3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Switch(
+                  value: provider.emailAvisos,
+                  onChanged: provider.savingPreference
+                      ? null
+                      : provider.setEmailAvisos,
+                  activeThumbColor: AppColors.paper,
+                  activeTrackColor: AppColors.ink,
+                  inactiveThumbColor: AppColors.paper,
+                  inactiveTrackColor: AppColors.ink3,
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

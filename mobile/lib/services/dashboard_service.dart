@@ -145,6 +145,19 @@ class DashboardService {
     return asInt(asMap(data)['updated']);
   }
 
+  Future<bool> notificationsEmailPreference() async {
+    final dynamic data = await _api.get('/notifications/preferences');
+    return asMap(data)['avisosPorCorreo'] != false;
+  }
+
+  Future<bool> updateNotificationsEmailPreference(bool activo) async {
+    final dynamic data = await _api.patch(
+      '/notifications/preferences',
+      data: <String, dynamic>{'avisosPorCorreo': activo},
+    );
+    return asMap(data)['avisosPorCorreo'] != false;
+  }
+
   Future<AppNotification> markNotificationRead(String id) async {
     final dynamic data = await _api.patch('/notifications/$id/read');
     return AppNotification.fromJson(data);

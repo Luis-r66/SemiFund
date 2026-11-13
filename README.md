@@ -39,6 +39,11 @@ BREVO_API_KEY=             # solo en Render o .env local, nunca en Git
 
 En Render configura `MAIL_MODE=brevo`, `MAIL_FROM` y `BREVO_API_KEY`.
 
+Los avisos de la campanita (abonos, cuotas e invitaciones aceptadas) usan el mismo
+envío de Brevo. Cada usuario puede desactivarlos desde la campanita; además,
+`WEB_URL` define el enlace del botón de los correos
+(por defecto `https://luis-r66.github.io/SemiFund/web/`).
+
 ### Google y Cloudinary
 
 ```

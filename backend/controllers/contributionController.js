@@ -7,6 +7,7 @@ const { estaConfigurado, subirComprobante, borrarComprobante } = require('../ser
 const { parsePagination, paginatedBody } = require('../utils/pagination');
 const { invalidateBalance } = require('../utils/balance');
 const { notificar, tesorerosDe, cuentaDeIntegrante, dinero } = require('../utils/notifications');
+const { mesLegible } = require('../utils/fechas');
 const {
   round,
   montoPagadoDe,
@@ -165,7 +166,7 @@ const create = asyncHandler(async (req, res) => {
       destinatarios: [member.userId],
       tipo: 'cuota_nueva',
       titulo: 'Nueva cuota',
-      mensaje: `${member.nombre}: cuota de ${mes} por ${dinero(monto)}.`,
+      mensaje: `${member.nombre}: cuota de ${mesLegible(mes)} por ${dinero(monto)}.`,
       contributionId: contribution._id,
       memberId: member._id
     });
@@ -235,7 +236,7 @@ const bulkCreate = asyncHandler(async (req, res) => {
     destinatarios: avisados,
     tipo: 'cuota_nueva',
     titulo: 'Nueva cuota',
-    mensaje: `Se registró la cuota de ${mes} por ${dinero(monto)}.`
+    mensaje: `Se registró la cuota de ${mesLegible(mes)} por ${dinero(monto)}.`
   });
 
   await registrar({
@@ -243,7 +244,7 @@ const bulkCreate = asyncHandler(async (req, res) => {
     usuarioId: req.userId,
     accion: 'aporte.cuotas_masivas',
     entidad: 'aporte',
-    detalle: `${mes} · ${creadas} creadas · ${round(monto)}`
+    detalle: `${mesLegible(mes)} · ${creadas} creadas · ${round(monto)}`
   });
   res.status(201).json({ creadas, omitidas });
 });
@@ -301,7 +302,7 @@ const addPayment = asyncHandler(async (req, res) => {
       destinatarios: tesoreros,
       tipo: 'abono_reportado',
       titulo: 'Abono reportado',
-      mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(monto)} para la cuota de ${item.mes}.`,
+      mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(monto)} para la cuota de ${mesLegible(item.mes)}.`,
       contributionId: item._id,
       memberId: item.integranteId,
       actorNombre: cuenta ? cuenta.nombre : null
@@ -344,7 +345,7 @@ const approvePayment = asyncHandler(async (req, res) => {
       destinatarios: [cuenta.userId],
       tipo: 'abono_aprobado',
       titulo: 'Abono aprobado',
-      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${item.mes} fue aprobado.`,
+      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${mesLegible(item.mes)} fue aprobado.`,
       contributionId: item._id,
       memberId: item.integranteId,
       actorNombre: req.user ? req.user.nombre : null
@@ -390,7 +391,7 @@ const rejectPayment = asyncHandler(async (req, res) => {
       destinatarios: [cuenta.userId],
       tipo: 'abono_rechazado',
       titulo: 'Abono rechazado',
-      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${item.mes} fue rechazado.${
+      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${mesLegible(item.mes)} fue rechazado.${
         motivo ? ` Motivo: ${motivo}.` : ''
       }`,
       contributionId: item._id,
@@ -485,7 +486,7 @@ const report = asyncHandler(async (req, res) => {
     destinatarios: tesoreros,
     tipo: 'abono_reportado',
     titulo: 'Pago reportado',
-    mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(montoReportado)} para la cuota de ${item.mes}.`,
+    mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(montoReportado)} para la cuota de ${mesLegible(item.mes)}.`,
     contributionId: item._id,
     memberId: item.integranteId,
     actorNombre: cuenta ? cuenta.nombre : null

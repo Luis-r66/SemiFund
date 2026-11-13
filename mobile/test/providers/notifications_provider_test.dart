@@ -39,6 +39,8 @@ void main() {
       ),
     );
     when(() => reads.notificationsUnread()).thenAnswer((_) async => unread);
+    when(() => reads.notificationsEmailPreference())
+        .thenAnswer((_) async => true);
   }
 
   test('carga la primera página y el contador sin leer', () async {
@@ -101,5 +103,43 @@ void main() {
     await provider.markAllRead();
 
     expect(provider.unread, 1);
+  });
+
+  test('carga la preferencia de avisos por correo', () async {
+    stubPrimeraPagina();
+    when(() => reads.notificationsEmailPreference())
+        .thenAnswer((_) async => false);
+
+    await provider.load('s1');
+
+    expect(provider.emailAvisos, isFalse);
+  });
+
+  test('desactivar avisos guarda la preferencia', () async {
+    stubPrimeraPagina();
+    when(() => reads.updateNotificationsEmailPreference(false))
+        .thenAnswer((_) async => false);
+
+    await provider.load('s1');
+    await provider.setEmailAvisos(false);
+
+    expect(provider.emailAvisos, isFalse);
+    verify(() => reads.updateNotificationsEmailPreference(false)).called(1);
+  });
+
+  test('si guardar la preferencia falla, se restaura el valor', () async {
+    stubPrimeraPagina();
+    when(() => reads.updateNotificationsEmailPreference(false)).thenThrow(
+      const ApiException(
+        message: 'Sin conexión',
+        kind: ApiErrorKind.network,
+        statusCode: 500,
+      ),
+    );
+
+    await provider.load('s1');
+    await provider.setEmailAvisos(false);
+
+    expect(provider.emailAvisos, isTrue);
   });
 }

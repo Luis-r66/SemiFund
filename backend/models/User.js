@@ -28,6 +28,8 @@ const userSchema = new mongoose.Schema(
       }
     },
     tokenVersion: { type: Number, default: 0 },
+    // Preferencia de avisos por correo; se puede desactivar desde la campanita.
+    avisosPorCorreo: { type: Boolean, default: true },
     creadoEn: { type: Date, default: Date.now }
   },
   { collection: 'users', timestamps: true }

@@ -18,7 +18,16 @@ const notificationSchema = new mongoose.Schema(
     contributionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contribution', default: null },
     memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', default: null },
     actorNombre: { type: String, trim: true, default: null },
-    leida: { type: Boolean, default: false }
+    leida: { type: Boolean, default: false },
+    correo: {
+      estado: {
+        type: String,
+        enum: ['pendiente', 'enviando', 'enviado', 'fallido', 'omitido'],
+        default: 'pendiente'
+      },
+      enviadoEn: { type: Date, default: null },
+      detalle: { type: String, default: null }
+    }
   },
   { collection: 'notifications', timestamps: { createdAt: true, updatedAt: false } }
 );
@@ -33,6 +42,8 @@ notificationSchema.method('toJSON', function () {
   obj.semilleroId = obj.semilleroId ? obj.semilleroId.toString() : null;
   obj.contributionId = obj.contributionId ? obj.contributionId.toString() : null;
   obj.memberId = obj.memberId ? obj.memberId.toString() : null;
+  // El estado del correo es interno.
+  delete obj.correo;
   delete obj.__v;
   return obj;
 });

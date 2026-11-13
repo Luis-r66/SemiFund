@@ -22,6 +22,8 @@ class NotificationsProvider extends ChangeNotifier {
   bool _loading = false;
   bool _loadingMore = false;
   bool _marked = false;
+  bool _emailAvisos = true;
+  bool _savingPreference = false;
   String? _error;
   int _requestId = 0;
 
@@ -33,6 +35,8 @@ class NotificationsProvider extends ChangeNotifier {
   bool get hasMore => _page < _pages;
   bool get loading => _loading;
   bool get loadingMore => _loadingMore;
+  bool get emailAvisos => _emailAvisos;
+  bool get savingPreference => _savingPreference;
   String? get error => _error;
 
   /// Carga la primera página y el contador. Si cambia el semillero, reinicia.
@@ -64,6 +68,14 @@ class NotificationsProvider extends ChangeNotifier {
       _pages = page.pages;
       _page = page.page;
       _unread = results[1] as int;
+      // La preferencia de correo es secundaria: si falla, la campanita sigue
+      // funcionando con el valor que ya tenía.
+      try {
+        final bool prefiere = await _reads.notificationsEmailPreference();
+        if (request == _requestId) _emailAvisos = prefiere;
+      } on ApiException {
+        // Se conserva el valor actual.
+      }
     } on ApiException catch (error) {
       if (request != _requestId) return;
       _error = error.message;
@@ -139,6 +151,23 @@ class NotificationsProvider extends ChangeNotifier {
       notifyListeners();
     } finally {
       _marked = false;
+    }
+  }
+
+  /// Guarda la preferencia de avisos por correo con actualización optimista.
+  Future<void> setEmailAvisos(bool activo) async {
+    if (_savingPreference || activo == _emailAvisos) return;
+    final bool anterior = _emailAvisos;
+    _emailAvisos = activo;
+    _savingPreference = true;
+    notifyListeners();
+    try {
+      _emailAvisos = await _reads.updateNotificationsEmailPreference(activo);
+    } on ApiException {
+      _emailAvisos = anterior;
+    } finally {
+      _savingPreference = false;
+      notifyListeners();
     }
   }
 
