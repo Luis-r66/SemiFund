@@ -1,6 +1,7 @@
 import '../core/network/api_client.dart';
 import '../core/utils/json_utils.dart';
 import '../models/audit_entry.dart';
+import '../models/app_notification.dart';
 import '../models/balance.dart';
 import '../models/contribution.dart';
 import '../models/expense.dart';
@@ -121,5 +122,31 @@ class DashboardService {
       queryParameters: <String, dynamic>{'page': page, 'limit': limit},
     );
     return Paged<Expense>.fromJson(data, Expense.fromJson);
+  }
+
+  Future<Paged<AppNotification>> notificationsPage({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final dynamic data = await _api.get(
+      '/notifications',
+      queryParameters: <String, dynamic>{'page': page, 'limit': limit},
+    );
+    return Paged<AppNotification>.fromJson(data, AppNotification.fromJson);
+  }
+
+  Future<int> notificationsUnread() async {
+    final dynamic data = await _api.get('/notifications/unread-count');
+    return asInt(asMap(data)['count']);
+  }
+
+  Future<int> markNotificationsRead() async {
+    final dynamic data = await _api.post('/notifications/read-all');
+    return asInt(asMap(data)['updated']);
+  }
+
+  Future<AppNotification> markNotificationRead(String id) async {
+    final dynamic data = await _api.patch('/notifications/$id/read');
+    return AppNotification.fromJson(data);
   }
 }

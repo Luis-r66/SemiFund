@@ -5,6 +5,7 @@ const Member = require('../models/Member');
 const User = require('../models/User');
 const asyncHandler = require('../middleware/asyncHandler');
 const { academicFieldsFromUser } = require('../utils/memberSync');
+const { notificar, tesorerosDe } = require('../utils/notifications');
 
 // Genera un código alfanumérico de 8 caracteres (mayúsculas y dígitos, sin ambiguos)
 function generarCodigo() {
@@ -223,6 +224,7 @@ const actualizarCuenta = asyncHandler(async (req, res) => {
       return res.status(409).json({ error: 'No se puede quitar el rol de tesorero: debe quedar al menos uno' });
     }
   }
+  const estadoAnterior = membresia.estado;
   if (estado) membresia.estado = estado;
   if (typeof esTesorero === 'boolean') membresia.esTesorero = esTesorero;
   await membresia.save();
@@ -244,6 +246,21 @@ const actualizarCuenta = asyncHandler(async (req, res) => {
         { $set: { ...fields, userId: membresia.userId._id } }
       );
     }
+  }
+
+  // Aviso al resto de tesoreros cuando una solicitud queda aceptada.
+  if (estadoAnterior !== 'activo' && membresia.estado === 'activo') {
+    const tesoreros = await tesorerosDe(req.semillero._id, { excluirUserId: req.userId });
+    const nombre = membresia.userId ? membresia.userId.nombre : 'Un integrante';
+    await notificar({
+      semilleroId: req.semillero._id,
+      destinatarios: tesoreros,
+      tipo: 'invitacion_aceptada',
+      titulo: 'Invitación aceptada',
+      mensaje: `${nombre} ya es parte del semillero.`,
+      memberId: membresia.memberId,
+      actorNombre: nombre
+    });
   }
 
   res.status(200).json({ id: membresia.id, estado: membresia.estado, esTesorero: membresia.esTesorero });

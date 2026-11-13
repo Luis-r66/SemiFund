@@ -6,6 +6,7 @@ const { registrar } = require('../utils/audit');
 const { estaConfigurado, subirComprobante, borrarComprobante } = require('../services/cloudinary');
 const { parsePagination, paginatedBody } = require('../utils/pagination');
 const { invalidateBalance } = require('../utils/balance');
+const { notificar, tesorerosDe, cuentaDeIntegrante, dinero } = require('../utils/notifications');
 const {
   round,
   montoPagadoDe,
@@ -158,6 +159,17 @@ const create = asyncHandler(async (req, res) => {
     semilleroId: req.semilleroId
   });
   await auditar(req, contribution, 'aporte.crear', `${contribution.mes} · ${contribution.monto}`);
+  if (member.userId && String(member.userId) !== String(req.userId)) {
+    await notificar({
+      semilleroId: req.semilleroId,
+      destinatarios: [member.userId],
+      tipo: 'cuota_nueva',
+      titulo: 'Nueva cuota',
+      mensaje: `${member.nombre}: cuota de ${mes} por ${dinero(monto)}.`,
+      contributionId: contribution._id,
+      memberId: member._id
+    });
+  }
   res.status(201).json(contribution);
 });
 
@@ -193,6 +205,7 @@ const bulkCreate = asyncHandler(async (req, res) => {
 
   const omitidas = [];
   let creadas = 0;
+  const avisados = [];
   for (const member of miembros) {
     if (yaTienen.has(member.id)) {
       omitidas.push({ integranteId: member.id, motivo: 'Ya tiene cuota para ese mes' });
@@ -207,12 +220,23 @@ const bulkCreate = asyncHandler(async (req, res) => {
       montoPagado: 0
     });
     creadas++;
+    if (member.userId && String(member.userId) !== String(req.userId)) {
+      avisados.push(String(member.userId));
+    }
   }
   for (const id of integranteIds || []) {
     if (!idsValidos.has(String(id))) {
       omitidas.push({ integranteId: String(id), motivo: 'Integrante no existe o está inactivo' });
     }
   }
+
+  await notificar({
+    semilleroId: req.semilleroId,
+    destinatarios: avisados,
+    tipo: 'cuota_nueva',
+    titulo: 'Nueva cuota',
+    mensaje: `Se registró la cuota de ${mes} por ${dinero(monto)}.`
+  });
 
   await registrar({
     semilleroId: req.semilleroId,
@@ -269,6 +293,20 @@ const addPayment = asyncHandler(async (req, res) => {
   await item.save();
   invalidateBalance(req.semilleroId);
   await auditar(req, item, esTesorero ? 'aporte.abono_registrado' : 'aporte.abono_reportado', `${monto}`);
+  if (!esTesorero) {
+    const cuenta = await cuentaDeIntegrante(item.integranteId, req.semilleroId);
+    const tesoreros = await tesorerosDe(req.semilleroId, { excluirUserId: req.userId });
+    await notificar({
+      semilleroId: req.semilleroId,
+      destinatarios: tesoreros,
+      tipo: 'abono_reportado',
+      titulo: 'Abono reportado',
+      mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(monto)} para la cuota de ${item.mes}.`,
+      contributionId: item._id,
+      memberId: item.integranteId,
+      actorNombre: cuenta ? cuenta.nombre : null
+    });
+  }
   res.status(201).json(item);
 });
 
@@ -299,6 +337,19 @@ const approvePayment = asyncHandler(async (req, res) => {
   await item.save();
   invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.abono_aprobado', `${abono.monto}`);
+  const cuenta = await cuentaDeIntegrante(item.integranteId, req.semilleroId);
+  if (cuenta && cuenta.userId !== String(req.userId)) {
+    await notificar({
+      semilleroId: req.semilleroId,
+      destinatarios: [cuenta.userId],
+      tipo: 'abono_aprobado',
+      titulo: 'Abono aprobado',
+      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${item.mes} fue aprobado.`,
+      contributionId: item._id,
+      memberId: item.integranteId,
+      actorNombre: req.user ? req.user.nombre : null
+    });
+  }
   res.status(200).json(item);
 });
 
@@ -331,6 +382,22 @@ const rejectPayment = asyncHandler(async (req, res) => {
   await item.save();
   invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.abono_rechazado', `${abono.monto}`);
+  const cuenta = await cuentaDeIntegrante(item.integranteId, req.semilleroId);
+  if (cuenta && cuenta.userId !== String(req.userId)) {
+    const motivo = typeof body.motivo === 'string' ? body.motivo.trim() : '';
+    await notificar({
+      semilleroId: req.semilleroId,
+      destinatarios: [cuenta.userId],
+      tipo: 'abono_rechazado',
+      titulo: 'Abono rechazado',
+      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${item.mes} fue rechazado.${
+        motivo ? ` Motivo: ${motivo}.` : ''
+      }`,
+      contributionId: item._id,
+      memberId: item.integranteId,
+      actorNombre: req.user ? req.user.nombre : null
+    });
+  }
   res.status(200).json(item);
 });
 
@@ -399,8 +466,9 @@ const report = asyncHandler(async (req, res) => {
   }
 
   const now = new Date();
+  const montoReportado = saldoPendiente(item);
   agregarAbono(item, {
-    monto: saldoPendiente(item),
+    monto: montoReportado,
     referencia: typeof referencia === 'string' ? referencia.trim() || null : null,
     usuarioId: req.userId,
     aprobado: false,
@@ -410,6 +478,18 @@ const report = asyncHandler(async (req, res) => {
   await item.save();
   invalidateBalance(req.semilleroId);
   await auditar(req, item, 'aporte.reportado');
+  const cuenta = await cuentaDeIntegrante(item.integranteId, req.semilleroId);
+  const tesoreros = await tesorerosDe(req.semilleroId, { excluirUserId: req.userId });
+  await notificar({
+    semilleroId: req.semilleroId,
+    destinatarios: tesoreros,
+    tipo: 'abono_reportado',
+    titulo: 'Pago reportado',
+    mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(montoReportado)} para la cuota de ${item.mes}.`,
+    contributionId: item._id,
+    memberId: item.integranteId,
+    actorNombre: cuenta ? cuenta.nombre : null
+  });
   res.status(200).json(item);
 });
 

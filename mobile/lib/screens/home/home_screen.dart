@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,6 +16,7 @@ import '../../widgets/balance_card.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
+import '../../widgets/notification_bell.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/semillero_switcher_sheet.dart';
 
@@ -283,6 +285,10 @@ class _DesktopHome extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (kIsWeb && !AppLayout.isDesktop(context)) ...<Widget>[
+                      const NotificationBell(),
+                      const SizedBox(width: 10),
+                    ],
                     if (isTreasurer) ...<Widget>[
                       _HeaderAction(
                         label: 'Nuevo gasto',

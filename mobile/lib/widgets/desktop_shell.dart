@@ -10,6 +10,7 @@ import '../models/semillero_membership.dart';
 import '../providers/session_provider.dart';
 import 'app_logo.dart';
 import 'member_avatar.dart';
+import 'notification_bell.dart';
 import 'section_label.dart';
 import 'semillero_switcher_sheet.dart';
 
@@ -76,7 +77,8 @@ class _DesktopSidebar extends StatelessWidget {
               children: <Widget>[
                 const AppLogo(size: 34, showLabel: false),
                 const SizedBox(width: 10),
-                Text('SemiFund', style: AppTextStyles.h4),
+                Expanded(child: Text('SemiFund', style: AppTextStyles.h4)),
+                const WebNotificationBell(),
               ],
             ),
           ),

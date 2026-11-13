@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../core/layout/app_layout.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import 'notification_bell.dart';
 
 class AppTopBar extends StatelessWidget {
   const AppTopBar({super.key, required this.title, this.onBack, this.trailing});
@@ -43,6 +46,11 @@ class AppTopBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (kIsWeb && !AppLayout.isDesktop(context))
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: NotificationBell(),
+            ),
           if (trailing != null)
             Padding(padding: const EdgeInsets.only(right: 16), child: trailing!)
           else

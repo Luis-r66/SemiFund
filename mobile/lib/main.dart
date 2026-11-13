@@ -13,6 +13,7 @@ import 'core/storage/session_storage.dart';
 import 'providers/accounts_provider.dart';
 import 'providers/contributions_provider.dart';
 import 'providers/expenses_provider.dart';
+import 'providers/notifications_provider.dart';
 import 'providers/home_provider.dart';
 import 'providers/invitation_provider.dart';
 import 'providers/members_provider.dart';
@@ -85,6 +86,9 @@ Future<void> main() async {
           ChangeNotifierProvider<ExpensesProvider>(
             create: (_) =>
                 ExpensesProvider(dashboardService, managementService),
+          ),
+          ChangeNotifierProvider<NotificationsProvider>(
+            create: (_) => NotificationsProvider(dashboardService),
           ),
         ],
         child: child,

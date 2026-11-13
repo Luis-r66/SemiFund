@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "sync:members": "node scripts/backfillMemberProfiles.js",
     "migrate:payments": "node scripts/migratePartialPayments.js",
-    "test": "node --test test/payments.test.js test/validators.test.js test/importValidation.test.js test/comprobante.test.js test/authGoogle.test.js test/pagination.test.js"
+    "test": "node --test test/payments.test.js test/validators.test.js test/importValidation.test.js test/comprobante.test.js test/authGoogle.test.js test/pagination.test.js test/notifications.test.js"
   },
   "keywords": [],
   "author": "",
