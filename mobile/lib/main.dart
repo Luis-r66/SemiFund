@@ -11,6 +11,7 @@ import 'app.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/session_storage.dart';
 import 'providers/accounts_provider.dart';
+import 'providers/app_info_provider.dart';
 import 'providers/contributions_provider.dart';
 import 'providers/expenses_provider.dart';
 import 'providers/notifications_provider.dart';
@@ -19,10 +20,12 @@ import 'providers/invitation_provider.dart';
 import 'providers/members_provider.dart';
 import 'providers/session_provider.dart';
 import 'services/auth_service.dart';
+import 'services/app_update_service.dart';
 import 'services/dashboard_service.dart';
 import 'services/google_auth_service.dart';
 import 'services/management_service.dart';
 import 'services/semillero_service.dart';
+import 'services/tutorial_service.dart';
 
 Future<void> main() async {
   final WidgetsBinding widgetsBinding =
@@ -48,13 +51,20 @@ Future<void> main() async {
   final SemilleroService semilleroService = SemilleroService(apiClient);
   final DashboardService dashboardService = DashboardService(apiClient);
   final ManagementService managementService = ManagementService(apiClient);
+  final AppUpdateService appUpdateService = AppUpdateService(
+    preferences: preferences,
+  );
+  final AppInfoProvider appInfo = AppInfoProvider(appUpdateService);
+  final TutorialService tutorialService = TutorialService(preferences);
 
   final SessionProvider session = SessionProvider(
     authService: authService,
     semilleroService: semilleroService,
     store: storage,
+    tutorialStore: tutorialService,
   );
   apiClient.onUnauthorized = session.expireSession;
+  apiClient.onSemilleroEliminado = session.descartarSemilleroEliminado;
 
   runApp(
     // La clave por usuario recrea los providers al cambiar de cuenta, así los datos
@@ -67,6 +77,7 @@ Future<void> main() async {
           Provider<DashboardService>.value(value: dashboardService),
           Provider<ManagementService>.value(value: managementService),
           ChangeNotifierProvider<SessionProvider>.value(value: session),
+          ChangeNotifierProvider<AppInfoProvider>.value(value: appInfo),
           ChangeNotifierProvider<HomeProvider>(
             create: (_) => HomeProvider(dashboardService),
           ),
@@ -96,6 +107,8 @@ Future<void> main() async {
       child: SemiFundApp(session: session),
     ),
   );
+
+  unawaited(appInfo.iniciar());
 
   unawaited(
     session.bootstrap().whenComplete(() {

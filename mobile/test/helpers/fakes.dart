@@ -1,4 +1,44 @@
 import 'package:semi_fund/core/storage/session_storage.dart';
+import 'package:semi_fund/models/app_release.dart';
+import 'package:semi_fund/services/app_update_service.dart';
+import 'package:semi_fund/services/tutorial_service.dart';
+
+class FakeAppUpdateGateway implements AppUpdateGateway {
+  FakeAppUpdateGateway({this.version = '1.3.0', this.build = '7'});
+
+  String version;
+  String build;
+  bool due = false;
+  AppRelease? release;
+  bool abrirLlamado = false;
+
+  @override
+  Future<String> versionActual() async => version;
+
+  @override
+  Future<String> buildActual() async => build;
+
+  @override
+  bool get consultaVencida => due;
+
+  @override
+  Future<AppRelease?> buscar({bool forzar = false}) async => release;
+
+  @override
+  Future<void> abrirDescarga(AppRelease release) async {
+    abrirLlamado = true;
+  }
+}
+
+class FakeTutorialStore implements TutorialStore {
+  bool seen = false;
+
+  @override
+  Future<bool> hasSeen(String userId) async => seen;
+
+  @override
+  Future<void> markSeen(String userId) async => seen = true;
+}
 
 class FakeSessionStore implements SessionStore {
   String? token;

@@ -10,6 +10,7 @@ import '../models/semillero_membership.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/semillero_service.dart';
+import '../services/tutorial_service.dart';
 
 enum SessionStatus { bootstrapping, unauthenticated, authenticated }
 
@@ -18,13 +19,16 @@ class SessionProvider extends ChangeNotifier {
     required AuthService authService,
     required SemilleroService semilleroService,
     required SessionStore store,
+    TutorialStore? tutorialStore,
   }) : _authService = authService,
        _semilleroService = semilleroService,
-       _store = store;
+       _store = store,
+       _tutorialStore = tutorialStore;
 
   final AuthService _authService;
   final SemilleroService _semilleroService;
   final SessionStore _store;
+  final TutorialStore? _tutorialStore;
 
   SessionStatus _status = SessionStatus.bootstrapping;
   UserModel? _user;
@@ -35,6 +39,8 @@ class SessionProvider extends ChangeNotifier {
   bool _isBusy = false;
   bool _booting = false;
   bool _expiring = false;
+  bool _descartandoEliminado = false;
+  bool _tutorialPendiente = false;
 
   SessionStatus get status => _status;
   UserModel? get user => _user;
@@ -43,6 +49,9 @@ class SessionProvider extends ChangeNotifier {
   String? get notice => _notice;
   String? get bootstrapError => _bootstrapError;
   bool get isBusy => _isBusy;
+
+  /// La cuenta completó sus datos y todavía no ha visto el recorrido inicial.
+  bool get tutorialPendiente => _tutorialPendiente;
 
   bool get isAuthenticated => _status == SessionStatus.authenticated;
   bool get hasActiveSemillero => _activeSemillero != null;
@@ -72,6 +81,7 @@ class SessionProvider extends ChangeNotifier {
       _user = results[0] as UserModel;
       _semilleros = results[1] as List<SemilleroMembership>;
       await _resolveActiveSemillero();
+      await _actualizarTutorial();
       _status = SessionStatus.authenticated;
     } on ApiException catch (error) {
       if (error.isUnauthorized) {
@@ -103,6 +113,7 @@ class SessionProvider extends ChangeNotifier {
       await _store.saveToken(result.token);
       _user = result.user;
       _status = SessionStatus.authenticated;
+      await _actualizarTutorial();
       await _reloadSemillerosSafely();
     } on ApiException catch (error) {
       _notice = error.message;
@@ -125,6 +136,7 @@ class SessionProvider extends ChangeNotifier {
       await _store.saveToken(result.token);
       _user = result.user;
       _status = SessionStatus.authenticated;
+      await _actualizarTutorial();
       await _reloadSemillerosSafely();
     } on ApiException catch (error) {
       _notice = error.message;
@@ -157,6 +169,7 @@ class SessionProvider extends ChangeNotifier {
       await _store.saveToken(result.token);
       _user = result.user;
       _status = SessionStatus.authenticated;
+      await _actualizarTutorial();
       await _reloadSemillerosSafely();
     } on ApiException catch (error) {
       _notice = error.message;
@@ -226,6 +239,7 @@ class SessionProvider extends ChangeNotifier {
       ),
     );
     _user = updated;
+    await _actualizarTutorial();
     notifyListeners();
   }
 
@@ -275,6 +289,54 @@ class SessionProvider extends ChangeNotifier {
     final JoinSemilleroResult result = await _semilleroService.join(codigo);
     await _reloadSemillerosSafely();
     return result;
+  }
+
+  /// Sale del semillero activo sin borrarlo.
+  Future<void> salirDelSemillero() async {
+    await _semilleroService.salir();
+    await _descartarSemilleroActivo();
+  }
+
+  /// Elimina el semillero activo. La API exige que sea el creador y que la
+  /// confirmación coincida con el nombre.
+  Future<void> eliminarSemillero({required String confirmacion}) async {
+    await _semilleroService.eliminar(confirmacion);
+    await _descartarSemilleroActivo();
+  }
+
+  /// Lo llama el cliente HTTP cuando otra cuenta eliminó el semillero activo.
+  /// Suelta la sesión local y deja un aviso en "Mis semilleros".
+  Future<void> descartarSemilleroEliminado() async {
+    if (_descartandoEliminado || _activeSemillero == null) return;
+    _descartandoEliminado = true;
+    try {
+      _notice = 'Este semillero fue eliminado por su creador.';
+      await _descartarSemilleroActivo();
+    } finally {
+      _descartandoEliminado = false;
+    }
+  }
+
+  Future<void> _descartarSemilleroActivo() async {
+    final String? semilleroId = _activeSemillero?.semilleroId;
+    _activeSemillero = null;
+    if (semilleroId != null) {
+      _semilleros = _semilleros
+          .where((SemilleroMembership item) => item.semilleroId != semilleroId)
+          .toList();
+    }
+    await _store.clearActiveSemillero();
+    notifyListeners();
+
+    // La lista local ya quedó consistente; si la red falla, se reintenta en
+    // la próxima visita a "Mis semilleros" sin borrar lo que el usuario tiene.
+    try {
+      _semilleros = await _semilleroService.list();
+      await _resolveActiveSemillero();
+    } on ApiException {
+      // Sin conexión: se conserva la lista local.
+    }
+    notifyListeners();
   }
 
   Future<void> selectSemillero(SemilleroMembership membership) async {
@@ -358,10 +420,32 @@ class SessionProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _actualizarTutorial() async {
+    final TutorialStore? store = _tutorialStore;
+    final UserModel? user = _user;
+    if (store == null || user == null || !user.isProfileComplete) {
+      _tutorialPendiente = false;
+      return;
+    }
+    _tutorialPendiente = !await store.hasSeen(user.id);
+  }
+
+  /// Marca el recorrido inicial como visto para esta cuenta.
+  Future<void> marcarTutorialVisto() async {
+    final TutorialStore? store = _tutorialStore;
+    final UserModel? user = _user;
+    if (store != null && user != null) {
+      await store.markSeen(user.id);
+    }
+    _tutorialPendiente = false;
+    notifyListeners();
+  }
+
   Future<void> _clearLocalSession() async {
     _user = null;
     _semilleros = <SemilleroMembership>[];
     _activeSemillero = null;
+    _tutorialPendiente = false;
     await _store.clearAll();
   }
 }

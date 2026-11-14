@@ -12,6 +12,7 @@ import '../../models/balance.dart';
 import '../../models/semillero_membership.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/session_provider.dart';
+import '../../widgets/app_update_widgets.dart';
 import '../../widgets/balance_card.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
@@ -19,6 +20,7 @@ import '../../widgets/member_avatar.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/semillero_switcher_sheet.dart';
+import '../../widgets/staggered_entrance.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -155,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 14),
                       ],
+                      const UpdateBanner(),
                       if (snapshot == null)
                         SizedBox(
                           height: 380,
@@ -165,62 +168,86 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         )
                       else ...<Widget>[
-                        BalanceCard(
-                          saldo: snapshot.balance.saldoDisponible,
-                          updatedAt: snapshot.updatedAt,
+                        StaggeredEntrance(
+                          index: 0,
+                          child: BalanceCard(
+                            saldo: snapshot.balance.saldoDisponible,
+                            updatedAt: snapshot.updatedAt,
+                          ),
                         ),
                         const SizedBox(height: 12),
-                        _TotalsCard(balance: snapshot.balance),
+                        StaggeredEntrance(
+                          index: 1,
+                          child: _TotalsCard(balance: snapshot.balance),
+                        ),
                         const SizedBox(height: 28),
-                        const SectionLabel('Gestionar'),
-                        _ManageGrid(
-                          children: <Widget>[
-                            _ManageTile(
-                              icon: LucideIcons.users,
-                              title: 'Integrantes',
-                              subtitle:
-                                  '${snapshot.activeMembers} ${snapshot.activeMembers == 1 ? 'activo' : 'activos'}',
-                              onTap: () => _open('/members'),
-                            ),
-                            _ManageTile(
-                              icon: LucideIcons.wallet,
-                              title: 'Aportes',
-                              subtitle:
-                                  '${snapshot.pendingContributions} por cobrar',
-                              onTap: () => _open('/contributions'),
-                            ),
-                            _ManageTile(
-                              icon: LucideIcons.receipt,
-                              title: 'Gastos',
-                              subtitle: '${snapshot.expensesCount} registrados',
-                              onTap: () => _open('/expenses'),
-                            ),
-                          ],
+                        StaggeredEntrance(
+                          index: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              const SectionLabel('Gestionar'),
+                              _ManageGrid(
+                                children: <Widget>[
+                                  _ManageTile(
+                                    icon: LucideIcons.users,
+                                    title: 'Integrantes',
+                                    subtitle:
+                                        '${snapshot.activeMembers} ${snapshot.activeMembers == 1 ? 'activo' : 'activos'}',
+                                    onTap: () => _open('/members'),
+                                  ),
+                                  _ManageTile(
+                                    icon: LucideIcons.wallet,
+                                    title: 'Aportes',
+                                    subtitle:
+                                        '${snapshot.pendingContributions} por cobrar',
+                                    onTap: () => _open('/contributions'),
+                                  ),
+                                  _ManageTile(
+                                    icon: LucideIcons.receipt,
+                                    title: 'Gastos',
+                                    subtitle:
+                                        '${snapshot.expensesCount} registrados',
+                                    onTap: () => _open('/expenses'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                         if (session.isTesorero) ...<Widget>[
                           const SizedBox(height: 28),
-                          const SectionLabel('Administrar semillero'),
-                          _ManageGrid(
-                            children: <Widget>[
-                              _ManageTile(
-                                icon: LucideIcons.userPlus,
-                                title: 'Cuentas',
-                                subtitle: 'Solicitudes y roles',
-                                onTap: () => _open('/accounts'),
-                              ),
-                              _ManageTile(
-                                icon: LucideIcons.shieldCheck,
-                                title: 'Invitar integrantes',
-                                subtitle: 'Comparte el código del semillero',
-                                onTap: () => _open('/invite'),
-                              ),
-                              _ManageTile(
-                                icon: LucideIcons.history,
-                                title: 'Actividad',
-                                subtitle: 'Quién hizo qué y cuándo',
-                                onTap: () => _open('/activity'),
-                              ),
-                            ],
+                          StaggeredEntrance(
+                            index: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                const SectionLabel('Administrar semillero'),
+                                _ManageGrid(
+                                  children: <Widget>[
+                                    _ManageTile(
+                                      icon: LucideIcons.userPlus,
+                                      title: 'Cuentas',
+                                      subtitle: 'Solicitudes y roles',
+                                      onTap: () => _open('/accounts'),
+                                    ),
+                                    _ManageTile(
+                                      icon: LucideIcons.shieldCheck,
+                                      title: 'Invitar integrantes',
+                                      subtitle:
+                                          'Comparte el código del semillero',
+                                      onTap: () => _open('/invite'),
+                                    ),
+                                    _ManageTile(
+                                      icon: LucideIcons.history,
+                                      title: 'Actividad',
+                                      subtitle: 'Quién hizo qué y cuándo',
+                                      onTap: () => _open('/activity'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ],
@@ -320,6 +347,7 @@ class _DesktopHome extends StatelessWidget {
                         ),
                         const SizedBox(height: 14),
                       ],
+                      const UpdateBanner(),
                       if (snapshot == null)
                         SizedBox(
                           height: 380,
@@ -330,56 +358,70 @@ class _DesktopHome extends StatelessWidget {
                           ),
                         )
                       else ...<Widget>[
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              Expanded(
-                                flex: 3,
-                                child: BalanceCard(
-                                  saldo: snapshot!.balance.saldoDisponible,
-                                  updatedAt: snapshot!.updatedAt,
+                        StaggeredEntrance(
+                          index: 0,
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                Expanded(
+                                  flex: 3,
+                                  child: BalanceCard(
+                                    saldo: snapshot!.balance.saldoDisponible,
+                                    updatedAt: snapshot!.updatedAt,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 2,
-                                child: _TotalsCard(balance: snapshot!.balance),
-                              ),
-                            ],
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  flex: 2,
+                                  child: _TotalsCard(
+                                    balance: snapshot!.balance,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 28),
-                        const SectionLabel('Resumen'),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: _StatCard(
-                                icon: LucideIcons.users,
-                                label: 'Integrantes activos',
-                                value: '${snapshot!.activeMembers}',
-                                onTap: () => onOpen('/members'),
+                        StaggeredEntrance(
+                          index: 1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              const SectionLabel('Resumen'),
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: _StatCard(
+                                      icon: LucideIcons.users,
+                                      label: 'Integrantes activos',
+                                      value: '${snapshot!.activeMembers}',
+                                      onTap: () => onOpen('/members'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: _StatCard(
+                                      icon: LucideIcons.wallet,
+                                      label: 'Aportes por cobrar',
+                                      value:
+                                          '${snapshot!.pendingContributions}',
+                                      onTap: () => onOpen('/contributions'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: _StatCard(
+                                      icon: LucideIcons.receipt,
+                                      label: 'Gastos registrados',
+                                      value: '${snapshot!.expensesCount}',
+                                      onTap: () => onOpen('/expenses'),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: _StatCard(
-                                icon: LucideIcons.wallet,
-                                label: 'Aportes por cobrar',
-                                value: '${snapshot!.pendingContributions}',
-                                onTap: () => onOpen('/contributions'),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: _StatCard(
-                                icon: LucideIcons.receipt,
-                                label: 'Gastos registrados',
-                                value: '${snapshot!.expensesCount}',
-                                onTap: () => onOpen('/expenses'),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ],

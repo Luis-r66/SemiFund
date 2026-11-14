@@ -14,6 +14,7 @@ import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
+import '../../widgets/success_check.dart';
 
 class ExpenseFormScreen extends StatefulWidget {
   const ExpenseFormScreen({super.key, this.hoy});
@@ -107,6 +108,8 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         monto: _montoValue,
         fecha: _isoDate(_fecha),
       );
+      if (!mounted) return;
+      await showSuccessCheck(context, message: 'Gasto registrado');
       if (!mounted) return;
       context.pop();
     } on ApiException catch (error) {

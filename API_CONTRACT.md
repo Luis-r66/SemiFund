@@ -205,14 +205,14 @@ Recuperación:
 ### Semilleros (hub — requieren Authorization, no `X-Semillero-Id`)
 
 ```
-GET    /api/semilleros                          -> 200 [ { semilleroId, semilleroNombre, semilleroCodigo (solo tesorero), esTesorero, estado, miembros } ]
+GET    /api/semilleros                          -> 200 [ { semilleroId, semilleroNombre, semilleroCodigo (solo tesorero), esTesorero, esCreador, estado, miembros } ]
 POST   /api/semilleros  { nombre }              -> 201 { semillero, memberId } | 400
 POST   /api/semilleros/join  { codigo }         -> 201 { semilleroId, semilleroNombre, estado } | 404 | 409
 ```
 
 El creador queda como **tesorero automático** y se crea su `Member` vinculado con los datos académicos de su cuenta. El código de invitación tiene 8 caracteres alfanuméricos, es permanente y rotable; solo el tesorero lo ve.
 La creación del semillero, su integrante inicial y su membresía se revierte si falla una etapa.
-Las membresías cuyo semillero ya no existe se omiten de las respuestas de listado y perfil.
+Las membresías cuyo semillero ya no existe o fue eliminado se omiten de las respuestas de listado y perfil. `esCreador` indica si la cuenta creó el semillero activo.
 
 ### Semillero activo (requieren Authorization + encabezado `X-Semillero-Id`)
 
@@ -222,9 +222,16 @@ PATCH  /api/semilleros/me  { nombre }                                -> 200 | 40
 POST   /api/semilleros/me/code/rotate                                -> 200 { codigo } (solo tesorero)
 GET    /api/semilleros/me/accounts                                   -> 200 [ { id, usuario, integrante, esTesorero, estado, fechaSolicitud } ]
 PATCH  /api/semilleros/me/accounts/:membershipId  { estado?, esTesorero? } -> 200 | 404 | 409 (solo tesorero)
+POST   /api/semilleros/me/leave                                     -> 200 { ok, mensaje } | 409 (último tesorero)
+DELETE /api/semilleros/me  { confirmacion }                         -> 200 { ok, mensaje } | 400 nombre no coincide | 403 no es el creador
 ```
 
 `estado` de una membresía: `pendiente | activo | rechazado | inactivo`. Al aprobar (`estado: 'activo'`) se crea/vincula el `Member` con los datos académicos de la cuenta de forma idempotente. Nunca se puede quedar el semillero sin al menos un tesorero activo (409).
+
+Salir y eliminar:
+- `POST /me/leave` marca la membresía como `inactivo` y desactiva su `Member`. Cualquier integrante activo puede salir; el último tesorero activo recibe `409` y debe transferir la tesorería antes.
+- `DELETE /me` es un borrado lógico: exige ser quien creó el semillero y que `confirmacion` coincida con el nombre (sin distinguir mayúsculas, tildes ni espacios extra). Marca `activo: false`, guarda `eliminadoEn`/`eliminadoPor`, deja las membresías inactivas y los integrantes inactivos, y registra el hecho en la auditoría.
+- Un semillero eliminado responde `403 { code: "semillero_eliminado" }` a cualquier petición con `X-Semillero-Id`; la app debe volver a la lista de semilleros.
 
 `PATCH /api/contributions/:id/pay` valida el `id` como ObjectId y responde `400` si no es válido.
 
@@ -232,6 +239,7 @@ PATCH  /api/semilleros/me/accounts/:membershipId  { estado?, esTesorero? } -> 20
 
 - `User`: cuenta de acceso (id, nombre, nombres, apellidos, email, tipoUsuario, programa, semestre, passwordHash, tokenVersion).
 - `Membership`: vincula un `User` con un `Semillero` (`userId`, `semilleroId`, `esTesorero`, `estado`, `memberId?`). Un usuario solo puede tener una membresía por semillero.
+- `Semillero`: conserva `creadoPor`, `activo`, `eliminadoEn` y `eliminadoPor` para el borrado lógico y la auditoría.
 - `Member`: integrante que aporta (`userId?`, `nombre`, `nombres`, `apellidos`, `tipoUsuario`, `programa`, `semestre`, `activo`, `semilleroId`). Si está vinculado a una cuenta, el perfil académico se sincroniza desde `User` al crear el semillero, aprobar la solicitud o actualizar `/api/auth/me`. El tesorero no puede editar los datos académicos de un integrante vinculado.
 - Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar. El integrante puede reportar sus propios aportes.
 

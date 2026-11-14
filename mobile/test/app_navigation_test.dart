@@ -8,6 +8,7 @@ import 'package:semi_fund/models/balance.dart';
 import 'package:semi_fund/models/home_summary.dart';
 import 'package:semi_fund/models/semillero_membership.dart';
 import 'package:semi_fund/models/user.dart';
+import 'package:semi_fund/providers/app_info_provider.dart';
 import 'package:semi_fund/providers/home_provider.dart';
 import 'package:semi_fund/providers/session_provider.dart';
 import 'package:semi_fund/screens/accounts/accounts_screen.dart';
@@ -99,6 +100,9 @@ void main() {
   Widget app(SessionProvider session) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<AppInfoProvider>.value(
+          value: AppInfoProvider(FakeAppUpdateGateway()),
+        ),
         ChangeNotifierProvider<SessionProvider>.value(value: session),
         ChangeNotifierProvider<HomeProvider>(
           create: (_) => HomeProvider(dashboard),

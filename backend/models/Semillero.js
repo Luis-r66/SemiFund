@@ -5,7 +5,9 @@ const semilleroSchema = new mongoose.Schema(
     nombre: { type: String, required: [true, 'El nombre del semillero es requerido'], trim: true },
     codigo: { type: String, required: true, unique: true, uppercase: true, trim: true },
     creadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    activo: { type: Boolean, default: true }
+    activo: { type: Boolean, default: true },
+    eliminadoEn: { type: Date, default: null },
+    eliminadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
   },
   { collection: 'semilleros', timestamps: true }
 );

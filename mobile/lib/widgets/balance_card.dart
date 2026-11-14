@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/utils/formatters.dart';
+import 'animated_money.dart';
 
 class BalanceCard extends StatelessWidget {
   const BalanceCard({super.key, required this.saldo, required this.updatedAt});
@@ -32,8 +33,8 @@ class BalanceCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(
-              formatCop(saldo),
+            child: AnimatedMoney(
+              value: saldo,
               style: AppTextStyles.moneyLarge.copyWith(color: AppColors.paper),
             ),
           ),

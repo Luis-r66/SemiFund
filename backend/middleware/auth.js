@@ -46,6 +46,14 @@ async function requireSemillero(req, res, next) {
   if (!semillero) {
     return res.status(404).json({ error: 'Semillero no encontrado' });
   }
+  // Un semillero eliminado (borrado lógico) no debe seguir respondiendo,
+  // aunque la app conserve una sesión abierta apuntando a él.
+  if (semillero.activo === false) {
+    return res.status(403).json({
+      error: 'Este semillero fue eliminado.',
+      code: 'semillero_eliminado'
+    });
+  }
   req.semillero = semillero;
   req.semilleroId = semilleroId;
   req.membership = membresia;

@@ -56,6 +56,20 @@ class SemilleroService {
     return asString(asMap(data)['codigo']);
   }
 
+  /// Elimina el semillero activo (borrado lógico). Solo el creador puede hacerlo
+  /// y debe repetir el nombre exacto como confirmación.
+  Future<void> eliminar(String confirmacion) async {
+    await _api.delete(
+      '/semilleros/me',
+      data: <String, dynamic>{'confirmacion': confirmacion},
+    );
+  }
+
+  /// Saca al usuario del semillero activo sin borrarlo.
+  Future<void> salir() async {
+    await _api.post('/semilleros/me/leave');
+  }
+
   Future<List<MembershipAccount>> accounts() async {
     final dynamic data = await _api.get('/semilleros/me/accounts');
     return asList(data).map(MembershipAccount.fromJson).toList();

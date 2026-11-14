@@ -30,6 +30,7 @@ class SemilleroMembership {
     required this.estado,
     required this.miembros,
     this.codigo,
+    this.esCreador = false,
   });
 
   final String id;
@@ -39,6 +40,7 @@ class SemilleroMembership {
   final MembershipStatus estado;
   final int miembros;
   final String? codigo;
+  final bool esCreador;
 
   bool get isActive => estado == MembershipStatus.activo;
 
@@ -58,6 +60,7 @@ class SemilleroMembership {
       estado: MembershipStatus.fromApi(map['estado']),
       miembros: asInt(map['miembros']),
       codigo: asNullableString(map['semilleroCodigo'] ?? map['codigo']),
+      esCreador: asBool(map['esCreador']),
     );
   }
 
@@ -67,6 +70,7 @@ class SemilleroMembership {
     'semilleroNombre': nombre,
     'semilleroCodigo': codigo,
     'esTesorero': esTesorero,
+    'esCreador': esCreador,
     'estado': estado.apiValue,
     'miembros': miembros,
   };
@@ -79,6 +83,7 @@ class SemilleroMembership {
     MembershipStatus? estado,
     int? miembros,
     String? codigo,
+    bool? esCreador,
   }) {
     return SemilleroMembership(
       id: id ?? this.id,
@@ -88,6 +93,7 @@ class SemilleroMembership {
       estado: estado ?? this.estado,
       miembros: miembros ?? this.miembros,
       codigo: codigo ?? this.codigo,
+      esCreador: esCreador ?? this.esCreador,
     );
   }
 }

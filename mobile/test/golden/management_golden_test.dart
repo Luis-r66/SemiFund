@@ -18,6 +18,7 @@ import 'package:semi_fund/providers/accounts_provider.dart';
 import 'package:semi_fund/providers/contributions_provider.dart';
 import 'package:semi_fund/providers/expenses_provider.dart';
 import 'package:semi_fund/providers/invitation_provider.dart';
+import 'package:semi_fund/providers/app_info_provider.dart';
 import 'package:semi_fund/providers/members_provider.dart';
 import 'package:semi_fund/providers/session_provider.dart';
 import 'package:semi_fund/screens/accounts/accounts_screen.dart';
@@ -325,6 +326,9 @@ void main() {
       providers: [
         Provider<DashboardService>.value(value: reads),
         Provider<ManagementService>.value(value: writes),
+        ChangeNotifierProvider<AppInfoProvider>.value(
+          value: AppInfoProvider(FakeAppUpdateGateway()),
+        ),
         ChangeNotifierProvider<SessionProvider>.value(value: session),
         ...extra,
       ],

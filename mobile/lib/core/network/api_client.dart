@@ -22,6 +22,7 @@ class ApiClient {
       AuthInterceptor(
         store: store,
         onUnauthorized: () => onUnauthorized?.call(),
+        onSemilleroEliminado: () => onSemilleroEliminado?.call(),
       ),
     );
   }
@@ -30,6 +31,9 @@ class ApiClient {
 
   /// Callback conectado por `main` a `SessionProvider.expireSession`.
   void Function()? onUnauthorized;
+
+  /// Callback conectado por `main` a `SessionProvider.descartarSemilleroEliminado`.
+  void Function()? onSemilleroEliminado;
 
   Dio get raw => _dio;
 

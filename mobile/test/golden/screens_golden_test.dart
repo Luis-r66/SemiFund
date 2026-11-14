@@ -11,6 +11,7 @@ import 'package:semi_fund/models/home_summary.dart';
 import 'package:semi_fund/models/semillero_membership.dart';
 import 'package:semi_fund/models/user.dart';
 import 'package:semi_fund/providers/home_provider.dart';
+import 'package:semi_fund/providers/app_info_provider.dart';
 import 'package:semi_fund/providers/session_provider.dart';
 import 'package:semi_fund/screens/auth/change_password_screen.dart';
 import 'package:semi_fund/screens/auth/forgot_password_screen.dart';
@@ -117,6 +118,9 @@ void main() {
   }) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<AppInfoProvider>.value(
+          value: AppInfoProvider(FakeAppUpdateGateway()),
+        ),
         ChangeNotifierProvider<SessionProvider>.value(value: session),
         if (home != null)
           ChangeNotifierProvider<HomeProvider>.value(value: home),
@@ -367,6 +371,9 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider<AppInfoProvider>.value(
+            value: AppInfoProvider(FakeAppUpdateGateway()),
+          ),
           ChangeNotifierProvider<SessionProvider>.value(value: session),
           ChangeNotifierProvider<HomeProvider>.value(value: home),
         ],

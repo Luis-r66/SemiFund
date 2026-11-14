@@ -15,5 +15,7 @@ router.patch('/me', auth.requireAuth, auth.requireSemillero, auth.requireTesorer
 router.post('/me/code/rotate', auth.requireAuth, auth.requireSemillero, auth.requireTesorero, c.rotarCodigo); // POST /api/semilleros/me/code/rotate
 router.get('/me/accounts', auth.requireAuth, auth.requireSemillero, auth.requireTesorero, c.listarCuentas); // GET /api/semilleros/me/accounts
 router.patch('/me/accounts/:membershipId', auth.requireAuth, auth.requireSemillero, auth.requireTesorero, c.actualizarCuenta); // PATCH /api/semilleros/me/accounts/:id
+router.post('/me/leave', auth.requireAuth, auth.requireSemillero, c.salir);      // POST /api/semilleros/me/leave -> salir del semillero
+router.delete('/me', auth.requireAuth, auth.requireSemillero, c.eliminar);       // DELETE /api/semilleros/me -> eliminar semillero (creador)
 
 module.exports = router;

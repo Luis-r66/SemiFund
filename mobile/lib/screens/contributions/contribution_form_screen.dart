@@ -14,6 +14,7 @@ import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
+import '../../widgets/success_check.dart';
 
 class ContributionFormScreen extends StatefulWidget {
   const ContributionFormScreen({super.key, this.hoy});
@@ -79,6 +80,8 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
         mes: _month!,
         concepto: _concept.text.trim(),
       );
+      if (!mounted) return;
+      await showSuccessCheck(context, message: 'Aporte registrado');
       if (!mounted) return;
       context.pop();
     } on ApiException catch (error) {

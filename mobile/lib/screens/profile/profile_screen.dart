@@ -9,6 +9,7 @@ import '../../models/semillero_membership.dart';
 import '../../models/user.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_update_widgets.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/section_label.dart';
@@ -190,6 +191,13 @@ class ProfileScreen extends StatelessWidget {
                             ],
                           ),
                   ),
+                  if (active != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    SecondaryButton(
+                      label: 'Ajustes del semillero',
+                      onPressed: () => context.push('/semilleros/settings'),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   SecondaryButton(
                     label: 'Cambiar contraseña',
@@ -201,6 +209,13 @@ class ProfileScreen extends StatelessWidget {
                     onPressed: () => showSemilleroSwitcher(context, session),
                   ),
                   const SizedBox(height: 10),
+                  SecondaryButton(
+                    label: 'Ver tutorial',
+                    onPressed: () => context.push('/tutorial?replay=1'),
+                  ),
+                  const SizedBox(height: 28),
+                  const UpdateSection(),
+                  const SizedBox(height: 24),
                   DangerButton(
                     label: 'Cerrar sesión',
                     onPressed: session.isBusy

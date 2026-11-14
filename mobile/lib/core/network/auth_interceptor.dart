@@ -3,11 +3,15 @@ import 'package:dio/dio.dart';
 import '../storage/session_storage.dart';
 
 class AuthInterceptor extends Interceptor {
-  AuthInterceptor({required SessionStore store, this.onUnauthorized})
-    : _store = store;
+  AuthInterceptor({
+    required SessionStore store,
+    this.onUnauthorized,
+    this.onSemilleroEliminado,
+  }) : _store = store;
 
   final SessionStore _store;
   final void Function()? onUnauthorized;
+  final void Function()? onSemilleroEliminado;
 
   static bool _isLoginOrRegister(String path) {
     return path.contains('/auth/login') || path.contains('/auth/register');
@@ -43,6 +47,14 @@ class AuthInterceptor extends Interceptor {
     final int? statusCode = err.response?.statusCode;
     if (statusCode == 401 && !_isLoginOrRegister(err.requestOptions.path)) {
       onUnauthorized?.call();
+    }
+    // El semillero fue eliminado por su creador: la sesión local debe soltarlo
+    // para que la app vuelva a "Mis semilleros" en lugar de quedar bloqueada.
+    final Object? data = err.response?.data;
+    if (statusCode == 403 &&
+        data is Map &&
+        data['code'] == 'semillero_eliminado') {
+      onSemilleroEliminado?.call();
     }
     handler.next(err);
   }

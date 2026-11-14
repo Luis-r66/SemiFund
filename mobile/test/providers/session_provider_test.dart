@@ -8,6 +8,7 @@ import 'package:semi_fund/models/user.dart';
 import 'package:semi_fund/providers/session_provider.dart';
 import 'package:semi_fund/services/auth_service.dart';
 import 'package:semi_fund/services/semillero_service.dart';
+import 'package:semi_fund/services/tutorial_service.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 
@@ -60,6 +61,16 @@ class FakeSessionStore implements SessionStore {
     await clearToken();
     await clearActiveSemillero();
   }
+}
+
+class FakeTutorialStore implements TutorialStore {
+  bool seen = false;
+
+  @override
+  Future<bool> hasSeen(String userId) async => seen;
+
+  @override
+  Future<void> markSeen(String userId) async => seen = true;
 }
 
 void main() {
@@ -207,6 +218,88 @@ void main() {
     expect(session.user?.isProfileComplete, isTrue);
     expect(session.user?.programa, 'Ingeniería de Sistemas');
   });
+
+  test('una cuenta nueva queda con el tutorial pendiente', () async {
+    store.token = 'token-1';
+    when(() => auth.me()).thenAnswer((_) async => user);
+    when(() => semilleros.list())
+        .thenAnswer((_) async => <SemilleroMembership>[membership]);
+    final FakeTutorialStore tutorial = FakeTutorialStore();
+    final SessionProvider fresh = SessionProvider(
+      authService: auth,
+      semilleroService: semilleros,
+      store: store,
+      tutorialStore: tutorial,
+    );
+
+    await fresh.bootstrap();
+    expect(fresh.tutorialPendiente, isTrue);
+
+    await fresh.marcarTutorialVisto();
+    expect(fresh.tutorialPendiente, isFalse);
+    expect(tutorial.seen, isTrue);
+  });
+
+  test('salir del semillero limpia la selección activa', () async {
+    store.token = 'token-1';
+    when(() => auth.me()).thenAnswer((_) async => user);
+    when(() => semilleros.list())
+        .thenAnswer((_) async => <SemilleroMembership>[membership]);
+
+    await session.bootstrap();
+    when(() => semilleros.salir()).thenAnswer((_) async {});
+    when(() => semilleros.list())
+        .thenAnswer((_) async => <SemilleroMembership>[]);
+
+    await session.salirDelSemillero();
+
+    verify(() => semilleros.salir()).called(1);
+    expect(session.activeSemillero, isNull);
+    expect(session.semilleros, isEmpty);
+    expect(store.semilleroId, isNull);
+  });
+
+  test(
+    'eliminar semillero envía la confirmación y limpia la selección',
+    () async {
+      store.token = 'token-1';
+      when(() => auth.me()).thenAnswer((_) async => user);
+      when(() => semilleros.list())
+          .thenAnswer((_) async => <SemilleroMembership>[membership]);
+
+      await session.bootstrap();
+      when(() => semilleros.eliminar('Semillero de Software'))
+          .thenAnswer((_) async {});
+      when(() => semilleros.list())
+          .thenAnswer((_) async => <SemilleroMembership>[]);
+
+      await session.eliminarSemillero(confirmacion: 'Semillero de Software');
+
+      verify(() => semilleros.eliminar('Semillero de Software')).called(1);
+      expect(session.activeSemillero, isNull);
+      expect(store.semilleroId, isNull);
+    },
+  );
+
+  test(
+    'un semillero eliminado por otro suelta la sesión local con aviso',
+    () async {
+      store.token = 'token-1';
+      when(() => auth.me()).thenAnswer((_) async => user);
+      when(() => semilleros.list())
+          .thenAnswer((_) async => <SemilleroMembership>[membership]);
+
+      await session.bootstrap();
+      when(() => semilleros.list())
+          .thenAnswer((_) async => <SemilleroMembership>[]);
+
+      await session.descartarSemilleroEliminado();
+
+      expect(session.activeSemillero, isNull);
+      expect(session.notice, contains('eliminado'));
+      expect(store.semilleroId, isNull);
+    },
+  );
 
   test('cambiar contraseña guarda el token nuevo', () async {
     when(() => auth.changePassword(any())).thenAnswer((_) async => 'new-token');

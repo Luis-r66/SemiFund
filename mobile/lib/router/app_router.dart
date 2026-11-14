@@ -16,6 +16,7 @@ import '../screens/expenses/expense_form_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/onboarding/academic_profile_screen.dart';
+import '../screens/onboarding/tutorial_screen.dart';
 import '../screens/invite/invite_screen.dart';
 import '../screens/members/member_detail_screen.dart';
 import '../screens/members/member_form_screen.dart';
@@ -24,12 +25,18 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/semilleros/create_semillero_screen.dart';
 import '../screens/semilleros/join_semillero_screen.dart';
 import '../screens/semilleros/pending_request_screen.dart';
+import '../screens/semilleros/semillero_settings_screen.dart';
 import '../screens/semilleros/semilleros_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../widgets/desktop_shell.dart';
 
 /// Rutas que requieren un semillero activo.
-const Set<String> _semilleroRoutes = <String>{'/home', '/accounts', '/invite'};
+const Set<String> _semilleroRoutes = <String>{
+  '/home',
+  '/accounts',
+  '/invite',
+  '/semilleros/settings',
+};
 
 /// Prefijos de rutas que requieren un semillero activo.
 const List<String> _semilleroPrefixes = <String>[
@@ -85,6 +92,9 @@ class AppRouter {
           }
 
           if (location == '/onboarding') {
+            if (!session.hasActiveSemillero && session.tutorialPendiente) {
+              return '/tutorial';
+            }
             return session.hasActiveSemillero ? '/home' : '/semilleros';
           }
           const Set<String> authRoutes = <String>{
@@ -130,6 +140,10 @@ class AppRouter {
             builder: (_, _) => const JoinSemilleroScreen(),
           ),
           GoRoute(
+            path: '/semilleros/settings',
+            builder: (_, _) => const SemilleroSettingsScreen(),
+          ),
+          GoRoute(
             path: '/semilleros/pending',
             builder: (_, GoRouterState state) {
               final Object? extra = state.extra;
@@ -141,6 +155,12 @@ class AppRouter {
           GoRoute(
             path: '/onboarding',
             builder: (_, _) => const AcademicProfileScreen(),
+          ),
+          GoRoute(
+            path: '/tutorial',
+            builder: (_, GoRouterState state) => TutorialScreen(
+              replay: state.uri.queryParameters['replay'] == '1',
+            ),
           ),
           GoRoute(
             path: '/profile/academic',

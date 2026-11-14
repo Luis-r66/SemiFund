@@ -294,6 +294,35 @@ flutter build apk --dart-define=API_BASE_URL=http://192.168.1.10:3000/api
 
 Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core/config/app_config.dart`.
 
+## Versión, actualizaciones y recorrido inicial
+
+- La versión instalada se muestra en **Perfil → Acerca de**. La app consulta
+  `https://api.github.com/repos/Luis-r66/SemiFund/releases/latest` como máximo
+  una vez al día al abrir y también con el botón **Buscar actualizaciones**.
+- Si hay una versión nueva, aparece un aviso en Inicio y en Perfil. **Descargar**
+  abre el APK en el navegador; Android pide confirmación para instalarlo, porque
+  fuera de Play Store el sistema no permite instalar sola.
+- El recorrido de bienvenida aparece una vez por cuenta después de completar el
+  perfil académico y se puede repetir desde **Perfil → Ver tutorial**.
+- **Perfil → Ajustes del semillero** permite salir del semillero o, si la cuenta
+  lo creó, eliminarlo escribiendo el nombre exacto. Eliminar es un borrado
+  lógico: el semillero y su historial dejan de estar disponibles, pero quedan
+  registrados para auditoría. El último tesorero no puede salir sin transferir
+  la tesorería.
+
+Para publicar una versión:
+
+```bash
+cd mobile
+# subir version: 1.4.0+8 en pubspec.yaml
+flutter build apk --release
+gh release create v1.4.0 build/app/outputs/flutter-apk/app-release.apk \
+  --title "SemiFund v1.4.0" --notes "Novedades"
+```
+
+El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
+app lo encuentre en la release.
+
 
 ## Estructura por capas
 

@@ -6,6 +6,8 @@ const User = require('../models/User');
 const asyncHandler = require('../middleware/asyncHandler');
 const { academicFieldsFromUser } = require('../utils/memberSync');
 const { notificar, tesorerosDe } = require('../utils/notifications');
+const { registrar: auditar } = require('../utils/audit');
+const { puedeEliminar, nombreConfirma, puedeSalir } = require('../utils/semilleroRules');
 
 // Genera un código alfanumérico de 8 caracteres (mayúsculas y dígitos, sin ambiguos)
 function generarCodigo() {
@@ -19,12 +21,14 @@ function generarCodigo() {
 
 // GET /api/semilleros  -> lista las membresías del usuario con info del semillero
 const listarMisSemilleros = asyncHandler(async (req, res) => {
-  const membresias = await Membership.find({ userId: req.userId })
-    .populate('semilleroId', 'nombre codigo')
+  // Las membresías inactivas no se listan: al salir o eliminar el semillero
+  // la tarjeta desaparece en lugar de quedar como un fantasma.
+  const membresias = await Membership.find({ userId: req.userId, estado: { $ne: 'inactivo' } })
+    .populate('semilleroId', 'nombre codigo activo creadoPor')
     .sort({ createdAt: -1 });
   const items = [];
   for (const m of membresias) {
-    if (!m.semilleroId) continue;
+    if (!m.semilleroId || m.semilleroId.activo === false) continue;
     const miembros = await Member.countDocuments({
       semilleroId: m.semilleroId._id,
       activo: true
@@ -35,6 +39,7 @@ const listarMisSemilleros = asyncHandler(async (req, res) => {
       semilleroNombre: m.semilleroId.nombre,
       semilleroCodigo: m.esTesorero ? m.semilleroId.codigo : null,
       esTesorero: m.esTesorero,
+      esCreador: String(m.semilleroId.creadoPor) === String(req.userId),
       estado: m.estado,
       miembros
     });
@@ -266,4 +271,88 @@ const actualizarCuenta = asyncHandler(async (req, res) => {
   res.status(200).json({ id: membresia.id, estado: membresia.estado, esTesorero: membresia.esTesorero });
 });
 
-module.exports = { listarMisSemilleros, crear, unirse, detalle, renombrar, rotarCodigo, listarCuentas, actualizarCuenta };
+// DELETE /api/semilleros/me  { confirmacion }  (solo quien creó el semillero)
+// Borrado lógico: el semillero y sus membresías dejan de estar disponibles,
+// pero los datos quedan en la base para auditoría.
+const eliminar = asyncHandler(async (req, res) => {
+  const semillero = req.semillero;
+  if (!puedeEliminar(semillero.creadoPor, req.userId)) {
+    return res.status(403).json({ error: 'Solo quien creó el semillero puede eliminarlo' });
+  }
+  const confirmacion = (req.body || {}).confirmacion;
+  if (!nombreConfirma(semillero.nombre, confirmacion)) {
+    return res.status(400).json({ error: 'Escribe el nombre exacto del semillero para confirmar' });
+  }
+
+  semillero.activo = false;
+  semillero.eliminadoEn = new Date();
+  semillero.eliminadoPor = req.userId;
+  await semillero.save();
+
+  await Membership.updateMany(
+    { semilleroId: semillero._id },
+    { $set: { estado: 'inactivo', esTesorero: false } }
+  );
+  await Member.updateMany(
+    { semilleroId: semillero._id },
+    { $set: { activo: false } }
+  );
+  await auditar({
+    semilleroId: semillero._id,
+    usuarioId: req.userId,
+    accion: 'eliminar',
+    entidad: 'Semillero',
+    entidadId: semillero._id,
+    detalle: `Semillero eliminado: ${semillero.nombre}`
+  });
+
+  res.status(200).json({ ok: true, mensaje: 'El semillero fue eliminado.' });
+});
+
+// POST /api/semilleros/me/leave  (cualquier integrante activo)
+const salir = asyncHandler(async (req, res) => {
+  const membresia = req.membership;
+  const tesorerosActivos = await Membership.countDocuments({
+    semilleroId: req.semillero._id,
+    esTesorero: true,
+    estado: 'activo'
+  });
+  if (!puedeSalir({ esTesorero: membresia.esTesorero, tesorerosActivos })) {
+    return res.status(409).json({
+      error: 'Eres el único tesorero. Transfiere la tesorería a otro integrante antes de salir.'
+    });
+  }
+
+  membresia.estado = 'inactivo';
+  membresia.esTesorero = false;
+  await membresia.save();
+  if (membresia.memberId) {
+    await Member.updateOne(
+      { _id: membresia.memberId, semilleroId: req.semillero._id },
+      { $set: { activo: false } }
+    );
+  }
+  await auditar({
+    semilleroId: req.semillero._id,
+    usuarioId: req.userId,
+    accion: 'salir',
+    entidad: 'Membership',
+    entidadId: membresia._id,
+    detalle: 'El integrante salió del semillero'
+  });
+
+  res.status(200).json({ ok: true, mensaje: 'Saliste del semillero.' });
+});
+
+module.exports = {
+  listarMisSemilleros,
+  crear,
+  unirse,
+  detalle,
+  renombrar,
+  rotarCodigo,
+  listarCuentas,
+  actualizarCuenta,
+  eliminar,
+  salir
+};
