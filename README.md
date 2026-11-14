@@ -1,8 +1,10 @@
-# Tesorería Semillero de Software — Backend API REST
+# SemiFund
 
-Proyecto individual: API propia para el control de integrantes, aportes y gastos del semillero + colección de pruebas Postman.
+Tesorería clara para semilleros: aportes, abonos, gastos y auditoría, con roles de tesorero e integrante.
 
-`backend/` Node.js + Express + Mongoose · `postman/` colección exportada · DB MongoDB Atlas (`semillero`).
+**API REST en Node.js + app Flutter.** Proyecto individual: API propia para el control de integrantes, aportes y gastos del semillero, con colección de pruebas Postman.
+
+`mobile/` Flutter (Android + web) · `backend/` Node.js + Express + Mongoose · `postman/` colección exportada · DB MongoDB Atlas (`semillero`).
 
 ## Abrir la app
 
