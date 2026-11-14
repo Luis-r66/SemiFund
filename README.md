@@ -4,6 +4,15 @@ Proyecto individual: API propia para el control de integrantes, aportes y gastos
 
 `backend/` Node.js + Express + Mongoose · `postman/` colección exportada · DB MongoDB Atlas (`semillero`).
 
+## Abrir la app
+
+- **Web de escritorio:** https://luis-r66.github.io/SemiFund/web/
+- **iPhone (PWA, congelada en la rama `iphone`):** https://luis-r66.github.io/SemiFund/
+- **APK Android:** https://github.com/Luis-r66/SemiFund/releases/latest
+
+Las tres consumen la API de Render: `https://semifund-api.onrender.com/api`.
+El detalle de las dos compilaciones web está en la sección **Versión web**, más abajo.
+
 ## Requisitos
 
 - Node.js 18+ (`node --version`)
@@ -323,6 +332,25 @@ gh release create v1.4.0 build/app/outputs/flutter-apk/app-release.apk \
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
 app lo encuentre en la release.
 
+
+## Roles y administración
+
+Los permisos viven en la **membresía**, no en la cuenta: una misma persona puede
+ser tesorera en un semillero e integrante en otro.
+
+- **Creador:** quien registra el semillero. Puede eliminarlo (borrado lógico) y
+  transferir la tesorería.
+- **Tesorero:** aprueba cuentas, crea cuotas, aprueba abonos, registra gastos,
+  descarga reportes y consulta la auditoría.
+- **Integrante:** consulta su estado de cuenta y reporta sus aportes.
+
+No hay un administrador global. Es una decisión de alcance, no un olvido: con
+roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
+(restaurar un semillero eliminado, desbloquear una cuenta) se hace por base de
+datos. Si el proyecto creciera, un admin global exigiría un campo aparte en
+`User` —nunca auto-registrable—, siembra por variable de entorno, validación
+contra la base en cada petición, auditoría de cada acción y segundo factor.
+Queda fuera de la v1.4.0.
 
 ## Estructura por capas
 
