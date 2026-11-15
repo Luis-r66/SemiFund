@@ -178,7 +178,7 @@ Pruebas de las reglas puras:
 
 ```bash
 cd backend
-npm test    # 34 pruebas
+npm test    # 53 pruebas en 10 archivos
 ```
 
 ## Inicio de sesión con Google
@@ -379,3 +379,28 @@ API_CONTRACT.md (contrato para Android)
 - 409: `POST /expenses` con monto `999999999`, o `PATCH .../pay` dos veces.
 - 400: `POST /members` sin `nombre`.
 - Soft delete: `DELETE /members/:id` → `GET` muestra `activo:false`.
+
+
+## Manuales
+
+Los dos manuales se publican como adjuntos del release y no viven en el
+repositorio:
+
+- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.4.0/SemiFund-Manual-de-usuario.pdf)
+- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.4.0/SemiFund-Manual-tecnico.pdf)
+
+Ambos describen la versión 1.4.0 y usan capturas del semillero de prueba de las
+pruebas golden, no de cuentas reales.
+
+Las fuentes quedan fuera del repositorio (`entrega/manuales/` está ignorada por
+git). Para regenerarlos:
+
+```bash
+cd entrega/manuales
+node build.mjs      # Chrome headless imprime portada y cuerpo
+python merge.py     # une, numera, agrega marcadores y metadatos
+```
+
+Requieren Chrome instalado y PyMuPDF (`pip install pymupdf`). Cuando cambie una
+pantalla, hay que actualizar sus goldens (`flutter test --update-goldens`) y
+copiar las imágenes nuevas a `entrega/manuales/img/` antes de reconstruir.
