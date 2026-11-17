@@ -147,6 +147,38 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     await _guard(() => provider.pay(contribution));
   }
 
+  Future<void> _deleteContribution(Contribution contribution) async {
+    final ContributionsProvider provider = context
+        .read<ContributionsProvider>();
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Eliminar aporte'),
+        content: Text(
+          'Se eliminará la cuota de ${provider.nameOf(contribution)} de '
+          '${formatMonth(contribution.mes)} por '
+          '${formatCop(contribution.monto)}. Esta acción no se puede deshacer.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _guard(() => provider.delete(contribution));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Aporte eliminado.')),
+    );
+  }
+
   Future<void> _reportAbono(Contribution contribution) async {
     final ContributionsProvider provider = context
         .read<ContributionsProvider>();
@@ -159,7 +191,6 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     await _guard(
       () => provider.addPayment(
         contribution,
-        monto: result.monto,
         referencia: result.referencia,
         comprobanteBytes: result.bytes,
         comprobanteNombre: result.filename,
@@ -280,6 +311,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         onVoid: (Abono abono) {
           Navigator.of(sheetContext).pop();
           _voidAbono(item, abono);
+        },
+        onDelete: () {
+          Navigator.of(sheetContext).pop();
+          _deleteContribution(item);
         },
       ),
     );
@@ -564,10 +599,14 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                       if (contributions.loading && contributions.items.isEmpty)
                         const SizedBox(height: 360, child: LoadingView())
                       else if (contributions.items.isEmpty)
-                        const EmptyState(
+                        EmptyState(
                           icon: LucideIcons.wallet,
-                          title: 'Sin aportes',
-                          message: 'No hay aportes para este filtro.',
+                          title: isTreasurer
+                              ? 'Sin aportes'
+                              : 'Sin cuotas asignadas',
+                          message: isTreasurer
+                              ? 'No hay aportes para este filtro.'
+                              : 'La tesorería aún no te asignó una cuota. Cuando lo haga, aparecerá aquí para que la reportes con su comprobante.',
                         )
                       else ...<Widget>[
                         SectionLabel(
@@ -838,14 +877,12 @@ class _InputDialogState extends State<_InputDialog> {
 
 class _ReportResult {
   const _ReportResult({
-    required this.monto,
     required this.referencia,
     required this.bytes,
     required this.filename,
     required this.contentType,
   });
 
-  final double monto;
   final String? referencia;
   final Uint8List bytes;
   final String filename;
@@ -862,9 +899,6 @@ class _ReportDialog extends StatefulWidget {
 }
 
 class _ReportDialogState extends State<_ReportDialog> {
-  late final TextEditingController _amount = TextEditingController(
-    text: formatThousands(widget.saldo),
-  );
   final TextEditingController _reference = TextEditingController();
   PlatformFile? _file;
   Uint8List? _bytes;
@@ -874,7 +908,6 @@ class _ReportDialogState extends State<_ReportDialog> {
 
   @override
   void dispose() {
-    _amount.dispose();
     _reference.dispose();
     super.dispose();
   }
@@ -930,18 +963,6 @@ class _ReportDialogState extends State<_ReportDialog> {
   }
 
   void _confirm() {
-    final double monto = parseMoney(_amount.text);
-    if (monto <= 0) {
-      setState(() => _error = 'Ingresa un monto mayor a 0.');
-      return;
-    }
-    if (monto > widget.saldo) {
-      setState(
-        () => _error =
-            'No puede superar el saldo pendiente (${formatCop(widget.saldo)}).',
-      );
-      return;
-    }
     if (_bytes == null || _file == null || _contentType == null) {
       setState(() => _error = 'Adjunta el comprobante del abono.');
       return;
@@ -949,7 +970,6 @@ class _ReportDialogState extends State<_ReportDialog> {
     final String referencia = _reference.text.trim();
     Navigator.of(context).pop(
       _ReportResult(
-        monto: monto,
         referencia: referencia.isEmpty ? null : referencia,
         bytes: _bytes!,
         filename: _file!.name,
@@ -969,20 +989,23 @@ class _ReportDialogState extends State<_ReportDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             const Text(
-              'Puedes reportar el total o una parte. El tesorero revisará el '
-              'reporte antes de aprobarlo.',
+              'Reportas el saldo pendiente completo de la cuota. El tesorero '
+              'revisará el comprobante antes de aprobarlo.',
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amount,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-                ThousandsInputFormatter(),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Monto (COP)',
-                prefixText: '\$ ',
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.mist,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Text('Monto a reportar', style: AppTextStyles.smallSemibold),
+                  const Spacer(),
+                  Text(formatCop(widget.saldo), style: AppTextStyles.moneySmall),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -1236,6 +1259,7 @@ class _DetailSheet extends StatefulWidget {
     required this.onApprove,
     required this.onReject,
     required this.onVoid,
+    required this.onDelete,
   });
 
   final String name;
@@ -1248,6 +1272,7 @@ class _DetailSheet extends StatefulWidget {
   final void Function(Abono abono) onApprove;
   final void Function(Abono abono) onReject;
   final void Function(Abono abono) onVoid;
+  final VoidCallback onDelete;
 
   @override
   State<_DetailSheet> createState() => _DetailSheetState();
@@ -1498,6 +1523,15 @@ class _DetailSheetState extends State<_DetailSheet> {
               SecondaryButton(
                 label: 'Registrar abono',
                 onPressed: widget.onRegister,
+              ),
+            ],
+            if (widget.isTreasurer && item.abonos.isEmpty) ...<Widget>[
+              const SizedBox(height: 20),
+              TextButton.icon(
+                onPressed: widget.onDelete,
+                icon: const Icon(LucideIcons.trash2, size: 18),
+                label: const Text('Eliminar aporte'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.bad),
               ),
             ],
           ],

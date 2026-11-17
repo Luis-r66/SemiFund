@@ -92,6 +92,10 @@ class ManagementService {
     return Contribution.fromJson(data);
   }
 
+  Future<void> deleteContribution(String id) async {
+    await _api.delete('/contributions/$id');
+  }
+
   Future<Contribution> rejectContribution(String id, {String? motivo}) async {
     final Map<String, dynamic> body = <String, dynamic>{};
     if (motivo != null && motivo.trim().isNotEmpty) {

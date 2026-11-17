@@ -181,7 +181,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           index: 1,
                           child: _TotalsCard(balance: snapshot.balance),
                         ),
-                        if (!session.isTesorero) ...<Widget>[
+                        if (!session.isTesorero &&
+                            snapshot.pendingContributions > 0) ...<Widget>[
                           const SizedBox(height: 12),
                           PrimaryButton(
                             label: 'Reportar mi aporte',
@@ -207,8 +208,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   _ManageTile(
                                     icon: LucideIcons.wallet,
                                     title: 'Aportes',
-                                    subtitle:
-                                        '${snapshot.pendingContributions} por cobrar',
+                                    subtitle: _aportesResumen(
+                                      tesorero: session.isTesorero,
+                                      pendientes: snapshot.pendingContributions,
+                                    ),
                                     onTap: () => _open('/contributions'),
                                   ),
                                   _ManageTile(
@@ -336,7 +339,7 @@ class _DesktopHome extends StatelessWidget {
                         filled: true,
                         onPressed: () => onOpen('/contributions/new'),
                       ),
-                    ] else ...<Widget>[
+                    ] else if ((snapshot?.pendingContributions ?? 0) > 0) ...<Widget>[
                       _HeaderAction(
                         label: 'Reportar mi aporte',
                         filled: true,
@@ -417,7 +420,9 @@ class _DesktopHome extends StatelessWidget {
                                   Expanded(
                                     child: _StatCard(
                                       icon: LucideIcons.wallet,
-                                      label: 'Aportes por cobrar',
+                                      label: isTreasurer
+                                          ? 'Aportes por cobrar'
+                                          : 'Mis cuotas pendientes',
                                       value:
                                           '${snapshot!.pendingContributions}',
                                       onTap: () => onOpen('/contributions'),
@@ -762,4 +767,10 @@ class _ManageTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _aportesResumen({required bool tesorero, required int pendientes}) {
+  if (tesorero) return '$pendientes por cobrar';
+  if (pendientes == 0) return 'Sin cuotas pendientes';
+  return '$pendientes ${pendientes == 1 ? 'cuota pendiente' : 'cuotas pendientes'}';
 }

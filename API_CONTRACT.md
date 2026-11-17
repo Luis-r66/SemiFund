@@ -1,6 +1,6 @@
 # API Contract — Tesorería Semillero de Software
 
-> Versión 1.5.0. Fuente de verdad para la app Android. Todo es JSON salvo los
+> Versión 1.5.1. Fuente de verdad para la app Android. Todo es JSON salvo los
 > endpoints `multipart` de comprobantes.
 > Base URL: `http://<HOST>:<PUERTO>/api` — local `http://10.0.2.2:3000/api` (emulador) o `http://<IP-LAN>:3000/api` (físico).
 
@@ -115,6 +115,7 @@ GET   /api/contributions?status=pending&memberId=
 POST  /api/contributions            -> 201 | 400 | 409 aporte duplicado
 PATCH /api/contributions/:id/pay    -> 200 | 404 | 409
 PATCH /api/contributions/:id/reject -> 200 | 404 | 409
+DELETE /api/contributions/:id      -> 204 | 404 | 409 cuota con abonos
 POST  /api/contributions/:id/payments -> 201 abono | 400 | 403 | 404 | 409 | 413 | 415 | 503
 PATCH /api/contributions/:id/payments/:abonoId/approve -> 200 | 404 | 409
 PATCH /api/contributions/:id/payments/:abonoId/reject  -> 200 | 404 | 409
@@ -126,7 +127,8 @@ POST  /api/contributions/:id/payments/:abonoId/comprobante -> 200 | 400 | 403 | 
 
 - `pay`: solo tesorero. Acepta pendiente, vencido o reportado; guarda `fechaPago`, `fechaRevision` y `revisadoPor`.
 - `reject`: solo tesorero y solo sobre un aporte `reportado`; lo devuelve a `pendiente` y guarda `motivoRechazo`. Se conserva para datos anteriores.
-- `payments`: el integrante reporta un abono propio y **debe enviar comprobante en el mismo multipart**. El tesorero registra dinero recibido y puede omitir el comprobante.
+- `payments`: el integrante reporta un abono propio y **debe enviar comprobante en el mismo multipart**. El monto que envíe se ignora: el abono cubre siempre el saldo pendiente completo. El tesorero registra dinero recibido (total o parcial) y puede omitir el comprobante.
+- `DELETE /contributions/:id`: solo tesorero. Elimina una cuota **sin abonos** y responde `204`. Si existe cualquier abono responde `409 {"error":"La cuota tiene abonos registrados; no se puede eliminar"}`. La auditoría guarda el mes, el monto, el estado y el nombre del integrante.
 - `approve` / `reject` / `void`: solo tesorero. Un rechazo exige motivo en la app y devuelve la cuota a su estado anterior.
 
 Crear:
@@ -138,7 +140,7 @@ Crear:
 Reportar abono (multipart `multipart/form-data`):
 
 ```
-monto=25000              # opcional; sin monto usa el saldo pendiente
+monto=25000              # solo tesorero: total o parcial. Para el integrante se ignora
 referencia=TRX-123       # opcional
 comprobante=@pago.png    # obligatorio para el integrante
 ```
@@ -180,6 +182,8 @@ PATCH /api/notifications/:id/read
 GET   /api/notifications/preferences -> 200 { avisosPorCorreo }
 PATCH /api/notifications/preferences -> 200 { avisosPorCorreo }
 ```
+
+`pendingContributions` es personal para el integrante (solo sus cuotas sin pagar); el tesorero ve todo el semillero. Sin integrante vinculado el valor es `0`.
 
 - Listados sin `page`/`limit` devuelven el arreglo completo (compatibilidad con la app Android).
 - Eventos: `abono_reportado`, `abono_aprobado`, `abono_rechazado`, `cuota_nueva` e `invitacion_aceptada`.
@@ -254,7 +258,9 @@ POST   /api/semilleros/me/leave                                     -> 200 { ok,
 DELETE /api/semilleros/me  { confirmacion }                         -> 200 { ok, mensaje } | 400 nombre no coincide | 403 no es el creador
 ```
 
-`estado` de una membresía: `pendiente | activo | rechazado | inactivo`. Al aprobar (`estado: 'activo'`) se crea/vincula el `Member` con los datos académicos de la cuenta de forma idempotente. Nunca se puede quedar el semillero sin al menos un tesorero activo (409).
+`estado` de una membresía: `pendiente | activo | rechazado | inactivo`. Al aprobar (`estado: 'activo'`) se reactiva el `Member` existente de esa cuenta o se crea si no hay; es idempotente y no duplica integrantes. Al reingresar con un código se conserva el `memberId` para que las cuotas anteriores sigan ligadas a la misma persona. Nunca se puede quedar el semillero sin al menos un tesorero activo (409).
+
+El nombre del semillero admite letras, espacios y signos como `&`, punto, coma, apóstrofe o guion; **no admite números** (`400`).
 
 Saldo inicial:
 

@@ -195,6 +195,11 @@ class ContributionsProvider extends ChangeNotifier {
     await refresh();
   }
 
+  Future<void> delete(Contribution contribution) async {
+    await _writes.deleteContribution(contribution.id);
+    await reloadFirstPage();
+  }
+
   Future<void> report(Contribution contribution, {String? referencia}) async {
     await _writes.addPayment(contribution.id, referencia: referencia);
     await refresh();

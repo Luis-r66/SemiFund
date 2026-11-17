@@ -336,6 +336,21 @@ void main() {
       ).called(2);
     });
 
+    test('eliminar llama al endpoint y recarga desde la primera página',
+        () async {
+      when(() => writes.deleteContribution(any())).thenAnswer((_) async {});
+      await provider.load();
+      await provider.delete(pendingItem);
+      verify(() => writes.deleteContribution('c1')).called(1);
+      verify(
+        () => reads.contributionsPage(
+          status: null,
+          page: 1,
+          limit: 20,
+        ),
+      ).called(2);
+    });
+
     test('reportar y rechazar llaman al endpoint y recargan', () async {
       when(() => writes.addPayment(any(), referencia: any(named: 'referencia')))
           .thenAnswer((_) async => pendingItem);

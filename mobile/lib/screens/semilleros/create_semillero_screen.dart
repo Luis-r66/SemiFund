@@ -8,6 +8,7 @@ import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/input_formatters.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
@@ -103,6 +104,7 @@ class _CreateSemilleroScreenState extends State<CreateSemilleroScreen> {
                           hintText: 'Ej. Semillero de Desarrollo Móvil',
                           textInputAction: TextInputAction.next,
                           textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: semilleroNameFormatters,
                         ),
                       ),
                       const SizedBox(height: 18),

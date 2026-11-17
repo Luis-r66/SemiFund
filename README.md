@@ -122,6 +122,7 @@ npm run sync:members                # aplicar
 | POST | `/contributions/bulk` `{mes, monto, concepto, integranteIds?}` | 201 `{creadas, omitidas}` | 400, 403 no tesorero |
 | PATCH | `/contributions/:id/pay` | 200 | 404, 409 ya pagado |
 | PATCH | `/contributions/:id/reject` `{motivo?}` | 200 | 404, 409 no está reportado |
+| DELETE | `/contributions/:id` (solo sin abonos) | 204 | 404, 409 tiene abonos |
 | POST | `/contributions/:id/payments` (multipart: `monto?`, `referencia?`, `comprobante`) | 201 abono | 400 falta comprobante, 403, 404, 409, 413, 415, 503 |
 | PATCH | `/contributions/:id/payments/:abonoId/approve` | 200 | 404, 409 abono no reportado |
 | PATCH | `/contributions/:id/payments/:abonoId/reject` `{motivo?}` | 200 | 404, 409 abono no reportado |
@@ -143,6 +144,8 @@ npm run sync:members                # aplicar
 
 - El integrante solo ve y reporta **sus propias cuotas**: el filtro se aplica en el servidor, no solo en la app.
 - Reportar exige **comprobante en el mismo envío** (JPG, PNG, WebP o PDF, máximo 5 MB). Sin archivo la API responde `400` y no crea el abono. Si Cloudinary falla, tampoco queda un pago reportado sin respaldo.
+- El integrante reporta siempre el **saldo pendiente completo**: la app muestra el monto fijo y la API ignora cualquier `monto` que envíe. El tesorero sí puede registrar abonos parciales.
+- El tesorero puede **eliminar una cuota sin abonos** desde el detalle del aporte. Si tiene cualquier abono, la API responde `409` y la conserva para no perder evidencia contable. El borrado queda en auditoría con mes, monto, estado e integrante.
 - El tesorero aprueba con `/pay` o con `/approve`, y rechaza con `/reject`. También puede registrar efectivo o consignación con `/payments` sin comprobante y adjuntarlo después.
 - Los abonos parciales se guardan en `abonos[]` y actualizan `montoPagado`; el saldo y el estado `parcial` se calculan en el modelo. El tesorero puede anular un abono aprobado.
 - Las cuotas masivas crean una cuota por integrante activo y omiten a quien ya tenga una para ese mes.
@@ -190,7 +193,7 @@ Pruebas de las reglas puras:
 
 ```bash
 cd backend
-npm test    # 65 pruebas en 11 archivos
+npm test    # 72 pruebas en 12 archivos
 ```
 
 ## Inicio de sesión con Google
@@ -341,10 +344,10 @@ Para publicar una versión:
 
 ```bash
 cd mobile
-# subir version: 1.5.0+9 en pubspec.yaml
+# subir version: 1.5.1+10 en pubspec.yaml
 flutter build apk --release
-gh release create v1.5.0 build/app/outputs/flutter-apk/app-release.apk \
-  --title "SemiFund v1.5.0" --notes "Novedades"
+gh release create v1.5.1 build/app/outputs/flutter-apk/app-release.apk \
+  --title "SemiFund v1.5.1" --notes "Novedades"
 ```
 
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
@@ -362,7 +365,11 @@ ser tesorera en un semillero e integrante en otro.
   descarga reportes y consulta la auditoría. Su propia cuota la registra directo,
   con comprobante opcional.
 - **Integrante:** consulta **solo sus** cuotas, su estado de cuenta y reporta sus
-  aportes con comprobante obligatorio.
+  aportes con comprobante obligatorio. El contador de cuotas del inicio es
+  personal: el servidor filtra por su `memberId`. El botón «Reportar mi aporte»
+  solo aparece si tiene cuotas por cobrar.
+- **Nombres:** los de personas y del semillero rechazan números en la app y en el
+  servidor. Conceptos, descripciones, notas y referencias sí aceptan números.
 
 No hay un administrador global. Es una decisión de alcance, no un olvido: con
 roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
@@ -370,7 +377,7 @@ roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
 datos. Si el proyecto creciera, un admin global exigiría un campo aparte en
 `User` —nunca auto-registrable—, siembra por variable de entorno, validación
 contra la base en cada petición, auditoría de cada acción y segundo factor.
-Queda fuera de la v1.5.0.
+Queda fuera de la v1.5.1.
 
 ## Estructura por capas
 
@@ -404,10 +411,10 @@ API_CONTRACT.md (contrato para Android)
 Los dos manuales se publican como adjuntos del release y no viven en el
 repositorio:
 
-- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.0/SemiFund-Manual-de-usuario.pdf)
-- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.0/SemiFund-Manual-tecnico.pdf)
+- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.1/SemiFund-Manual-de-usuario.pdf)
+- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.1/SemiFund-Manual-tecnico.pdf)
 
-Ambos describen la versión 1.5.0 y usan capturas del semillero de prueba de las
+Ambos describen la versión 1.5.1 y usan capturas del semillero de prueba de las
 pruebas golden, no de cuentas reales.
 
 Las fuentes quedan fuera del repositorio (`entrega/manuales/` está ignorada por
