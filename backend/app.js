@@ -45,8 +45,10 @@ app.use(
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Salud para verificar que el backend está vivo
-app.get('/health', (req, res) => res.status(200).json({ ok: true }));
+// Salud para verificar que el backend está vivo y qué versión se desplegó
+app.get('/health', (req, res) =>
+  res.status(200).json({ ok: true, version: require('./package.json').version })
+);
 
 // Páginas públicas que pide la pantalla de consentimiento de Google.
 // La app Android consume /api/*; estas dos rutas solo son informativas.

@@ -874,6 +874,7 @@ const attachReceipt = asyncHandler(async (req, res) => {
 module.exports = {
   list,
   create,
+  createSelf,
   bulkCreate,
   pay,
   reject,
