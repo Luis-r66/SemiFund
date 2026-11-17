@@ -22,8 +22,10 @@ import 'package:semi_fund/providers/app_info_provider.dart';
 import 'package:semi_fund/providers/members_provider.dart';
 import 'package:semi_fund/providers/session_provider.dart';
 import 'package:semi_fund/screens/accounts/accounts_screen.dart';
+import 'package:semi_fund/screens/contributions/aporte_form_screen.dart';
 import 'package:semi_fund/screens/contributions/contribution_form_screen.dart';
 import 'package:semi_fund/screens/contributions/contributions_screen.dart';
+import 'package:semi_fund/screens/contributions/self_aporte_form_screen.dart';
 import 'package:semi_fund/screens/expenses/expense_form_screen.dart';
 import 'package:semi_fund/screens/expenses/expenses_screen.dart';
 import 'package:semi_fund/screens/invite/invite_screen.dart';
@@ -203,9 +205,10 @@ void main() {
         Contribution(
           id: 'c4',
           integranteId: 'm2',
-          monto: 30000,
+          monto: 60000,
           mes: '2026-10',
-          concepto: 'Cuota',
+          concepto: 'Viaje a Medellín',
+          tipo: ContributionType.aporte,
           estado: ContributionStatus.pendiente,
         ),
         Contribution(
@@ -239,9 +242,10 @@ void main() {
           Contribution(
             id: 'c4',
             integranteId: 'm2',
-            monto: 30000,
+            monto: 60000,
             mes: '2026-10',
-            concepto: 'Cuota',
+            concepto: 'Viaje a Medellín',
+            tipo: ContributionType.aporte,
             estado: ContributionStatus.pendiente,
             integranteNombre: 'Santiago Morales',
           ),
@@ -492,6 +496,32 @@ void main() {
         ChangeNotifierProvider<MembersProvider>(
           create: (_) => MembersProvider(reads, writes),
         ),
+        ChangeNotifierProvider<ContributionsProvider>(
+          create: (_) => ContributionsProvider(reads, writes),
+        ),
+      ],
+    );
+  });
+
+  testWidgets('aporte form', (WidgetTester tester) async {
+    await golden(
+      tester,
+      AporteFormScreen(hoy: DateTime(2026, 10, 4)),
+      name: 'aporte_form',
+      extra: <ChangeNotifierProvider<ChangeNotifier>>[
+        ChangeNotifierProvider<ContributionsProvider>(
+          create: (_) => ContributionsProvider(reads, writes),
+        ),
+      ],
+    );
+  });
+
+  testWidgets('self aporte form', (WidgetTester tester) async {
+    await golden(
+      tester,
+      SelfAporteFormScreen(hoy: DateTime(2026, 10, 4)),
+      name: 'self_aporte_form',
+      extra: <ChangeNotifierProvider<ChangeNotifier>>[
         ChangeNotifierProvider<ContributionsProvider>(
           create: (_) => ContributionsProvider(reads, writes),
         ),

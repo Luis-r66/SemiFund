@@ -10,8 +10,10 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/welcome_screen.dart';
+import '../screens/contributions/aporte_form_screen.dart';
 import '../screens/contributions/contribution_form_screen.dart';
 import '../screens/contributions/contributions_screen.dart';
+import '../screens/contributions/self_aporte_form_screen.dart';
 import '../screens/expenses/expense_form_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/home/home_screen.dart';
@@ -51,6 +53,7 @@ const Set<String> _treasurerRoutes = <String>{
   '/invite',
   '/members/new',
   '/contributions/new',
+  '/contributions/aporte',
   '/expenses/new',
 };
 
@@ -224,6 +227,14 @@ class AppRouter {
                   GoRoute(
                     path: 'new',
                     builder: (_, _) => const ContributionFormScreen(),
+                  ),
+                  GoRoute(
+                    path: 'aporte',
+                    builder: (_, _) => const AporteFormScreen(),
+                  ),
+                  GoRoute(
+                    path: 'mi-aporte',
+                    builder: (_, _) => const SelfAporteFormScreen(),
                   ),
                 ],
               ),

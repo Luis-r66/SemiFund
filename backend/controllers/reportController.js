@@ -3,6 +3,7 @@ const Expense = require('../models/Expense');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
 const { montoPagadoDe, saldoPendiente } = require('../utils/payments');
+const { tipoDe } = require('../utils/contributionTypes');
 const { getBalance } = require('../utils/balance');
 const { buildTemplate } = require('../services/excelTemplate');
 const ExcelJS = require('exceljs');
@@ -206,9 +207,10 @@ const libro = asyncHandler(async (req, res) => {
   const aportes = workbook.addWorksheet('Aportes');
   aportes.columns = [
     { header: 'Integrante', key: 'integrante', width: 32 },
+    { header: 'Tipo', key: 'tipo', width: 12 },
     { header: 'Mes', key: 'mes', width: 10 },
     { header: 'Concepto', key: 'concepto', width: 30 },
-    { header: 'Cuota', key: 'monto', width: 14 },
+    { header: 'Monto', key: 'monto', width: 14 },
     { header: 'Cobrado', key: 'cobrado', width: 14 },
     { header: 'Saldo', key: 'saldo', width: 14 },
     { header: 'Estado', key: 'estado', width: 14 }
@@ -217,6 +219,7 @@ const libro = asyncHandler(async (req, res) => {
     const member = memberById.get(item.integranteId.toString());
     aportes.addRow({
       integrante: member ? member.nombre : 'Integrante no disponible',
+      tipo: tipoDe(item) === 'aporte' ? 'Aporte' : 'Cuota',
       mes: item.mes,
       concepto: item.concepto,
       monto: item.monto,

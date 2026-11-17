@@ -34,8 +34,8 @@ class BulkContributionResult {
   }
 }
 
-/// Operaciones de escritura del mÃ³dulo de tesorerÃ­a. Todas requieren rol tesorero
-/// en el backend; la UI solo las expone a tesoreros.
+/// Operaciones de escritura del módulo de tesorería. Casi todas requieren rol
+/// tesorero en el backend; la creación de un aporte propio es la excepción.
 class ManagementService {
   ManagementService(this._api);
 
@@ -74,6 +74,7 @@ class ManagementService {
     required double monto,
     required String mes,
     required String concepto,
+    ContributionType tipo = ContributionType.cuota,
   }) async {
     final dynamic data = await _api.post(
       '/contributions',
@@ -82,6 +83,7 @@ class ManagementService {
         'monto': monto,
         'mes': mes,
         'concepto': concepto,
+        'tipo': tipo.apiValue,
       },
     );
     return Contribution.fromJson(data);
@@ -198,12 +200,47 @@ class ManagementService {
     required String mes,
     required double monto,
     required String concepto,
+    ContributionType tipo = ContributionType.cuota,
   }) async {
     final dynamic data = await _api.post(
       '/contributions/bulk',
-      data: <String, dynamic>{'mes': mes, 'monto': monto, 'concepto': concepto},
+      data: <String, dynamic>{
+        'mes': mes,
+        'monto': monto,
+        'concepto': concepto,
+        'tipo': tipo.apiValue,
+      },
     );
     return BulkContributionResult.fromJson(data);
+  }
+
+  /// El integrante crea su propio aporte y lo deja reportado con comprobante.
+  /// El tesorero lo revisa después desde el detalle.
+  Future<Contribution> createSelfContribution({
+    required double monto,
+    required String mes,
+    required String concepto,
+    String? referencia,
+    required Uint8List comprobanteBytes,
+    required String comprobanteNombre,
+    required String comprobanteTipo,
+  }) async {
+    final Map<String, dynamic> fields = <String, dynamic>{
+      'monto': monto,
+      'mes': mes,
+      'concepto': concepto,
+    };
+    if (referencia != null && referencia.trim().isNotEmpty) {
+      fields['referencia'] = referencia.trim();
+    }
+    final dynamic data = await _api.postMultipart(
+      '/contributions/self',
+      bytes: comprobanteBytes,
+      filename: comprobanteNombre,
+      contentType: comprobanteTipo,
+      fields: fields,
+    );
+    return Contribution.fromJson(data);
   }
 
   Future<CsvDownload> exportMovimientos() {

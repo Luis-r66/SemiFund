@@ -8,6 +8,7 @@ const { parsePagination, paginatedBody } = require('../utils/pagination');
 const { invalidateBalance } = require('../utils/balance');
 const { notificar, tesorerosDe, cuentaDeIntegrante, dinero } = require('../utils/notifications');
 const { mesLegible } = require('../utils/fechas');
+const { normalizarTipo, tipoDe, claveConcepto } = require('../utils/contributionTypes');
 const {
   round,
   montoPagadoDe,
@@ -47,6 +48,22 @@ async function nombresDeIntegrantes(semilleroId, ids) {
 
 function cuerpo(req) {
   return req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+}
+
+function tipoLegible(tipo) {
+  return tipoDe({ tipo }) === 'aporte' ? 'aporte' : 'cuota';
+}
+
+function articuloTipo(tipo) {
+  return tipoDe({ tipo }) === 'aporte' ? 'el aporte' : 'la cuota';
+}
+
+function filtroCuotaExistente(mes) {
+  // Los registros antiguos no tienen `tipo`: cuentan como cuota.
+  return {
+    mes,
+    $or: [{ tipo: 'cuota' }, { tipo: { $exists: false } }]
+  };
 }
 
 function validarMonto(valor, saldo) {
@@ -146,6 +163,10 @@ const create = asyncHandler(async (req, res) => {
       error: 'integranteId, monto, mes y concepto son requeridos'
     });
   }
+  const tipo = normalizarTipo(body.tipo);
+  if (!tipo) {
+    return res.status(400).json({ error: 'tipo debe ser cuota o aporte' });
+  }
   if (typeof concepto !== 'string' || !concepto.trim()) {
     return res.status(400).json({ error: 'El concepto no puede estar vacío' });
   }
@@ -160,15 +181,19 @@ const create = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'El integrante no existe' });
   }
 
-  const existente = await Contribution.findOne({
-    semilleroId: req.semilleroId,
-    integranteId,
-    mes
-  });
-  if (existente) {
-    return res.status(409).json({
-      error: 'Ya existe un aporte para ese integrante en ese mes'
+  // Solo la cuota mensual es única por integrante y mes. Los aportes pueden
+  // repetirse (viaje, materiales, etc.) y convivir con la cuota.
+  if (tipo === 'cuota') {
+    const existente = await Contribution.findOne({
+      semilleroId: req.semilleroId,
+      integranteId,
+      ...filtroCuotaExistente(mes)
     });
+    if (existente) {
+      return res.status(409).json({
+        error: 'Ya existe una cuota para ese integrante en ese mes'
+      });
+    }
   }
 
   const contribution = await Contribution.create({
@@ -176,17 +201,18 @@ const create = asyncHandler(async (req, res) => {
     monto,
     mes,
     concepto: concepto.trim(),
+    tipo,
     montoPagado: 0,
     semilleroId: req.semilleroId
   });
-  await auditar(req, contribution, 'aporte.crear', `${contribution.mes} · ${contribution.monto}`);
+  await auditar(req, contribution, 'aporte.crear', `${tipo} · ${contribution.mes} · ${contribution.monto}`);
   if (member.userId && String(member.userId) !== String(req.userId)) {
     await notificar({
       semilleroId: req.semilleroId,
       destinatarios: [member.userId],
       tipo: 'cuota_nueva',
-      titulo: 'Nueva cuota',
-      mensaje: `${member.nombre}: cuota de ${mesLegible(mes)} por ${dinero(monto)}.`,
+      titulo: tipo === 'cuota' ? 'Nueva cuota' : 'Nuevo aporte',
+      mensaje: `${member.nombre}: ${tipoLegible(tipo)} de ${mesLegible(mes)} por ${dinero(monto)}.`,
       contributionId: contribution._id,
       memberId: member._id
     });
@@ -199,6 +225,10 @@ const create = asyncHandler(async (req, res) => {
 const bulkCreate = asyncHandler(async (req, res) => {
   const body = cuerpo(req);
   const { mes, monto, concepto, integranteIds } = body;
+  const tipo = normalizarTipo(body.tipo, 'cuota');
+  if (!tipo) {
+    return res.status(400).json({ error: 'tipo debe ser cuota o aporte' });
+  }
   if (typeof mes !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
     return res.status(400).json({ error: 'mes debe tener formato YYYY-MM' });
   }
@@ -217,19 +247,43 @@ const bulkCreate = asyncHandler(async (req, res) => {
   const miembros = await Member.find(filtro);
   const idsValidos = new Set(miembros.map((m) => m.id));
 
-  const existentes = await Contribution.find({
-    semilleroId: req.semilleroId,
-    mes,
-    integranteId: { $in: miembros.map((m) => m._id) }
-  }).select('integranteId');
-  const yaTienen = new Set(existentes.map((item) => item.integranteId.toString()));
+  // La cuota se omite si el integrante ya tiene una en el mes. El aporte se
+  // omite solo si ya existe el mismo aporte (mes + concepto), de modo que se
+  // pueda repetir la operación para integrantes nuevos sin duplicar a los demás.
+  let yaTienen = new Set();
+  if (miembros.length > 0) {
+    if (tipo === 'cuota') {
+      const existentes = await Contribution.find({
+        semilleroId: req.semilleroId,
+        integranteId: { $in: miembros.map((m) => m._id) },
+        ...filtroCuotaExistente(mes)
+      }).select('integranteId');
+      yaTienen = new Set(existentes.map((item) => item.integranteId.toString()));
+    } else {
+      const clave = claveConcepto(concepto);
+      const existentes = await Contribution.find({
+        semilleroId: req.semilleroId,
+        tipo: 'aporte',
+        mes,
+        integranteId: { $in: miembros.map((m) => m._id) }
+      }).select('integranteId concepto');
+      yaTienen = new Set(
+        existentes
+          .filter((item) => claveConcepto(item.concepto) === clave)
+          .map((item) => item.integranteId.toString())
+      );
+    }
+  }
 
   const omitidas = [];
   let creadas = 0;
   const avisados = [];
   for (const member of miembros) {
     if (yaTienen.has(member.id)) {
-      omitidas.push({ integranteId: member.id, motivo: 'Ya tiene cuota para ese mes' });
+      omitidas.push({
+        integranteId: member.id,
+        motivo: tipo === 'cuota' ? 'Ya tiene cuota para ese mes' : 'Ya tiene este aporte para ese mes'
+      });
       continue;
     }
     await Contribution.create({
@@ -238,6 +292,7 @@ const bulkCreate = asyncHandler(async (req, res) => {
       monto: round(monto),
       mes,
       concepto: concepto.trim(),
+      tipo,
       montoPagado: 0
     });
     creadas++;
@@ -255,18 +310,144 @@ const bulkCreate = asyncHandler(async (req, res) => {
     semilleroId: req.semilleroId,
     destinatarios: avisados,
     tipo: 'cuota_nueva',
-    titulo: 'Nueva cuota',
-    mensaje: `Se registró la cuota de ${mesLegible(mes)} por ${dinero(monto)}.`
+    titulo: tipo === 'cuota' ? 'Nueva cuota' : 'Nuevo aporte',
+    mensaje: tipo === 'cuota'
+      ? `Se registró la cuota de ${mesLegible(mes)} por ${dinero(monto)}.`
+      : `Se registró el aporte «${concepto.trim()}» de ${mesLegible(mes)} por ${dinero(monto)}.`
   });
 
   await registrar({
     semilleroId: req.semilleroId,
     usuarioId: req.userId,
-    accion: 'aporte.cuotas_masivas',
+    accion: tipo === 'cuota' ? 'aporte.cuotas_masivas' : 'aporte.aportes_masivos',
     entidad: 'aporte',
-    detalle: `${mesLegible(mes)} · ${creadas} creadas · ${round(monto)}`
+    detalle: `${tipo} · ${mesLegible(mes)} · ${creadas} creadas · ${round(monto)}`
   });
   res.status(201).json({ creadas, omitidas });
+});
+
+// POST /api/contributions/self  (multipart: monto, mes, concepto, referencia?, comprobante)
+// El integrante crea su propio aporte (viaje, materiales, etc.) y lo deja
+// reportado con el comprobante obligatorio. El tesorero lo aprueba después.
+const createSelf = asyncHandler(async (req, res) => {
+  const memberId = miMemberId(req);
+  if (!memberId) {
+    return res.status(403).json({
+      error: 'Tu cuenta no está vinculada a una ficha de integrante en este semillero'
+    });
+  }
+
+  const body = cuerpo(req);
+  const monto = Number(body.monto);
+  const { mes, concepto, referencia } = body;
+  if (!Number.isFinite(monto) || round(monto) <= 0) {
+    return res.status(400).json({ error: 'El monto debe ser un número mayor a 0' });
+  }
+  if (typeof mes !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
+    return res.status(400).json({ error: 'mes debe tener formato YYYY-MM' });
+  }
+  if (typeof concepto !== 'string' || !concepto.trim()) {
+    return res.status(400).json({ error: 'El concepto no puede estar vacío' });
+  }
+  if (concepto.trim().length > 200) {
+    return res.status(400).json({ error: 'El concepto no puede superar 200 caracteres' });
+  }
+  if (referencia !== undefined && typeof referencia !== 'string') {
+    return res.status(400).json({ error: 'La referencia debe ser texto' });
+  }
+  const referenciaTexto = typeof referencia === 'string' ? referencia.trim() || null : null;
+  if (referenciaTexto && referenciaTexto.length > 120) {
+    return res.status(400).json({ error: 'La referencia no puede superar 120 caracteres' });
+  }
+
+  if (!req.file || !req.file.buffer || req.file.buffer.length === 0) {
+    return res.status(400).json({ error: 'Adjunta el comprobante del aporte' });
+  }
+  const formato = TIPOS_COMPROBANTE[req.file.mimetype];
+  if (!formato) {
+    return res.status(415).json({
+      error: 'El comprobante debe ser una imagen JPG, PNG, WebP o un PDF'
+    });
+  }
+  if (!estaConfigurado()) {
+    return res.status(503).json({ error: 'El almacenamiento de comprobantes no está configurado' });
+  }
+
+  const member = await Member.findOne({
+    _id: memberId,
+    semilleroId: req.semilleroId,
+    activo: true
+  });
+  if (!member) {
+    return res.status(403).json({ error: 'Tu ficha de integrante no está activa en este semillero' });
+  }
+
+  const now = new Date();
+  const item = new Contribution({
+    integranteId: member._id,
+    semilleroId: req.semilleroId,
+    monto: round(monto),
+    mes,
+    concepto: concepto.trim(),
+    tipo: 'aporte',
+    montoPagado: 0,
+    abonos: []
+  });
+  const abono = agregarAbono(item, {
+    monto: round(monto),
+    referencia: referenciaTexto,
+    usuarioId: req.userId,
+    aprobado: false,
+    now
+  });
+
+  let subido;
+  try {
+    subido = await subirComprobante(req.file.buffer, {
+      publicId: `${item._id}_${abono._id}_${Date.now()}`,
+      resourceType: formato.resourceType
+    });
+  } catch (error) {
+    return res.status(error.status || 502).json({ error: error.message });
+  }
+  abono.comprobante = {
+    url: subido.url,
+    publicId: subido.publicId,
+    tipo: formato.tipo,
+    nombre: req.file.originalname ? req.file.originalname.slice(0, 160) : null,
+    bytes: subido.bytes || req.file.size || null,
+    subidoPor: req.userId,
+    subidoEn: now
+  };
+
+  sincronizarEstado(item, now);
+  try {
+    await item.save();
+  } catch (error) {
+    if (abono.comprobante && abono.comprobante.publicId) {
+      await borrarComprobante(
+        abono.comprobante.publicId,
+        abono.comprobante.tipo === 'pdf' ? 'raw' : 'image'
+      );
+    }
+    throw error;
+  }
+  invalidateBalance(req.semilleroId);
+  await auditar(req, item, 'aporte.reportado', `aporte · ${item.mes} · ${round(monto)}`);
+
+  const tesoreros = await tesorerosDe(req.semilleroId, { excluirUserId: req.userId });
+  await notificar({
+    semilleroId: req.semilleroId,
+    destinatarios: tesoreros,
+    tipo: 'abono_reportado',
+    titulo: 'Aporte reportado',
+    mensaje: `${member.nombre} reportó un aporte de ${dinero(monto)} para ${mesLegible(mes)}: ${item.concepto}.`,
+    contributionId: item._id,
+    memberId: item.integranteId,
+    actorNombre: member.nombre
+  });
+
+  res.status(201).json(item);
 });
 
 // POST /api/contributions/:id/payments  (multipart: monto?, referencia?, comprobante?)
@@ -388,7 +569,7 @@ const addPayment = asyncHandler(async (req, res) => {
       destinatarios: tesoreros,
       tipo: 'abono_reportado',
       titulo: 'Abono reportado',
-      mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(monto)} para la cuota de ${mesLegible(item.mes)}.`,
+      mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(monto)} para ${articuloTipo(item.tipo)} de ${mesLegible(item.mes)}.`,
       contributionId: item._id,
       memberId: item.integranteId,
       actorNombre: cuenta ? cuenta.nombre : null
@@ -431,7 +612,7 @@ const approvePayment = asyncHandler(async (req, res) => {
       destinatarios: [cuenta.userId],
       tipo: 'abono_aprobado',
       titulo: 'Abono aprobado',
-      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${mesLegible(item.mes)} fue aprobado.`,
+      mensaje: `Tu abono de ${dinero(abono.monto)} para ${articuloTipo(item.tipo)} de ${mesLegible(item.mes)} fue aprobado.`,
       contributionId: item._id,
       memberId: item.integranteId,
       actorNombre: req.user ? req.user.nombre : null
@@ -477,7 +658,7 @@ const rejectPayment = asyncHandler(async (req, res) => {
       destinatarios: [cuenta.userId],
       tipo: 'abono_rechazado',
       titulo: 'Abono rechazado',
-      mensaje: `Tu abono de ${dinero(abono.monto)} para la cuota de ${mesLegible(item.mes)} fue rechazado.${
+      mensaje: `Tu abono de ${dinero(abono.monto)} para ${articuloTipo(item.tipo)} de ${mesLegible(item.mes)} fue rechazado.${
         motivo ? ` Motivo: ${motivo}.` : ''
       }`,
       contributionId: item._id,

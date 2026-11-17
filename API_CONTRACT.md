@@ -1,7 +1,7 @@
 # API Contract — Tesorería Semillero de Software
 
-> Versión 1.5.1. Fuente de verdad para la app Android. Todo es JSON salvo los
-> endpoints `multipart` de comprobantes.
+> Versión 1.5.2. Fuente de verdad para la app Android. Todo es JSON salvo los
+> endpoints `multipart` de comprobantes y aportes propios.
 > Base URL: `http://<HOST>:<PUERTO>/api` — local `http://10.0.2.2:3000/api` (emulador) o `http://<IP-LAN>:3000/api` (físico).
 
 ## 1. Modelos
@@ -43,15 +43,17 @@
   "monto": 50000,
   "mes": "2026-09",
   "concepto": "Cuota mensual",
+  "tipo": "cuota",
   "estado": "pendiente",
   "fechaPago": null
 }
 ```
 
-`estado`: `pendiente|pagado|vencido|reportado`. `mes`: `YYYY-MM`. `monto` > 0. `concepto`: requerido, no vacío.
+`estado`: `pendiente|pagado|vencido|reportado`. `tipo`: `cuota|aporte`; los registros anteriores a la 1.5.2 se devuelven como `cuota`. `mes`: `YYYY-MM`. `monto` > 0. `concepto`: requerido, no vacío.
 Campos nuevos: `referencia`, `fechaReporte`, `reportadoPor`, `fechaRevision`, `revisadoPor`, `motivoRechazo`.
 La respuesta de `GET /api/contributions` agrega `esPropio` para indicar si el aporte pertenece al integrante de la sesión.
-El **integrante solo recibe sus propias cuotas**: el filtro se aplica en el servidor. El tesorero puede filtrar con `memberId`.
+El **integrante solo recibe sus propios registros**: el filtro se aplica en el servidor. El tesorero puede filtrar con `memberId`.
+La **cuota** es única por integrante y mes. Los **aportes** (viaje, materiales, etc.) pueden repetirse en el mismo mes y convivir con la cuota.
 
 ### Expense
 
@@ -112,7 +114,9 @@ Editar (parcial):
 ```
 GET   /api/contributions
 GET   /api/contributions?status=pending&memberId=
-POST  /api/contributions            -> 201 | 400 | 409 aporte duplicado
+POST  /api/contributions            -> 201 | 400 | 409 cuota duplicada
+POST  /api/contributions/bulk       -> 201 cuotas o aportes para todos los activos
+POST  /api/contributions/self       -> 201 aporte propio reportado | 400 | 403 | 413 | 415 | 503
 PATCH /api/contributions/:id/pay    -> 200 | 404 | 409
 PATCH /api/contributions/:id/reject -> 200 | 404 | 409
 DELETE /api/contributions/:id      -> 204 | 404 | 409 cuota con abonos
@@ -127,14 +131,34 @@ POST  /api/contributions/:id/payments/:abonoId/comprobante -> 200 | 400 | 403 | 
 
 - `pay`: solo tesorero. Acepta pendiente, vencido o reportado; guarda `fechaPago`, `fechaRevision` y `revisadoPor`.
 - `reject`: solo tesorero y solo sobre un aporte `reportado`; lo devuelve a `pendiente` y guarda `motivoRechazo`. Se conserva para datos anteriores.
+- `bulk`: solo tesorero. Crea la misma cuota para todos los activos y omite a quien ya la tenga. Con `tipo: "aporte"` omite solo a quien ya tenga el mismo aporte (`mes + concepto`), de modo que se pueda repetir para integrantes nuevos.
+- `self`: cualquier integrante con ficha activa crea **su propio aporte** (`tipo: "aporte"`), adjunta el comprobante obligatorio y queda en estado `reportado` para que el tesorero lo apruebe.
 - `payments`: el integrante reporta un abono propio y **debe enviar comprobante en el mismo multipart**. El monto que envíe se ignora: el abono cubre siempre el saldo pendiente completo. El tesorero registra dinero recibido (total o parcial) y puede omitir el comprobante.
-- `DELETE /contributions/:id`: solo tesorero. Elimina una cuota **sin abonos** y responde `204`. Si existe cualquier abono responde `409 {"error":"La cuota tiene abonos registrados; no se puede eliminar"}`. La auditoría guarda el mes, el monto, el estado y el nombre del integrante.
-- `approve` / `reject` / `void`: solo tesorero. Un rechazo exige motivo en la app y devuelve la cuota a su estado anterior.
+- `DELETE /contributions/:id`: solo tesorero. Elimina una cuota o aporte **sin abonos** y responde `204`. Si existe cualquier abono responde `409 {"error":"La cuota tiene abonos registrados; no se puede eliminar"}`. La auditoría guarda el mes, el monto, el estado y el nombre del integrante.
+- `approve` / `reject` / `void`: solo tesorero. Un rechazo exige motivo en la app y devuelve el registro a su estado anterior.
 
 Crear:
 
 ```json
-{ "integranteId": "uuid", "monto": 50000, "mes": "2026-09", "concepto": "Cuota mensual" }
+{ "integranteId": "uuid", "monto": 50000, "mes": "2026-09", "concepto": "Cuota mensual", "tipo": "cuota" }
+```
+
+`tipo` es opcional y vale `cuota` por defecto. Una segunda cuota del mismo integrante y mes responde `409`; los aportes con `tipo: "aporte"` se pueden repetir.
+
+Aporte masivo:
+
+```json
+{ "mes": "2026-09", "monto": 40000, "concepto": "Viaje a Medellín", "tipo": "aporte" }
+```
+
+Aporte propio (multipart `multipart/form-data`):
+
+```
+monto=40000
+mes=2026-09
+concepto=Viaje a Medellín
+referencia=TRX-123       # opcional
+comprobante=@pago.png    # obligatorio
 ```
 
 Reportar abono (multipart `multipart/form-data`):
@@ -282,13 +306,13 @@ Salir y eliminar:
 - `Membership`: vincula un `User` con un `Semillero` (`userId`, `semilleroId`, `esTesorero`, `estado`, `memberId?`). Un usuario solo puede tener una membresía por semillero.
 - `Semillero`: conserva `creadoPor`, `saldoInicial` (`monto`, `nota`, `registradoPor`, `actualizadoEn`), `activo`, `eliminadoEn` y `eliminadoPor` para el borrado lógico y la auditoría.
 - `Member`: integrante que aporta (`userId?`, `nombre`, `nombres`, `apellidos`, `tipoUsuario`, `programa`, `semestre`, `activo`, `semilleroId`). Si está vinculado a una cuenta, el perfil académico se sincroniza desde `User` al crear el semillero, aprobar la solicitud o actualizar `/api/auth/me`. El tesorero no puede editar los datos académicos de un integrante vinculado.
-- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar. El integrante solo ve y reporta sus propias cuotas, con comprobante obligatorio.
+- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear cuotas, aportes grupales y gastos. El integrante solo ve sus propios registros y puede crear un aporte propio con comprobante obligatorio, además de reportar sus cuotas.
 
 ## 3. Reglas (backend manda)
 
 1. Gasto > `saldoDisponible` → `409 Saldo insuficiente`. El disponible incluye el saldo inicial.
 2. Aporte: `pendiente→reportado→pagado`, `vencido→reportado→pagado`, `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`; desde `pagado` nada → `409`. Un rechazo devuelve el aporte a `pendiente`.
-3. Un integrante solo ve sus cuotas y no puede reportar el aporte de otro (`403`). El tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
+3. Un integrante solo ve sus propios registros y no puede reportar el de otro (`403`). El tesorero no puede crear dos **cuotas** del mismo integrante y mes (`409`); los **aportes** sí pueden repetirse en el mismo mes.
 4. Reportar un abono exige comprobante en el mismo multipart; sin archivo → `400` y no se crea el abono. Si Cloudinary falla (`503`) o el tipo no es válido (`415`), tampoco se guarda. El tesorero puede registrar efectivo sin comprobante.
 5. El saldo inicial no es un aporte ni genera cuotas: se ajusta aparte, siempre auditado, y puede dejar el disponible en negativo (la app lo advierte en rojo).
 6. `DELETE /members/:id` no borra, pone `activo:false`. Reactivar: `PUT /members/:id` con `{ "activo": true }`.
@@ -329,6 +353,19 @@ interface SemilleroApi {
 
     @POST("contributions")
     suspend fun createContribution(@Body body: CreateContributionRequest): Contribution
+
+    @POST("contributions/bulk")
+    suspend fun createBulkContributions(@Body body: CreateBulkContributionRequest): BulkResult
+
+    @Multipart
+    @POST("contributions/self")
+    suspend fun createSelfContribution(
+        @Part("monto") monto: RequestBody,
+        @Part("mes") mes: RequestBody,
+        @Part("concepto") concepto: RequestBody,
+        @Part("referencia") referencia: RequestBody?,
+        @Part comprobante: MultipartBody.Part
+    ): Contribution
 
     @PATCH("contributions/{id}/pay")
     suspend fun payContribution(@Path("id") id: String): Contribution
@@ -374,6 +411,7 @@ data class Contribution(
     val monto: Double,
     val mes: String,
     val concepto: String,
+    val tipo: String = "cuota",
     val estado: String,
     val fechaPago: String?
 )
@@ -382,8 +420,18 @@ data class CreateContributionRequest(
     val integranteId: String,
     val monto: Double,
     val mes: String,
-    val concepto: String
+    val concepto: String,
+    val tipo: String = "cuota"
 )
+
+data class CreateBulkContributionRequest(
+    val monto: Double,
+    val mes: String,
+    val concepto: String,
+    val tipo: String = "cuota"
+)
+
+data class BulkResult(val creadas: Int, val omitidas: List<Any>)
 
 data class Expense(
     val id: String,

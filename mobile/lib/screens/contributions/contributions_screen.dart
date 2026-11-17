@@ -128,7 +128,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('Pago total'),
+        title: const Text('Registrar pago'),
         content: Text(
           '¿Confirmas el pago de ${formatCop(contribution.saldoPendiente)} de '
           '${provider.nameOf(contribution)}?',
@@ -157,7 +157,8 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Eliminar aporte'),
         content: Text(
-          'Se eliminará la cuota de ${provider.nameOf(contribution)} de '
+          'Se eliminará ${contribution.tipo == ContributionType.aporte ? 'el aporte' : 'la cuota'} '
+          'de ${provider.nameOf(contribution)} de '
           '${formatMonth(contribution.mes)} por '
           '${formatCop(contribution.monto)}. Esta acción no se puede deshacer.',
         ),
@@ -187,7 +188,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final _ReportResult? result = await showDialog<_ReportResult>(
       context: context,
       builder: (BuildContext dialogContext) =>
-          _ReportDialog(saldo: contribution.saldoPendiente),
+          _ReportDialog(
+            saldo: contribution.saldoPendiente,
+            tipo: contribution.tipo,
+          ),
     );
     if (result == null) return;
     final bool ok = await _guard(
@@ -243,7 +247,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       _InputDialog(
         title: 'Rechazar abono',
         description:
-            'El abono no suma al cobrado. La cuota sigue con el mismo saldo.',
+            'El abono no suma al cobrado. El saldo sigue igual.',
         confirmLabel: 'Rechazar',
         fieldLabel: 'Motivo (opcional)',
         fieldHint: 'Ej. Comprobante ilegible',
@@ -261,7 +265,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final _InputResult? result = await _ask(
       _InputDialog(
         title: 'Anular abono',
-        description: 'Se descontará de lo cobrado y la cuota volverá a quedar con saldo pendiente.',
+        description: 'Se descontará de lo cobrado y el saldo volverá a quedar pendiente.',
         confirmLabel: 'Anular',
         fieldLabel: 'Motivo (opcional)',
         fieldHint: 'Ej. Aprobado por error',
@@ -511,11 +515,31 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          IconButton(
-                            tooltip: 'Cuotas del mes',
-                            onPressed: _openBulk,
+                          PopupMenuButton<String>(
+                            tooltip: 'Opciones de cuota',
+                            onSelected: (String option) {
+                              switch (option) {
+                                case 'individual':
+                                  context.push('/contributions/new');
+                                  break;
+                                case 'masivas':
+                                  _openBulk();
+                                  break;
+                              }
+                            },
+                            itemBuilder: (BuildContext context) =>
+                                const <PopupMenuEntry<String>>[
+                                  PopupMenuItem<String>(
+                                    value: 'individual',
+                                    child: Text('Nueva cuota individual'),
+                                  ),
+                                  PopupMenuItem<String>(
+                                    value: 'masivas',
+                                    child: Text('Cuotas del mes'),
+                                  ),
+                                ],
                             icon: const Icon(
-                              LucideIcons.calendarPlus,
+                              LucideIcons.moreVertical,
                               size: 20,
                             ),
                           ),
@@ -568,11 +592,22 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                                   ),
                           ),
                           RoundAddButton(
-                            onPressed: () => context.push('/contributions/new'),
+                            onPressed: () => context.push(
+                              '/contributions/aporte',
+                            ),
                           ),
                         ],
                       )
-                    : null,
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          RoundAddButton(
+                            onPressed: () => context.push(
+                              '/contributions/mi-aporte',
+                            ),
+                          ),
+                        ],
+                      ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -603,12 +638,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                       else if (contributions.items.isEmpty)
                         EmptyState(
                           icon: LucideIcons.wallet,
-                          title: isTreasurer
-                              ? 'Sin aportes'
-                              : 'Sin cuotas asignadas',
+                          title: 'Sin aportes',
                           message: isTreasurer
                               ? 'No hay aportes para este filtro.'
-                              : 'La tesorería aún no te asignó una cuota. Cuando lo haga, aparecerá aquí para que la reportes con su comprobante.',
+                              : 'Crea tu propio aporte con su comprobante o espera a que la tesorería te asigne una cuota.',
                         )
                       else ...<Widget>[
                         SectionLabel(
@@ -892,9 +925,10 @@ class _ReportResult {
 }
 
 class _ReportDialog extends StatefulWidget {
-  const _ReportDialog({required this.saldo});
+  const _ReportDialog({required this.saldo, required this.tipo});
 
   final double saldo;
+  final ContributionType tipo;
 
   @override
   State<_ReportDialog> createState() => _ReportDialogState();
@@ -990,9 +1024,10 @@ class _ReportDialogState extends State<_ReportDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
-              'Reportas el saldo pendiente completo de la cuota. El tesorero '
-              'revisará el comprobante antes de aprobarlo.',
+            Text(
+              'Reportas el saldo pendiente completo de '
+              '${widget.tipo == ContributionType.aporte ? 'este aporte' : 'esta cuota'}. '
+              'El tesorero revisará el comprobante antes de aprobarlo.',
             ),
             const SizedBox(height: 14),
             Container(
@@ -1168,12 +1203,18 @@ class _ContributionTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        formatMonth(contribution.mes),
-                        style: AppTextStyles.small.copyWith(
-                          color: AppColors.ink2,
-                        ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: <Widget>[
+                          _TypeTag(tipo: contribution.tipo),
+                          const SizedBox(width: 8),
+                          Text(
+                            formatMonth(contribution.mes),
+                            style: AppTextStyles.small.copyWith(
+                              color: AppColors.ink2,
+                            ),
+                          ),
+                        ],
                       ),
                       if (contribution.concepto.isNotEmpty) ...<Widget>[
                         const SizedBox(height: 2),
@@ -1237,7 +1278,7 @@ class _ContributionTile extends StatelessWidget {
                   if (canPayTotal)
                     TextButton(
                       onPressed: onPayTotal,
-                      child: const Text('Pago total'),
+                      child: const Text('Registrar pago'),
                     ),
                 ],
               ),
@@ -1458,17 +1499,30 @@ class _DetailSheetState extends State<_DetailSheet> {
           children: <Widget>[
             Text(widget.name, style: AppTextStyles.h4),
             const SizedBox(height: 4),
-            Text(
-              item.concepto.isEmpty
-                  ? formatMonth(item.mes)
-                  : '${formatMonth(item.mes)} · ${item.concepto}',
-              style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+            Row(
+              children: <Widget>[
+                _TypeTag(tipo: item.tipo),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    item.concepto.isEmpty
+                        ? formatMonth(item.mes)
+                        : '${formatMonth(item.mes)} · ${item.concepto}',
+                    style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Row(
               children: <Widget>[
                 Expanded(
-                  child: _Figure(label: 'Cuota', value: formatCop(item.monto)),
+                  child: _Figure(
+                    label: item.tipo == ContributionType.aporte
+                        ? 'Aporte'
+                        : 'Cuota',
+                    value: formatCop(item.monto),
+                  ),
                 ),
                 Expanded(
                   child: _Figure(
@@ -1537,6 +1591,30 @@ class _DetailSheetState extends State<_DetailSheet> {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeTag extends StatelessWidget {
+  const _TypeTag({required this.tipo});
+
+  final ContributionType tipo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.mist,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        tipo.label,
+        style: AppTextStyles.tiny.copyWith(
+          color: AppColors.ink2,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

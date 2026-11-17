@@ -24,6 +24,24 @@ enum ContributionStatus {
   }
 }
 
+/// Cuota: mensualidad única por integrante y mes.
+/// Aporte: contribución para un destino concreto (viaje, materiales, etc.).
+enum ContributionType {
+  cuota('cuota', 'Cuota'),
+  aporte('aporte', 'Aporte');
+
+  const ContributionType(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static ContributionType fromApi(dynamic value) {
+    return asString(value).toLowerCase() == 'aporte'
+        ? ContributionType.aporte
+        : ContributionType.cuota;
+  }
+}
+
 class Contribution {
   const Contribution({
     required this.id,
@@ -32,6 +50,7 @@ class Contribution {
     required this.mes,
     required this.concepto,
     required this.estado,
+    this.tipo = ContributionType.cuota,
     this.fechaPago,
     this.createdAt,
     this.esPropio = false,
@@ -49,6 +68,7 @@ class Contribution {
   final String mes;
   final String concepto;
   final ContributionStatus estado;
+  final ContributionType tipo;
   final DateTime? fechaPago;
   final DateTime? createdAt;
   final bool esPropio;
@@ -90,6 +110,7 @@ class Contribution {
       mes: asString(map['mes']),
       concepto: asString(map['concepto']),
       estado: ContributionStatus.fromApi(map['estado']),
+      tipo: ContributionType.fromApi(map['tipo']),
       fechaPago: asDate(map['fechaPago']),
       createdAt: asDate(map['createdAt']),
       esPropio: asBool(map['esPropio']),
@@ -111,6 +132,7 @@ class Contribution {
     'mes': mes,
     'concepto': concepto,
     'estado': estado.apiValue,
+    'tipo': tipo.apiValue,
     'fechaPago': fechaPago?.toIso8601String(),
     'createdAt': createdAt?.toIso8601String(),
     'esPropio': esPropio,
@@ -126,6 +148,7 @@ class Contribution {
     String? mes,
     String? concepto,
     ContributionStatus? estado,
+    ContributionType? tipo,
     DateTime? fechaPago,
     DateTime? createdAt,
     bool? esPropio,
@@ -142,6 +165,7 @@ class Contribution {
       mes: mes ?? this.mes,
       concepto: concepto ?? this.concepto,
       estado: estado ?? this.estado,
+      tipo: tipo ?? this.tipo,
       fechaPago: fechaPago ?? this.fechaPago,
       createdAt: createdAt ?? this.createdAt,
       esPropio: esPropio ?? this.esPropio,

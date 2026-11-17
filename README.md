@@ -118,8 +118,9 @@ npm run sync:members                # aplicar
 | PUT | `/members/:id` (manual: nombre, programa, semestre, activo; vinculado: solo activo) | 200 | 400, 404, 409 datos académicos de cuenta |
 | DELETE | `/members/:id` (soft, `activo=false`) | 204 | 404 |
 | GET | `/contributions?status=pending&memberId=` | 200 | 400 |
-| POST | `/contributions` `{integranteId, monto, mes, concepto}` | 201 | 400, 409 aporte duplicado |
-| POST | `/contributions/bulk` `{mes, monto, concepto, integranteIds?}` | 201 `{creadas, omitidas}` | 400, 403 no tesorero |
+| POST | `/contributions` `{integranteId, monto, mes, concepto, tipo?}` | 201 | 400, 409 cuota duplicada |
+| POST | `/contributions/bulk` `{mes, monto, concepto, tipo?, integranteIds?}` | 201 `{creadas, omitidas}` | 400, 403 no tesorero |
+| POST | `/contributions/self` (multipart: `monto`, `mes`, `concepto`, `referencia?`, `comprobante`) | 201 aporte reportado | 400, 403, 413, 415, 503 |
 | PATCH | `/contributions/:id/pay` | 200 | 404, 409 ya pagado |
 | PATCH | `/contributions/:id/reject` `{motivo?}` | 200 | 404, 409 no está reportado |
 | DELETE | `/contributions/:id` (solo sin abonos) | 204 | 404, 409 tiene abonos |
@@ -142,13 +143,15 @@ npm run sync:members                # aplicar
 
 `status` en query: `pending|paid|overdue|reported` → `pendiente|pagado|vencido|reportado` en DB. `GET /contributions` agrega `esPropio` a cada aporte.
 
-- El integrante solo ve y reporta **sus propias cuotas**: el filtro se aplica en el servidor, no solo en la app.
+- El integrante solo ve y reporta **sus propios registros**: el filtro se aplica en el servidor, no solo en la app.
+- **Cuota** y **aporte** son tipos distintos: la cuota es la mensualidad única por integrante y mes; el aporte es un destino concreto (viaje, materiales, etc.) y puede repetirse en el mismo mes. `tipo` es opcional y vale `cuota` por defecto; los registros anteriores a la 1.5.2 se leen como cuota.
+- El integrante puede crear **su propio aporte** con `POST /contributions/self`, con comprobante obligatorio. Queda en estado `reportado` y el tesorero lo aprueba después.
 - Reportar exige **comprobante en el mismo envío** (JPG, PNG, WebP o PDF, máximo 5 MB). Sin archivo la API responde `400` y no crea el abono. Si Cloudinary falla, tampoco queda un pago reportado sin respaldo.
 - El integrante reporta siempre el **saldo pendiente completo**: la app muestra el monto fijo y la API ignora cualquier `monto` que envíe. El tesorero sí puede registrar abonos parciales.
 - El tesorero puede **eliminar una cuota sin abonos** desde el detalle del aporte. Si tiene cualquier abono, la API responde `409` y la conserva para no perder evidencia contable. El borrado queda en auditoría con mes, monto, estado e integrante.
 - El tesorero aprueba con `/pay` o con `/approve`, y rechaza con `/reject`. También puede registrar efectivo o consignación con `/payments` sin comprobante y adjuntarlo después.
 - Los abonos parciales se guardan en `abonos[]` y actualizan `montoPagado`; el saldo y el estado `parcial` se calculan en el modelo. El tesorero puede anular un abono aprobado.
-- Las cuotas masivas crean una cuota por integrante activo y omiten a quien ya tenga una para ese mes.
+- Las cuotas masivas crean una cuota por integrante activo y omiten a quien ya tenga una para ese mes. Con `tipo: "aporte"` se omite a quien ya tenga el mismo aporte (`mes + concepto`), de modo que la operación se pueda repetir para integrantes nuevos.
 - El CSV `movimientos.csv` y el libro `libro.xlsx` incluyen aportes, gastos y la línea de saldo inicial. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
 - El perfil académico de la cuenta se sincroniza con los integrantes vinculados. El tesorero no puede editar carrera/semestre de un integrante con cuenta.
 - La auditoría registra integrantes, aportes, abonos, gastos y ajustes de saldo inicial sin bloquear la operación principal.
@@ -172,7 +175,7 @@ Hojas del libro:
 
 - `Instrucciones`: convenciones y advertencias.
 - `Integrantes`: personas del semillero.
-- `Aportes`: cuotas por integrante y mes.
+- `Aportes`: cuotas y aportes por integrante, con su tipo y mes.
 - `Abonos`: pagos parciales o totales.
 - `Gastos`: salidas de dinero.
 - `Listas`: catálogos e IDs para las listas desplegables.
@@ -292,7 +295,7 @@ Render Free duerme por inactividad. `.github/workflows/render-ping.yml` llama ca
 
 1. Gasto con `monto > saldoDisponible` → `409 { "error": "Saldo insuficiente" }` (`controllers/expenseController.js` + `utils/balance.js` con `aggregate` en vivo). El disponible incluye el saldo inicial.
 2. Aporte: `pendiente→reportado→pagado`, `vencido→reportado→pagado`, `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`. Un rechazo devuelve el aporte a `pendiente`. Desde `pagado` nada → `409`.
-3. Un integrante no puede ver ni reportar el aporte de otro (`403`); el tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
+3. Un integrante no puede ver ni reportar el registro de otro (`403`); el tesorero no puede crear dos **cuotas** del mismo integrante y mes (`409`). Los **aportes** pueden repetirse en el mismo mes.
 4. Reportar sin comprobante → `400` y no se crea el abono. El tesorero sí puede registrar efectivo sin soporte.
 5. El saldo inicial no es un aporte: se ajusta aparte, queda auditado y no crea cuotas ni avisos.
 6. Al crear un semillero o aprobar una solicitud se copian los datos académicos de la cuenta; al actualizar el perfil se sincronizan los integrantes vinculados.
@@ -344,10 +347,10 @@ Para publicar una versión:
 
 ```bash
 cd mobile
-# subir version: 1.5.1+10 en pubspec.yaml
+# subir version: 1.5.2+11 en pubspec.yaml
 flutter build apk --release
-gh release create v1.5.1 build/app/outputs/flutter-apk/app-release.apk \
-  --title "SemiFund v1.5.1" --notes "Novedades"
+gh release create v1.5.2 build/app/outputs/flutter-apk/app-release.apk \
+  --title "SemiFund v1.5.2" --notes "Novedades"
 ```
 
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
@@ -361,13 +364,13 @@ ser tesorera en un semillero e integrante en otro.
 
 - **Creador:** quien registra el semillero. Puede eliminarlo (borrado lógico) y
   transferir la tesorería.
-- **Tesorero:** aprueba cuentas, crea cuotas, aprueba abonos, registra gastos,
-  descarga reportes y consulta la auditoría. Su propia cuota la registra directo,
-  con comprobante opcional.
-- **Integrante:** consulta **solo sus** cuotas, su estado de cuenta y reporta sus
-  aportes con comprobante obligatorio. El contador de cuotas del inicio es
-  personal: el servidor filtra por su `memberId`. El botón «Reportar mi aporte»
-  solo aparece si tiene cuotas por cobrar.
+- **Tesorero:** aprueba cuentas, crea cuotas y aportes grupales, aprueba abonos,
+  registra gastos, descarga reportes y consulta la auditoría. Su propia cuota la
+  registra directo, con comprobante opcional.
+- **Integrante:** consulta **solo sus** registros, su estado de cuenta, reporta sus
+  cuotas y crea **sus propios aportes** con comprobante obligatorio. El contador
+  del inicio es personal: el servidor filtra por su `memberId`. Los botones
+  «Reportar pago» y «Nuevo aporte» aparecen según sus pendientes.
 - **Nombres:** los de personas y del semillero rechazan números en la app y en el
   servidor. Conceptos, descripciones, notas y referencias sí aceptan números.
 
@@ -377,7 +380,7 @@ roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
 datos. Si el proyecto creciera, un admin global exigiría un campo aparte en
 `User` —nunca auto-registrable—, siembra por variable de entorno, validación
 contra la base en cada petición, auditoría de cada acción y segundo factor.
-Queda fuera de la v1.5.1.
+Queda fuera de la v1.5.2.
 
 ## Estructura por capas
 
@@ -411,10 +414,10 @@ API_CONTRACT.md (contrato para Android)
 Los dos manuales se publican como adjuntos del release y no viven en el
 repositorio:
 
-- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.1/SemiFund-Manual-de-usuario.pdf)
-- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.1/SemiFund-Manual-tecnico.pdf)
+- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.2/SemiFund-Manual-de-usuario.pdf)
+- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.2/SemiFund-Manual-tecnico.pdf)
 
-Ambos describen la versión 1.5.1 y usan capturas del semillero de prueba de las
+Ambos describen la versión 1.5.2 y usan capturas del semillero de prueba de las
 pruebas golden, no de cuentas reales.
 
 Las fuentes quedan fuera del repositorio (`entrega/manuales/` está ignorada por

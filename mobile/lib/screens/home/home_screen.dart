@@ -181,13 +181,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           index: 1,
                           child: _TotalsCard(balance: snapshot.balance),
                         ),
-                        if (!session.isTesorero &&
-                            snapshot.pendingContributions > 0) ...<Widget>[
+                        if (!session.isTesorero) ...<Widget>[
                           const SizedBox(height: 12),
-                          PrimaryButton(
-                            label: 'Reportar mi aporte',
-                            onPressed: () => _open('/contributions'),
-                          ),
+                          if (snapshot.pendingContributions > 0) ...<Widget>[
+                            PrimaryButton(
+                              label: 'Reportar pago',
+                              onPressed: () => _open('/contributions'),
+                            ),
+                            const SizedBox(height: 8),
+                            SecondaryButton(
+                              label: 'Nuevo aporte',
+                              onPressed: () =>
+                                  _open('/contributions/mi-aporte'),
+                            ),
+                          ] else
+                            PrimaryButton(
+                              label: 'Nuevo aporte',
+                              onPressed: () =>
+                                  _open('/contributions/mi-aporte'),
+                            ),
                         ],
                         const SizedBox(height: 28),
                         StaggeredEntrance(
@@ -337,13 +349,21 @@ class _DesktopHome extends StatelessWidget {
                       _HeaderAction(
                         label: 'Nuevo aporte',
                         filled: true,
-                        onPressed: () => onOpen('/contributions/new'),
+                        onPressed: () => onOpen('/contributions/aporte'),
                       ),
-                    ] else if ((snapshot?.pendingContributions ?? 0) > 0) ...<Widget>[
+                    ] else ...<Widget>[
+                      if ((snapshot?.pendingContributions ?? 0) > 0) ...<Widget>[
+                        _HeaderAction(
+                          label: 'Reportar pago',
+                          filled: false,
+                          onPressed: () => onOpen('/contributions'),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
                       _HeaderAction(
-                        label: 'Reportar mi aporte',
+                        label: 'Nuevo aporte',
                         filled: true,
-                        onPressed: () => onOpen('/contributions'),
+                        onPressed: () => onOpen('/contributions/mi-aporte'),
                       ),
                     ],
                   ],

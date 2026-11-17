@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:semi_fund/core/network/api_exception.dart';
@@ -342,6 +344,51 @@ void main() {
       await provider.load();
       await provider.delete(pendingItem);
       verify(() => writes.deleteContribution('c1')).called(1);
+      verify(
+        () => reads.contributionsPage(
+          status: null,
+          page: 1,
+          limit: 20,
+        ),
+      ).called(2);
+    });
+
+    test('crear aporte propio envía el comprobante y recarga', () async {
+      final Uint8List bytes = Uint8List.fromList(<int>[1, 2, 3]);
+      when(
+        () => writes.createSelfContribution(
+          monto: 60000,
+          mes: '2026-10',
+          concepto: 'Viaje a Medellín',
+          referencia: 'TRX-9',
+          comprobanteBytes: bytes,
+          comprobanteNombre: 'comprobante.png',
+          comprobanteTipo: 'image/png',
+        ),
+      ).thenAnswer((_) async => pendingItem);
+
+      await provider.load();
+      await provider.createSelf(
+        monto: 60000,
+        mes: '2026-10',
+        concepto: 'Viaje a Medellín',
+        referencia: 'TRX-9',
+        comprobanteBytes: bytes,
+        comprobanteNombre: 'comprobante.png',
+        comprobanteTipo: 'image/png',
+      );
+
+      verify(
+        () => writes.createSelfContribution(
+          monto: 60000,
+          mes: '2026-10',
+          concepto: 'Viaje a Medellín',
+          referencia: 'TRX-9',
+          comprobanteBytes: bytes,
+          comprobanteNombre: 'comprobante.png',
+          comprobanteTipo: 'image/png',
+        ),
+      ).called(1);
       verify(
         () => reads.contributionsPage(
           status: null,

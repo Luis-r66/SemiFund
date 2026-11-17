@@ -88,6 +88,33 @@ void main() {
     expect(overdue.concepto, '');
   });
 
+  test('interpreta el tipo de aporte y conserva cuota por defecto', () {
+    final Contribution cuota = Contribution.fromJson(<String, dynamic>{
+      'id': 'c10',
+      'integranteId': 'm1',
+      'monto': 30000,
+      'mes': '2026-10',
+      'concepto': 'Cuota mensual',
+      'estado': 'pendiente',
+    });
+    final Contribution aporte = Contribution.fromJson(<String, dynamic>{
+      'id': 'c11',
+      'integranteId': 'm1',
+      'monto': 60000,
+      'mes': '2026-10',
+      'concepto': 'Viaje a Medellín',
+      'tipo': 'aporte',
+      'estado': 'reportado',
+    });
+
+    expect(cuota.tipo, ContributionType.cuota);
+    expect(aporte.tipo, ContributionType.aporte);
+    expect(aporte.concepto, 'Viaje a Medellín');
+    expect(aporte.toJson()['tipo'], 'aporte');
+    expect(cuota.copyWith(tipo: ContributionType.aporte).tipo,
+        ContributionType.aporte);
+  });
+
   test('parsea un aporte reportado y si es propio', () {
     final Contribution contribution = Contribution.fromJson(<String, dynamic>{
       'id': 'c3',

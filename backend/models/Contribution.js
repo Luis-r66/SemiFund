@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { montoPagadoDe, saldoPendiente, estadoCobro } = require('../utils/payments');
+const { TIPOS, tipoDe } = require('../utils/contributionTypes');
 
 const ESTADOS = ['pendiente', 'pagado', 'vencido', 'reportado'];
 const ESTADOS_ABONO = ['reportado', 'aprobado', 'rechazado', 'anulado'];
@@ -52,6 +53,9 @@ const contributionSchema = new mongoose.Schema(
       trim: true,
       maxlength: [200, 'El concepto no puede superar 200 caracteres']
     },
+    // cuota: mensualidad única por integrante y mes.
+    // aporte: contribución para un destino concreto; puede repetirse en el mes.
+    tipo: { type: String, enum: TIPOS, default: 'cuota' },
     estado: { type: String, enum: ESTADOS, default: 'pendiente' },
     montoPagado: { type: Number, min: 0, default: undefined },
     abonos: { type: [abonoSchema], default: [] },
@@ -67,7 +71,7 @@ const contributionSchema = new mongoose.Schema(
 );
 
 contributionSchema.index({ integranteId: 1, estado: 1 });
-contributionSchema.index({ semilleroId: 1, integranteId: 1, mes: 1 });
+contributionSchema.index({ semilleroId: 1, integranteId: 1, mes: 1, tipo: 1 });
 // Listado paginado y conteo de cuotas por cobrar del inicio.
 contributionSchema.index({ semilleroId: 1, estado: 1, _id: -1 });
 
@@ -78,6 +82,7 @@ contributionSchema.method('toJSON', function () {
   obj.montoPagado = montoPagadoDe(this);
   obj.saldoPendiente = saldoPendiente(this);
   obj.estadoCobro = estadoCobro(this);
+  obj.tipo = tipoDe(this);
   obj.abonos = (obj.abonos || []).map((abono) => ({ ...abono, id: abono._id.toString() }));
   return obj;
 });

@@ -180,12 +180,35 @@ class ContributionsProvider extends ChangeNotifier {
     required double monto,
     required String mes,
     required String concepto,
+    ContributionType tipo = ContributionType.cuota,
   }) async {
     await _writes.createContribution(
       integranteId: integranteId,
       monto: monto,
       mes: mes,
       concepto: concepto,
+      tipo: tipo,
+    );
+    await reloadFirstPage();
+  }
+
+  Future<void> createSelf({
+    required double monto,
+    required String mes,
+    required String concepto,
+    String? referencia,
+    required Uint8List comprobanteBytes,
+    required String comprobanteNombre,
+    required String comprobanteTipo,
+  }) async {
+    await _writes.createSelfContribution(
+      monto: monto,
+      mes: mes,
+      concepto: concepto,
+      referencia: referencia,
+      comprobanteBytes: comprobanteBytes,
+      comprobanteNombre: comprobanteNombre,
+      comprobanteTipo: comprobanteTipo,
     );
     await reloadFirstPage();
   }
@@ -273,11 +296,13 @@ class ContributionsProvider extends ChangeNotifier {
     required String mes,
     required double monto,
     required String concepto,
+    ContributionType tipo = ContributionType.cuota,
   }) async {
     final BulkContributionResult result = await _writes.createBulkContributions(
       mes: mes,
       monto: monto,
       concepto: concepto,
+      tipo: tipo,
     );
     await reloadFirstPage();
     return result;

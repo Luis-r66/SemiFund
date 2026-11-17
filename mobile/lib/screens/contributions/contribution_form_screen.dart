@@ -81,7 +81,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
         concepto: _concept.text.trim(),
       );
       if (!mounted) return;
-      await showSuccessCheck(context, message: 'Aporte registrado');
+      await showSuccessCheck(context, message: 'Cuota creada');
       if (!mounted) return;
       context.pop();
     } on ApiException catch (error) {
@@ -103,7 +103,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
           maxWidth: AppLayout.formMaxWidth,
           child: Column(
             children: <Widget>[
-              AppTopBar(title: 'Registrar aporte', onBack: () => context.pop()),
+              AppTopBar(title: 'Nueva cuota', onBack: () => context.pop()),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -163,7 +163,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
                 child: PrimaryButton(
-                  label: 'Registrar aporte',
+                  label: 'Crear cuota',
                   loading: _saving,
                   onPressed: _canSave ? _save : null,
                 ),
