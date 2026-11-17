@@ -110,13 +110,15 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     context.read<ContributionsProvider>().load(status: _statusFor(tab));
   }
 
-  Future<void> _guard(Future<void> Function() action) async {
+  Future<bool> _guard(Future<void> Function() action) async {
     try {
       await action();
+      return true;
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.message)));
+      return false;
     }
   }
 
@@ -172,8 +174,8 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       ),
     );
     if (confirmed != true) return;
-    await _guard(() => provider.delete(contribution));
-    if (!mounted) return;
+    final bool ok = await _guard(() => provider.delete(contribution));
+    if (!ok || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Aporte eliminado.')),
     );
@@ -188,7 +190,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
           _ReportDialog(saldo: contribution.saldoPendiente),
     );
     if (result == null) return;
-    await _guard(
+    final bool ok = await _guard(
       () => provider.addPayment(
         contribution,
         referencia: result.referencia,
@@ -197,7 +199,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         comprobanteTipo: result.contentType,
       ),
     );
-    if (!mounted) return;
+    if (!ok || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Reporte enviado. La tesorería lo revisará.'),
