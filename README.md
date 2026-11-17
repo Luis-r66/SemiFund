@@ -120,19 +120,20 @@ npm run sync:members                # aplicar
 | GET | `/contributions?status=pending&memberId=` | 200 | 400 |
 | POST | `/contributions` `{integranteId, monto, mes, concepto}` | 201 | 400, 409 aporte duplicado |
 | POST | `/contributions/bulk` `{mes, monto, concepto, integranteIds?}` | 201 `{creadas, omitidas}` | 400, 403 no tesorero |
-| PATCH | `/contributions/:id/report` `{referencia?}` | 200 | 403 no es propio, 404, 409 ya pagado/reportado |
 | PATCH | `/contributions/:id/pay` | 200 | 404, 409 ya pagado |
 | PATCH | `/contributions/:id/reject` `{motivo?}` | 200 | 404, 409 no está reportado |
-| POST | `/contributions/:id/payments` `{monto?, referencia?}` | 201 abono | 400, 403, 404, 409 |
+| POST | `/contributions/:id/payments` (multipart: `monto?`, `referencia?`, `comprobante`) | 201 abono | 400 falta comprobante, 403, 404, 409, 413, 415, 503 |
 | PATCH | `/contributions/:id/payments/:abonoId/approve` | 200 | 404, 409 abono no reportado |
 | PATCH | `/contributions/:id/payments/:abonoId/reject` `{motivo?}` | 200 | 404, 409 abono no reportado |
 | PATCH | `/contributions/:id/payments/:abonoId/void` | 200 | 404, 409 abono no aprobado |
 | POST | `/contributions/:id/payments/:abonoId/comprobante` (multipart `comprobante`) | 200 aporte actualizado | 400, 403, 404, 409, 413, 415, 503 |
+| GET | `/semilleros/me` | 200 detalle, saldo inicial y permiso de ajuste | 401, 403 |
+| PATCH | `/semilleros/me/saldo-inicial` `{monto, nota?}` | 200 saldo recalculado | 400, 403, 404 |
 | GET | `/expenses?category=&month=YYYY-MM` | 200 | 400 |
 | POST | `/expenses` `{descripcion, categoria, monto, fecha?}` (sin fecha futura) | 201 | 400, 409 saldo insuficiente |
-| GET | `/balance` → `{totalAportado, totalGastado, saldoDisponible}` | 200 | — |
+| GET | `/balance` → `{saldoInicial, totalAportado, totalGastado, saldoDisponible}` | 200 | — |
 | GET | `/reports/movimientos.csv` | 200 CSV | 403 no tesorero |
-| GET | `/reports/libro.xlsx` | 200 Excel (Integrantes, Aportes, Gastos, Balance) | 403 no tesorero |
+| GET | `/reports/libro.xlsx` | 200 Excel (Integrantes, Aportes, Abonos, Gastos, Listas, Resumen) | 403 no tesorero |
 | GET | `/reports/plantilla.xlsx` | 200 Excel para importar | 403 no tesorero |
 | POST | `/import/preview` (cuerpo `.xlsx`) | 200 vista previa fila por fila | 400, 413 más de 8 MB |
 | POST | `/import/confirm` (cuerpo `.xlsx`) | 201 resumen de creados | 409 sin filas nuevas, 422 errores, 413 |
@@ -140,12 +141,23 @@ npm run sync:members                # aplicar
 
 `status` en query: `pending|paid|overdue|reported` → `pendiente|pagado|vencido|reportado` en DB. `GET /contributions` agrega `esPropio` a cada aporte.
 
-- El integrante solo puede reportar aportes propios. El tesorero aprueba con `/pay` o rechaza con `/reject`.
+- El integrante solo ve y reporta **sus propias cuotas**: el filtro se aplica en el servidor, no solo en la app.
+- Reportar exige **comprobante en el mismo envío** (JPG, PNG, WebP o PDF, máximo 5 MB). Sin archivo la API responde `400` y no crea el abono. Si Cloudinary falla, tampoco queda un pago reportado sin respaldo.
+- El tesorero aprueba con `/pay` o con `/approve`, y rechaza con `/reject`. También puede registrar efectivo o consignación con `/payments` sin comprobante y adjuntarlo después.
 - Los abonos parciales se guardan en `abonos[]` y actualizan `montoPagado`; el saldo y el estado `parcial` se calculan en el modelo. El tesorero puede anular un abono aprobado.
 - Las cuotas masivas crean una cuota por integrante activo y omiten a quien ya tenga una para ese mes.
-- El CSV `movimientos.csv` y el libro `libro.xlsx` incluyen aportes y gastos. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
+- El CSV `movimientos.csv` y el libro `libro.xlsx` incluyen aportes, gastos y la línea de saldo inicial. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
 - El perfil académico de la cuenta se sincroniza con los integrantes vinculados. El tesorero no puede editar carrera/semestre de un integrante con cuenta.
-- La auditoría registra integrantes, aportes, abonos y gastos sin bloquear la operación principal.
+- La auditoría registra integrantes, aportes, abonos, gastos y ajustes de saldo inicial sin bloquear la operación principal.
+
+### Saldo inicial
+
+El saldo inicial es dinero que el semillero ya tenía antes de usar la app. **No es un aporte de ningún integrante**: no crea cuotas, no suma a «aportes por cobrar» y no aparece en el estado de cuenta de nadie.
+
+- Se puede indicar al crear el semillero (`POST /semilleros` con `saldoInicial` y `saldoInicialNota`) o ajustar después con `PATCH /semilleros/me/saldo-inicial`.
+- Puede ajustarlo quien creó el semillero. Si el creador ya no está activo, puede hacerlo el tesorero actual. Todo ajuste guarda el valor anterior, el nuevo, quién lo cambió y cuándo.
+- Fórmula: `saldoDisponible = saldoInicial + aportes cobrados − gastos`. La validación de gastos usa ese valor, así que se puede gastar el dinero inicial antes de que existan cuotas.
+- Los semilleros anteriores a la 1.5.0 quedan con saldo inicial `0`; no se reescriben datos.
 
 ## Plantilla Excel e importación
 
@@ -178,7 +190,7 @@ Pruebas de las reglas puras:
 
 ```bash
 cd backend
-npm test    # 53 pruebas en 10 archivos
+npm test    # 65 pruebas en 11 archivos
 ```
 
 ## Inicio de sesión con Google
@@ -255,9 +267,10 @@ flutter build web --release --base-href /SemiFund/ \
 
 ## Comprobantes de abonos con Cloudinary
 
-- En el detalle de un aporte, cada abono tiene **Adjuntar comprobante** (integrante dueño o tesorero).
+- Cuando el **integrante reporta**, el formulario exige **comprobante en el mismo paso**: monto, referencia opcional y archivo. Sin archivo no se envía.
 - Se aceptan JPG, PNG, WebP y PDF de hasta **5 MB**, uno por abono.
-- El backend recibe el archivo en memoria con `multer`, lo sube a Cloudinary y guarda `url`, `publicId`, `tipo` y `nombre` dentro del abono.
+- El backend recibe el archivo en memoria con `multer`, valida el tipo y lo sube a Cloudinary **antes** de guardar el abono. Si la subida falla, no queda un pago reportado sin respaldo.
+- El **tesorero** conserva el registro de efectivo o consignación sin comprobante; si luego consigue el soporte, lo adjunta desde el detalle del abono.
 - El APK solo muestra o abre el comprobante; **nunca** maneja el API secret.
 - Al reemplazar un comprobante se borra el anterior de Cloudinary (best-effort).
 - Al anular un abono el comprobante se conserva como evidencia.
@@ -274,10 +287,12 @@ Render Free duerme por inactividad. `.github/workflows/render-ping.yml` llama ca
 
 ## Reglas de negocio (validadas en backend)
 
-1. Gasto con `monto > saldoDisponible` → `409 { "error": "Saldo insuficiente" }` (`controllers/expenseController.js` + `utils/balance.js` con `aggregate` en vivo).
+1. Gasto con `monto > saldoDisponible` → `409 { "error": "Saldo insuficiente" }` (`controllers/expenseController.js` + `utils/balance.js` con `aggregate` en vivo). El disponible incluye el saldo inicial.
 2. Aporte: `pendiente→reportado→pagado`, `vencido→reportado→pagado`, `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`. Un rechazo devuelve el aporte a `pendiente`. Desde `pagado` nada → `409`.
-3. Un integrante no puede reportar el aporte de otro (`403`); el tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
-4. Al crear un semillero o aprobar una solicitud se copian los datos académicos de la cuenta; al actualizar el perfil se sincronizan los integrantes vinculados.
+3. Un integrante no puede ver ni reportar el aporte de otro (`403`); el tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
+4. Reportar sin comprobante → `400` y no se crea el abono. El tesorero sí puede registrar efectivo sin soporte.
+5. El saldo inicial no es un aporte: se ajusta aparte, queda auditado y no crea cuotas ni avisos.
+6. Al crear un semillero o aprobar una solicitud se copian los datos académicos de la cuenta; al actualizar el perfil se sincronizan los integrantes vinculados.
 
 ## Probar con Postman / Insomnia
 
@@ -316,19 +331,20 @@ Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core
 - El recorrido de bienvenida aparece una vez por cuenta después de completar el
   perfil académico y se puede repetir desde **Perfil → Ver tutorial**.
 - **Perfil → Ajustes del semillero** permite salir del semillero o, si la cuenta
-  lo creó, eliminarlo escribiendo el nombre exacto. Eliminar es un borrado
-  lógico: el semillero y su historial dejan de estar disponibles, pero quedan
-  registrados para auditoría. El último tesorero no puede salir sin transferir
-  la tesorería.
+  lo creó, eliminarlo escribiendo el nombre exacto. También muestra **Saldo
+  inicial**, un ajuste auditado que no crea aportes. Si el creador ya no está
+  activo, el tesorero actual puede corregirlo. El último tesorero no puede salir
+  sin transferir la tesorería. Eliminar es un borrado lógico: el semillero y su
+  historial dejan de estar disponibles, pero quedan registrados para auditoría.
 
 Para publicar una versión:
 
 ```bash
 cd mobile
-# subir version: 1.4.0+8 en pubspec.yaml
+# subir version: 1.5.0+9 en pubspec.yaml
 flutter build apk --release
-gh release create v1.4.0 build/app/outputs/flutter-apk/app-release.apk \
-  --title "SemiFund v1.4.0" --notes "Novedades"
+gh release create v1.5.0 build/app/outputs/flutter-apk/app-release.apk \
+  --title "SemiFund v1.5.0" --notes "Novedades"
 ```
 
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
@@ -343,8 +359,10 @@ ser tesorera en un semillero e integrante en otro.
 - **Creador:** quien registra el semillero. Puede eliminarlo (borrado lógico) y
   transferir la tesorería.
 - **Tesorero:** aprueba cuentas, crea cuotas, aprueba abonos, registra gastos,
-  descarga reportes y consulta la auditoría.
-- **Integrante:** consulta su estado de cuenta y reporta sus aportes.
+  descarga reportes y consulta la auditoría. Su propia cuota la registra directo,
+  con comprobante opcional.
+- **Integrante:** consulta **solo sus** cuotas, su estado de cuenta y reporta sus
+  aportes con comprobante obligatorio.
 
 No hay un administrador global. Es una decisión de alcance, no un olvido: con
 roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
@@ -352,7 +370,7 @@ roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
 datos. Si el proyecto creciera, un admin global exigiría un campo aparte en
 `User` —nunca auto-registrable—, siembra por variable de entorno, validación
 contra la base en cada petición, auditoría de cada acción y segundo factor.
-Queda fuera de la v1.4.0.
+Queda fuera de la v1.5.0.
 
 ## Estructura por capas
 
@@ -386,10 +404,10 @@ API_CONTRACT.md (contrato para Android)
 Los dos manuales se publican como adjuntos del release y no viven en el
 repositorio:
 
-- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.4.0/SemiFund-Manual-de-usuario.pdf)
-- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.4.0/SemiFund-Manual-tecnico.pdf)
+- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.0/SemiFund-Manual-de-usuario.pdf)
+- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.0/SemiFund-Manual-tecnico.pdf)
 
-Ambos describen la versión 1.4.0 y usan capturas del semillero de prueba de las
+Ambos describen la versión 1.5.0 y usan capturas del semillero de prueba de las
 pruebas golden, no de cuentas reales.
 
 Las fuentes quedan fuera del repositorio (`entrega/manuales/` está ignorada por

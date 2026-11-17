@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Contribution = require('../models/Contribution');
 const Expense = require('../models/Expense');
+const Semillero = require('../models/Semillero');
 
 // Caché corta del saldo por semillero. Se invalida en cada escritura de
 // aportes o gastos, así que solo evita repetir las dos agregaciones cuando el
@@ -17,36 +18,54 @@ function invalidateBalance(semilleroId) {
 }
 
 // Calcula el saldo de un semillero en el momento con agregaciones de Mongo (no se almacena).
+// saldoInicial  = dinero que el semillero ya tenía; no es aporte de nadie
 // totalAportado = SUM de abonos cobrados (montoPagado; aportes antiguos sin montoPagado cuentan completos si están pagados)
 // totalGastado  = SUM gastos
+const round = (value) => Math.round(Number(value) * 100) / 100;
+
+// Fórmula única del saldo, aislada para probarla sin base de datos.
+function calcularSaldo({ saldoInicial = 0, totalAportado = 0, totalGastado = 0 } = {}) {
+  const inicial = round(saldoInicial) || 0;
+  const aportado = round(totalAportado) || 0;
+  const gastado = round(totalGastado) || 0;
+  return {
+    saldoInicial: inicial,
+    totalAportado: aportado,
+    totalGastado: gastado,
+    saldoDisponible: round(inicial + aportado - gastado)
+  };
+}
+
 async function calcularBalance(semilleroId) {
-  const [aportes] = await Contribution.aggregate([
-    { $match: { semilleroId: new mongoose.Types.ObjectId(semilleroId) } },
-    {
-      $group: {
-        _id: null,
-        total: {
-          $sum: {
-            $ifNull: ['$montoPagado', { $cond: [{ $eq: ['$estado', 'pagado'] }, '$monto', 0] }]
+  const [aportes, gastos, semillero] = await Promise.all([
+    Contribution.aggregate([
+      { $match: { semilleroId: new mongoose.Types.ObjectId(semilleroId) } },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: {
+              $ifNull: ['$montoPagado', { $cond: [{ $eq: ['$estado', 'pagado'] }, '$monto', 0] }]
+            }
           }
         }
       }
-    }
+    ]),
+    Expense.aggregate([
+      { $match: { semilleroId: new mongoose.Types.ObjectId(semilleroId) } },
+      { $group: { _id: null, total: { $sum: '$monto' } } }
+    ]),
+    Semillero.findById(semilleroId).select('saldoInicial').lean()
   ]);
 
-  const [gastos] = await Expense.aggregate([
-    { $match: { semilleroId: new mongoose.Types.ObjectId(semilleroId) } },
-    { $group: { _id: null, total: { $sum: '$monto' } } }
-  ]);
+  const [datosAportes] = aportes;
+  const [datosGastos] = gastos;
 
-  const totalAportado = aportes ? aportes.total : 0;
-  const totalGastado = gastos ? gastos.total : 0;
-
-  return {
-    totalAportado,
-    totalGastado,
-    saldoDisponible: totalAportado - totalGastado
-  };
+  return calcularSaldo({
+    saldoInicial: semillero && semillero.saldoInicial ? semillero.saldoInicial.monto : 0,
+    totalAportado: datosAportes ? datosAportes.total : 0,
+    totalGastado: datosGastos ? datosGastos.total : 0
+  });
 }
 
 async function getBalance(semilleroId, { force = false } = {}) {
@@ -61,4 +80,4 @@ async function getBalance(semilleroId, { force = false } = {}) {
   return value;
 }
 
-module.exports = { getBalance, invalidateBalance };
+module.exports = { getBalance, invalidateBalance, calcularSaldo };

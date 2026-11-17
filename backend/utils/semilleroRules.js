@@ -30,4 +30,19 @@ function puedeSalir({ esTesorero, tesorerosActivos }) {
   return Number(tesorerosActivos) > 1;
 }
 
-module.exports = { normalizarNombre, puedeEliminar, nombreConfirma, puedeSalir };
+// Ajustar el saldo inicial es potestad del creador. Si el creador ya no está
+// activo en el semillero, la tesorería actual puede corregirlo. Todo ajuste
+// queda auditado con el valor anterior y el nuevo.
+function puedeAjustarSaldoInicial({ creadoPor, userId, esTesorero = false, creadorActivo = true }) {
+  if (!creadoPor || !userId) return false;
+  if (String(creadoPor) === String(userId)) return true;
+  return Boolean(esTesorero) && !creadorActivo;
+}
+
+module.exports = {
+  normalizarNombre,
+  puedeEliminar,
+  nombreConfirma,
+  puedeSalir,
+  puedeAjustarSaldoInicial
+};

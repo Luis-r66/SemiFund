@@ -31,6 +31,9 @@ class SemilleroMembership {
     required this.miembros,
     this.codigo,
     this.esCreador = false,
+    this.saldoInicial = 0,
+    this.saldoInicialNota,
+    this.puedeAjustarSaldoInicial = false,
   });
 
   final String id;
@@ -41,6 +44,11 @@ class SemilleroMembership {
   final int miembros;
   final String? codigo;
   final bool esCreador;
+
+  /// Dinero con el que arrancó el semillero. No es un aporte de nadie.
+  final double saldoInicial;
+  final String? saldoInicialNota;
+  final bool puedeAjustarSaldoInicial;
 
   bool get isActive => estado == MembershipStatus.activo;
 
@@ -61,6 +69,9 @@ class SemilleroMembership {
       miembros: asInt(map['miembros']),
       codigo: asNullableString(map['semilleroCodigo'] ?? map['codigo']),
       esCreador: asBool(map['esCreador']),
+      saldoInicial: asDouble(map['saldoInicial']),
+      saldoInicialNota: asNullableString(map['saldoInicialNota']),
+      puedeAjustarSaldoInicial: asBool(map['puedeAjustarSaldoInicial']),
     );
   }
 
@@ -73,6 +84,9 @@ class SemilleroMembership {
     'esCreador': esCreador,
     'estado': estado.apiValue,
     'miembros': miembros,
+    'saldoInicial': saldoInicial,
+    'saldoInicialNota': saldoInicialNota,
+    'puedeAjustarSaldoInicial': puedeAjustarSaldoInicial,
   };
 
   SemilleroMembership copyWith({
@@ -84,6 +98,9 @@ class SemilleroMembership {
     int? miembros,
     String? codigo,
     bool? esCreador,
+    double? saldoInicial,
+    String? saldoInicialNota,
+    bool? puedeAjustarSaldoInicial,
   }) {
     return SemilleroMembership(
       id: id ?? this.id,
@@ -94,6 +111,10 @@ class SemilleroMembership {
       miembros: miembros ?? this.miembros,
       codigo: codigo ?? this.codigo,
       esCreador: esCreador ?? this.esCreador,
+      saldoInicial: saldoInicial ?? this.saldoInicial,
+      saldoInicialNota: saldoInicialNota ?? this.saldoInicialNota,
+      puedeAjustarSaldoInicial:
+          puedeAjustarSaldoInicial ?? this.puedeAjustarSaldoInicial,
     );
   }
 }

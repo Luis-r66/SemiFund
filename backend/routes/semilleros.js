@@ -11,6 +11,7 @@ router.post('/join', auth.requireAuth, c.unirse);                   // POST /api
 
 // Rutas del semillero ACTIVO (requieren X-Semillero-Id)
 router.get('/me', auth.requireAuth, auth.requireSemillero, c.detalle);           // GET /api/semilleros/me
+router.patch('/me/saldo-inicial', auth.requireAuth, auth.requireSemillero, c.actualizarSaldoInicial); // PATCH /api/semilleros/me/saldo-inicial
 router.patch('/me', auth.requireAuth, auth.requireSemillero, auth.requireTesorero, c.renombrar); // PATCH /api/semilleros/me
 router.post('/me/code/rotate', auth.requireAuth, auth.requireSemillero, auth.requireTesorero, c.rotarCodigo); // POST /api/semilleros/me/code/rotate
 router.get('/me/accounts', auth.requireAuth, auth.requireSemillero, auth.requireTesorero, c.listarCuentas); // GET /api/semilleros/me/accounts

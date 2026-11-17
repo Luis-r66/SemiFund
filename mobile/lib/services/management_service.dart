@@ -92,21 +92,6 @@ class ManagementService {
     return Contribution.fromJson(data);
   }
 
-  Future<Contribution> reportContribution(
-    String id, {
-    String? referencia,
-  }) async {
-    final Map<String, dynamic> body = <String, dynamic>{};
-    if (referencia != null && referencia.trim().isNotEmpty) {
-      body['referencia'] = referencia.trim();
-    }
-    final dynamic data = await _api.patch(
-      '/contributions/$id/report',
-      data: body,
-    );
-    return Contribution.fromJson(data);
-  }
-
   Future<Contribution> rejectContribution(String id, {String? motivo}) async {
     final Map<String, dynamic> body = <String, dynamic>{};
     if (motivo != null && motivo.trim().isNotEmpty) {
@@ -119,20 +104,34 @@ class ManagementService {
     return Contribution.fromJson(data);
   }
 
+  /// Registra un abono. El integrante envía siempre el comprobante en el mismo
+  /// multipart; el tesorero puede registrar el dinero sin archivo.
   Future<Contribution> addPayment(
     String id, {
     double? monto,
     String? referencia,
+    Uint8List? comprobanteBytes,
+    String? comprobanteNombre,
+    String? comprobanteTipo,
   }) async {
-    final Map<String, dynamic> body = <String, dynamic>{};
-    if (monto != null) body['monto'] = monto;
+    final Map<String, dynamic> fields = <String, dynamic>{};
+    if (monto != null) fields['monto'] = monto;
     if (referencia != null && referencia.trim().isNotEmpty) {
-      body['referencia'] = referencia.trim();
+      fields['referencia'] = referencia.trim();
     }
-    final dynamic data = await _api.post(
-      '/contributions/$id/payments',
-      data: body,
-    );
+
+    final dynamic data;
+    if (comprobanteBytes != null) {
+      data = await _api.postMultipart(
+        '/contributions/$id/payments',
+        bytes: comprobanteBytes,
+        filename: comprobanteNombre ?? 'comprobante',
+        contentType: comprobanteTipo ?? 'application/octet-stream',
+        fields: fields,
+      );
+    } else {
+      data = await _api.post('/contributions/$id/payments', data: fields);
+    }
     return Contribution.fromJson(data);
   }
 

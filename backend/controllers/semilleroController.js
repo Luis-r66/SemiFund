@@ -7,7 +7,56 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { academicFieldsFromUser } = require('../utils/memberSync');
 const { notificar, tesorerosDe } = require('../utils/notifications');
 const { registrar: auditar } = require('../utils/audit');
-const { puedeEliminar, nombreConfirma, puedeSalir } = require('../utils/semilleroRules');
+const { getBalance, invalidateBalance } = require('../utils/balance');
+const {
+  puedeEliminar,
+  nombreConfirma,
+  puedeSalir,
+  puedeAjustarSaldoInicial
+} = require('../utils/semilleroRules');
+
+const round = (value) => Math.round(Number(value) * 100) / 100;
+
+// El saldo inicial de los semilleros anteriores a la 1.5.0 no existe en la
+// base: se lee como cero sin reescribir el documento.
+function saldoInicialDe(semillero) {
+  const saldo = semillero && semillero.saldoInicial ? semillero.saldoInicial : null;
+  return {
+    monto: saldo && Number.isFinite(Number(saldo.monto)) ? round(saldo.monto) : 0,
+    nota: saldo && saldo.nota ? saldo.nota : null,
+    registradoPor: saldo && saldo.registradoPor ? String(saldo.registradoPor) : null,
+    actualizadoEn: saldo && saldo.actualizadoEn ? saldo.actualizadoEn : null
+  };
+}
+
+// Devuelve { monto } o { error }. Acepta número o texto numérico.
+function leerMonto(valor, { requerido = false } = {}) {
+  if (valor === undefined || valor === null || valor === '') {
+    return requerido ? { error: 'El saldo inicial es requerido' } : { monto: 0 };
+  }
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return { error: 'El saldo inicial debe ser un número' };
+  if (numero < 0) return { error: 'El saldo inicial no puede ser negativo' };
+  return { monto: round(numero) };
+}
+
+function leerNota(valor) {
+  if (valor === undefined || valor === null) return { nota: null };
+  if (typeof valor !== 'string') return { error: 'La nota debe ser texto' };
+  const nota = valor.trim();
+  if (nota.length > 300) return { error: 'La nota no puede superar 300 caracteres' };
+  return { nota: nota || null };
+}
+
+async function creadorSigueActivo(semillero) {
+  if (!semillero.creadoPor) return false;
+  const activa = await Membership.findOne({
+    semilleroId: semillero._id,
+    userId: semillero.creadoPor,
+    estado: 'activo'
+  }).select('_id');
+  return Boolean(activa);
+}
 
 // Genera un código alfanumérico de 8 caracteres (mayúsculas y dígitos, sin ambiguos)
 function generarCodigo() {
@@ -24,7 +73,7 @@ const listarMisSemilleros = asyncHandler(async (req, res) => {
   // Las membresías inactivas no se listan: al salir o eliminar el semillero
   // la tarjeta desaparece en lugar de quedar como un fantasma.
   const membresias = await Membership.find({ userId: req.userId, estado: { $ne: 'inactivo' } })
-    .populate('semilleroId', 'nombre codigo activo creadoPor')
+    .populate('semilleroId', 'nombre codigo activo creadoPor saldoInicial')
     .sort({ createdAt: -1 });
   const items = [];
   for (const m of membresias) {
@@ -33,26 +82,47 @@ const listarMisSemilleros = asyncHandler(async (req, res) => {
       semilleroId: m.semilleroId._id,
       activo: true
     });
+    const esCreador = String(m.semilleroId.creadoPor) === String(req.userId);
+    const creadorActivo = esCreador
+      ? true
+      : Boolean(await Membership.exists({
+          semilleroId: m.semilleroId._id,
+          userId: m.semilleroId.creadoPor,
+          estado: 'activo'
+        }));
     items.push({
       id: m.id,
       semilleroId: m.semilleroId._id,
       semilleroNombre: m.semilleroId.nombre,
       semilleroCodigo: m.esTesorero ? m.semilleroId.codigo : null,
       esTesorero: m.esTesorero,
-      esCreador: String(m.semilleroId.creadoPor) === String(req.userId),
+      esCreador,
       estado: m.estado,
-      miembros
+      miembros,
+      saldoInicial: saldoInicialDe(m.semilleroId).monto,
+      saldoInicialNota: saldoInicialDe(m.semilleroId).nota,
+      puedeAjustarSaldoInicial: puedeAjustarSaldoInicial({
+        creadoPor: m.semilleroId.creadoPor,
+        userId: req.userId,
+        esTesorero: m.esTesorero,
+        creadorActivo
+      })
     });
   }
   res.status(200).json(items);
 });
 
-// POST /api/semilleros  { nombre }
+// POST /api/semilleros  { nombre, saldoInicial?, saldoInicialNota? }
 const crear = asyncHandler(async (req, res) => {
-  const { nombre } = req.body;
+  const { nombre, saldoInicial, saldoInicialNota } = req.body;
   if (!nombre || !nombre.trim()) {
     return res.status(400).json({ error: 'El nombre del semillero es requerido' });
   }
+  const monto = leerMonto(saldoInicial);
+  if (monto.error) return res.status(400).json({ error: monto.error });
+  const nota = leerNota(saldoInicialNota);
+  if (nota.error) return res.status(400).json({ error: nota.error });
+
   const userId = req.userId;
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -63,7 +133,17 @@ const crear = asyncHandler(async (req, res) => {
   let semillero;
   let member;
   try {
-    semillero = await Semillero.create({ nombre: nombre.trim(), codigo, creadoPor: userId });
+    semillero = await Semillero.create({
+      nombre: nombre.trim(),
+      codigo,
+      creadoPor: userId,
+      saldoInicial: {
+        monto: monto.monto,
+        nota: nota.nota,
+        registradoPor: userId,
+        actualizadoEn: monto.monto > 0 || nota.nota ? new Date() : null
+      }
+    });
     member = await Member.create({
       ...academicFieldsFromUser(user),
       userId,
@@ -82,8 +162,24 @@ const crear = asyncHandler(async (req, res) => {
     if (semillero) await Semillero.deleteOne({ _id: semillero._id });
     throw error;
   }
+  if (monto.monto > 0 || nota.nota) {
+    await auditar({
+      semilleroId: semillero._id,
+      usuarioId: userId,
+      accion: 'semillero.saldo_inicial',
+      entidad: 'Semillero',
+      entidadId: semillero._id,
+      detalle: `${monto.monto}${nota.nota ? ` · ${nota.nota}` : ''}`
+    });
+  }
   res.status(201).json({
-    semillero: { id: semillero.id, nombre: semillero.nombre, codigo: semillero.codigo },
+    semillero: {
+      id: semillero.id,
+      nombre: semillero.nombre,
+      codigo: semillero.codigo,
+      saldoInicial: saldoInicialDe(semillero)
+    },
+    saldoInicial: saldoInicialDe(semillero),
     memberId: member.id
   });
 });
@@ -133,16 +229,75 @@ const unirse = asyncHandler(async (req, res) => {
 const detalle = asyncHandler(async (req, res) => {
   const semillero = req.semillero;
   const esTesorero = req.membership.esTesorero;
+  const esCreador = String(semillero.creadoPor) === String(req.userId);
+  const creadorActivo = esCreador ? true : await creadorSigueActivo(semillero);
   const respuesta = {
     id: semillero.id,
     nombre: semillero.nombre,
     creadoPor: semillero.creadoPor.toString(),
-    esTesorero
+    esTesorero,
+    esCreador,
+    saldoInicial: saldoInicialDe(semillero),
+    puedeAjustarSaldoInicial: puedeAjustarSaldoInicial({
+      creadoPor: semillero.creadoPor,
+      userId: req.userId,
+      esTesorero,
+      creadorActivo
+    })
   };
   if (esTesorero) {
     respuesta.codigo = semillero.codigo;
   }
   res.status(200).json(respuesta);
+});
+
+// PATCH /api/semilleros/me/saldo-inicial  { monto, nota? }
+// Ajuste auditado del dinero con el que arrancó el semillero. No crea aportes.
+const actualizarSaldoInicial = asyncHandler(async (req, res) => {
+  const semillero = req.semillero;
+  const esCreador = String(semillero.creadoPor) === String(req.userId);
+  const creadorActivo = esCreador ? true : await creadorSigueActivo(semillero);
+  if (!puedeAjustarSaldoInicial({
+    creadoPor: semillero.creadoPor,
+    userId: req.userId,
+    esTesorero: Boolean(req.membership.esTesorero),
+    creadorActivo
+  })) {
+    return res.status(403).json({
+      error: 'Solo quien creó el semillero puede ajustar el saldo inicial'
+    });
+  }
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const monto = leerMonto(body.monto, { requerido: true });
+  if (monto.error) return res.status(400).json({ error: monto.error });
+  const nota = leerNota(body.nota !== undefined ? body.nota : body.saldoInicialNota);
+  if (nota.error) return res.status(400).json({ error: nota.error });
+
+  const anterior = saldoInicialDe(semillero).monto;
+  semillero.saldoInicial = {
+    monto: monto.monto,
+    nota: nota.nota,
+    registradoPor: req.userId,
+    actualizadoEn: new Date()
+  };
+  await semillero.save();
+  invalidateBalance(semillero._id);
+
+  await auditar({
+    semilleroId: semillero._id,
+    usuarioId: req.userId,
+    accion: 'semillero.saldo_inicial_ajustado',
+    entidad: 'Semillero',
+    entidadId: semillero._id,
+    detalle: `${anterior} → ${monto.monto}${nota.nota ? ` · ${nota.nota}` : ''}`
+  });
+
+  const balance = await getBalance(semillero._id, { force: true });
+  res.status(200).json({
+    saldoInicial: saldoInicialDe(semillero),
+    ...balance
+  });
 });
 
 // PATCH /api/semillero  { nombre }  (solo tesorero)
@@ -349,6 +504,7 @@ module.exports = {
   crear,
   unirse,
   detalle,
+  actualizarSaldoInicial,
   renombrar,
   rotarCodigo,
   listarCuentas,

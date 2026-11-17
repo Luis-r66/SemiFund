@@ -196,7 +196,7 @@ class ContributionsProvider extends ChangeNotifier {
   }
 
   Future<void> report(Contribution contribution, {String? referencia}) async {
-    await _writes.reportContribution(contribution.id, referencia: referencia);
+    await _writes.addPayment(contribution.id, referencia: referencia);
     await refresh();
   }
 
@@ -209,11 +209,17 @@ class ContributionsProvider extends ChangeNotifier {
     Contribution contribution, {
     double? monto,
     String? referencia,
+    Uint8List? comprobanteBytes,
+    String? comprobanteNombre,
+    String? comprobanteTipo,
   }) async {
     await _writes.addPayment(
       contribution.id,
       monto: monto,
       referencia: referencia,
+      comprobanteBytes: comprobanteBytes,
+      comprobanteNombre: comprobanteNombre,
+      comprobanteTipo: comprobanteTipo,
     );
     await refresh();
   }

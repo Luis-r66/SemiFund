@@ -7,11 +7,13 @@ import '../../core/network/api_exception.dart';
 import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/formatters.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/form_controls.dart';
 
 class CreateSemilleroScreen extends StatefulWidget {
   const CreateSemilleroScreen({super.key});
@@ -22,6 +24,8 @@ class CreateSemilleroScreen extends StatefulWidget {
 
 class _CreateSemilleroScreenState extends State<CreateSemilleroScreen> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _saldoController = TextEditingController();
+  final TextEditingController _notaController = TextEditingController();
   String? _error;
   bool _loading = false;
 
@@ -34,6 +38,8 @@ class _CreateSemilleroScreenState extends State<CreateSemilleroScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _saldoController.dispose();
+    _notaController.dispose();
     super.dispose();
   }
 
@@ -47,9 +53,14 @@ class _CreateSemilleroScreenState extends State<CreateSemilleroScreen> {
       _error = null;
     });
 
+    final double saldoInicial = parseMoney(_saldoController.text);
+    final String nota = _notaController.text.trim();
+
     try {
       await context.read<SessionProvider>().createSemillero(
         _nameController.text.trim(),
+        saldoInicial: saldoInicial > 0 ? saldoInicial : null,
+        saldoInicialNota: nota.isEmpty ? null : nota,
       );
       if (!mounted) return;
       final SessionProvider session = context.read<SessionProvider>();
@@ -90,11 +101,34 @@ class _CreateSemilleroScreenState extends State<CreateSemilleroScreen> {
                         child: AppTextField(
                           controller: _nameController,
                           hintText: 'Ej. Semillero de Desarrollo Móvil',
-                          textInputAction: TextInputAction.done,
+                          textInputAction: TextInputAction.next,
                           textCapitalization: TextCapitalization.sentences,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      LabeledField(
+                        label: 'Saldo inicial (opcional)',
+                        child: MoneyField(controller: _saldoController),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Dinero que el semillero ya tenía. No cuenta como aporte '
+                        'de ningún integrante y puedes ajustarlo después.',
+                        style: AppTextStyles.tiny.copyWith(
+                          color: AppColors.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      LabeledField(
+                        label: 'Nota del saldo inicial (opcional)',
+                        child: AppTextField(
+                          controller: _notaController,
+                          hintText: 'Ej. Saldo en la cuenta de ahorros',
+                          textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _submit(),
                         ),
                       ),
+                      const SizedBox(height: 18),
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(

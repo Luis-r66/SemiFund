@@ -272,8 +272,16 @@ class SessionProvider extends ChangeNotifier {
     ),
   );
 
-  Future<SemilleroDetail> createSemillero(String nombre) async {
-    final SemilleroDetail created = await _semilleroService.create(nombre);
+  Future<SemilleroDetail> createSemillero(
+    String nombre, {
+    double? saldoInicial,
+    String? saldoInicialNota,
+  }) async {
+    final SemilleroDetail created = await _semilleroService.create(
+      nombre,
+      saldoInicial: saldoInicial,
+      saldoInicialNota: saldoInicialNota,
+    );
     await _reloadSemillerosSafely();
 
     final SemilleroMembership? createdMembership = _findBySemilleroId(
@@ -283,6 +291,22 @@ class SessionProvider extends ChangeNotifier {
       await selectSemillero(createdMembership);
     }
     return created;
+  }
+
+  /// Ajusta el saldo inicial del semillero activo (solo creador o tesorero
+  /// actual si el creador ya no está activo). La API lo deja en auditoría.
+  /// Devuelve el saldo disponible resultante.
+  Future<double> ajustarSaldoInicial({
+    required double monto,
+    String? nota,
+  }) async {
+    final double saldoDisponible = await _semilleroService.ajustarSaldoInicial(
+      monto: monto,
+      nota: nota,
+    );
+    await _reloadSemillerosSafely();
+    notifyListeners();
+    return saldoDisponible;
   }
 
   Future<JoinSemilleroResult> joinSemillero(String codigo) async {

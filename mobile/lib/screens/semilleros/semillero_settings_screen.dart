@@ -5,10 +5,13 @@ import 'package:provider/provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/formatters.dart';
 import '../../models/semillero_membership.dart';
+import '../../providers/home_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
+import '../../widgets/form_controls.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
 
@@ -172,6 +175,55 @@ class _SemilleroSettingsScreenState extends State<SemilleroSettingsScreen> {
     }
   }
 
+  Future<void> _ajustarSaldo(SemilleroMembership membership) async {
+    final SessionProvider session = context.read<SessionProvider>();
+    final _SaldoInput? input = await showDialog<_SaldoInput>(
+      context: context,
+      builder: (BuildContext dialogContext) => _SaldoInicialDialog(
+        monto: membership.saldoInicial,
+        nota: membership.saldoInicialNota,
+      ),
+    );
+    if (input == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final double saldoDisponible = await session.ajustarSaldoInicial(
+        monto: input.monto,
+        nota: input.nota,
+      );
+      if (!mounted) return;
+      context.read<HomeProvider>().refresh();
+      if (saldoDisponible < 0) {
+        await showDialog<void>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: const Text('Saldo disponible negativo'),
+            content: Text(
+              'El ajuste deja el saldo disponible en '
+              '${formatCop(saldoDisponible)}. Revisa los gastos o corrige el '
+              'saldo inicial; el cambio ya quedó en auditoría.',
+            ),
+            actions: <Widget>[
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Entendido'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Saldo inicial actualizado.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) _error(error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final SessionProvider session = context.watch<SessionProvider>();
@@ -218,6 +270,53 @@ class _SemilleroSettingsScreenState extends State<SemilleroSettingsScreen> {
                           ],
                         ),
                         const SizedBox(height: 28),
+                        if (membership.puedeAjustarSaldoInicial) ...<Widget>[
+                          const SectionLabel('Saldo inicial'),
+                          Text(
+                            'Dinero que el semillero ya tenía antes de usar la '
+                            'app. No cuenta como aporte de ningún integrante.',
+                            style: AppTextStyles.small.copyWith(
+                              color: AppColors.ink2,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.line),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  formatCop(membership.saldoInicial),
+                                  style: AppTextStyles.h2,
+                                ),
+                                if (membership.saldoInicialNota !=
+                                    null) ...<Widget>[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    membership.saldoInicialNota!,
+                                    style: AppTextStyles.small.copyWith(
+                                      color: AppColors.ink2,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SecondaryButton(
+                            label: 'Ajustar saldo inicial',
+                            onPressed: _busy
+                                ? null
+                                : () => _ajustarSaldo(membership),
+                          ),
+                          const SizedBox(height: 32),
+                        ],
                         const SectionLabel('Membresía'),
                         Text(
                           'Si sales, dejarás de ver los aportes, gastos y el '
@@ -280,5 +379,83 @@ class _SemilleroSettingsScreenState extends State<SemilleroSettingsScreen> {
         ),
       ),
     );
+  }
+}
+
+class _SaldoInput {
+  const _SaldoInput({required this.monto, this.nota});
+
+  final double monto;
+  final String? nota;
+}
+
+class _SaldoInicialDialog extends StatefulWidget {
+  const _SaldoInicialDialog({required this.monto, this.nota});
+
+  final double monto;
+  final String? nota;
+
+  @override
+  State<_SaldoInicialDialog> createState() => _SaldoInicialDialogState();
+}
+
+class _SaldoInicialDialogState extends State<_SaldoInicialDialog> {
+  late final TextEditingController _monto = TextEditingController(
+    text: widget.monto > 0 ? formatThousands(widget.monto) : '',
+  );
+  late final TextEditingController _nota = TextEditingController(
+    text: widget.nota ?? '',
+  );
+
+  @override
+  void dispose() {
+    _monto.dispose();
+    _nota.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Ajustar saldo inicial'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'El valor anterior y el nuevo quedan en auditoría. No crea ni '
+              'modifica aportes de los integrantes.',
+            ),
+            const SizedBox(height: 16),
+            MoneyField(controller: _monto),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nota,
+              decoration: const InputDecoration(
+                labelText: 'Nota (opcional)',
+                hintText: 'Ej. Saldo en la cuenta de ahorros',
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _confirm(),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _confirm, child: const Text('Guardar ajuste')),
+      ],
+    );
+  }
+
+  void _confirm() {
+    final double monto = parseMoney(_monto.text);
+    final String nota = _nota.text.trim();
+    Navigator.of(context)
+        .pop(_SaldoInput(monto: monto, nota: nota.isEmpty ? null : nota));
   }
 }

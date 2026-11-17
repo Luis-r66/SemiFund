@@ -14,6 +14,7 @@ import '../../providers/home_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_update_widgets.dart';
 import '../../widgets/balance_card.dart';
+import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
@@ -180,6 +181,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           index: 1,
                           child: _TotalsCard(balance: snapshot.balance),
                         ),
+                        if (!session.isTesorero) ...<Widget>[
+                          const SizedBox(height: 12),
+                          PrimaryButton(
+                            label: 'Reportar mi aporte',
+                            onPressed: () => _open('/contributions'),
+                          ),
+                        ],
                         const SizedBox(height: 28),
                         StaggeredEntrance(
                           index: 2,
@@ -327,6 +335,12 @@ class _DesktopHome extends StatelessWidget {
                         label: 'Nuevo aporte',
                         filled: true,
                         onPressed: () => onOpen('/contributions/new'),
+                      ),
+                    ] else ...<Widget>[
+                      _HeaderAction(
+                        label: 'Reportar mi aporte',
+                        filled: true,
+                        onPressed: () => onOpen('/contributions'),
                       ),
                     ],
                   ],
@@ -576,6 +590,27 @@ class _TotalsCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          if (balance.saldoInicial > 0) ...<Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Saldo inicial',
+                    style: AppTextStyles.tiny.copyWith(color: AppColors.ink3),
+                  ),
+                ),
+                Text(
+                  formatCop(balance.saldoInicial),
+                  style: AppTextStyles.moneyTiny.copyWith(
+                    color: AppColors.ink2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: AppColors.line),
+            const SizedBox(height: 10),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[

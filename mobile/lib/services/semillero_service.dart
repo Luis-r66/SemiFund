@@ -21,13 +21,37 @@ class SemilleroService {
     return SemilleroDetail.fromJson(data);
   }
 
-  Future<SemilleroDetail> create(String nombre) async {
+  Future<SemilleroDetail> create(
+    String nombre, {
+    double? saldoInicial,
+    String? saldoInicialNota,
+  }) async {
     final dynamic data = await _api.post(
       '/semilleros',
-      data: CreateSemilleroRequest(nombre: nombre).toJson(),
+      data: CreateSemilleroRequest(
+        nombre: nombre,
+        saldoInicial: saldoInicial,
+        saldoInicialNota: saldoInicialNota,
+      ).toJson(),
     );
     final Map<String, dynamic> map = asMap(data);
     return SemilleroDetail.fromJson(map['semillero']);
+  }
+
+  /// Ajuste auditado del saldo inicial del semillero activo.
+  /// Devuelve el saldo disponible resultante (puede quedar negativo).
+  Future<double> ajustarSaldoInicial({
+    required double monto,
+    String? nota,
+  }) async {
+    final dynamic data = await _api.patch(
+      '/semilleros/me/saldo-inicial',
+      data: <String, dynamic>{
+        'monto': monto,
+        if (nota != null && nota.trim().isNotEmpty) 'nota': nota.trim(),
+      },
+    );
+    return asDouble(asMap(data)['saldoDisponible']);
   }
 
   Future<JoinSemilleroResult> join(String codigo) async {

@@ -13,6 +13,7 @@ const {
   montoPagadoDe,
   saldoPendiente,
   abonoReportado,
+  errorComprobante,
   sincronizarEstado,
   agregarAbono,
   aprobarAbono,
@@ -25,6 +26,13 @@ const STATUS_MAP = {
   paid: 'pagado',
   overdue: 'vencido',
   reported: 'reportado'
+};
+
+const TIPOS_COMPROBANTE = {
+  'image/jpeg': { tipo: 'imagen', resourceType: 'image' },
+  'image/png': { tipo: 'imagen', resourceType: 'image' },
+  'image/webp': { tipo: 'imagen', resourceType: 'image' },
+  'application/pdf': { tipo: 'pdf', resourceType: 'raw' }
 };
 
 // Nombres de los integrantes de la página consultada. Evita que el cliente
@@ -70,6 +78,8 @@ const list = asyncHandler(async (req, res) => {
   const paginacion = parsePagination(req.query);
   if (paginacion.error) return res.status(400).json({ error: paginacion.error });
 
+  const esTesorero = Boolean(req.membership.esTesorero);
+  const memberId = miMemberId(req);
   const filter = { semilleroId: req.semilleroId };
   if (req.query.status) {
     const estado = STATUS_MAP[req.query.status];
@@ -80,17 +90,26 @@ const list = asyncHandler(async (req, res) => {
     }
     filter.estado = estado;
   }
-  if (req.query.memberId) {
-    if (!mongoose.Types.ObjectId.isValid(req.query.memberId)) {
-      return res.status(400).json({ error: 'memberId no es válido' });
+  if (esTesorero) {
+    if (req.query.memberId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.memberId)) {
+        return res.status(400).json({ error: 'memberId no es válido' });
+      }
+      filter.integranteId = req.query.memberId;
     }
-    filter.integranteId = req.query.memberId;
+  } else {
+    // El integrante solo ve sus propias cuotas: el filtro va en el servidor,
+    // no solo en la app. Sin integrante vinculado no hay nada que mostrar.
+    if (!memberId) {
+      if (!paginacion.paginated) return res.status(200).json([]);
+      return res.status(200).json(paginatedBody([], 0, paginacion.page, paginacion.limit));
+    }
+    filter.integranteId = memberId;
   }
 
   const consulta = Contribution.find(filter).sort({ _id: -1 });
   if (!paginacion.paginated) {
     const items = await consulta;
-    const memberId = miMemberId(req);
     return res.status(200).json(
       items.map((item) => {
         const data = item.toJSON();
@@ -108,7 +127,6 @@ const list = asyncHandler(async (req, res) => {
     req.semilleroId,
     [...new Set(docs.map((item) => String(item.integranteId)))]
   );
-  const memberId = miMemberId(req);
   const items = docs.map((item) => {
     const data = item.toJSON();
     data.esPropio = Boolean(memberId) && item.integranteId.toString() === memberId;
@@ -249,9 +267,9 @@ const bulkCreate = asyncHandler(async (req, res) => {
   res.status(201).json({ creadas, omitidas });
 });
 
-// POST /api/contributions/:id/payments  { monto?, referencia? }
-// Integrante: registra un abono reportado (espera revisión del tesorero).
-// Tesorero: registra un abono ya aprobado (dinero recibido en efectivo o consignado).
+// POST /api/contributions/:id/payments  (multipart: monto?, referencia?, comprobante?)
+// Integrante: registra un abono reportado y DEBE adjuntar comprobante en el mismo envío.
+// Tesorero: registra un abono ya aprobado (dinero recibido); el comprobante es opcional.
 // Sin monto se usa el saldo pendiente completo.
 const addPayment = asyncHandler(async (req, res) => {
   const item = await Contribution.findOne({
@@ -278,7 +296,11 @@ const addPayment = asyncHandler(async (req, res) => {
   }
 
   const body = cuerpo(req);
-  const monto = body.monto === undefined ? saldo : body.monto;
+  const montoCrudo = body.monto;
+  const monto =
+    montoCrudo === undefined || montoCrudo === null || montoCrudo === ''
+      ? saldo
+      : Number(montoCrudo);
   const errorMonto = validarMonto(monto, saldo);
   if (errorMonto) {
     return res.status(400).json({ error: errorMonto });
@@ -288,10 +310,71 @@ const addPayment = asyncHandler(async (req, res) => {
   }
   const referencia = typeof body.referencia === 'string' ? body.referencia.trim() || null : null;
 
+  // El comprobante se valida y se sube antes de guardar el abono: si algo
+  // falla, no queda un pago reportado sin respaldo.
+  let formato = null;
+  if (req.file) {
+    if (!req.file.buffer || req.file.buffer.length === 0) {
+      return res.status(400).json({ error: 'El archivo del comprobante está vacío' });
+    }
+    formato = TIPOS_COMPROBANTE[req.file.mimetype];
+    if (!formato) {
+      return res.status(415).json({
+        error: 'El comprobante debe ser una imagen JPG, PNG, WebP o un PDF'
+      });
+    }
+    if (!estaConfigurado()) {
+      return res.status(503).json({ error: 'El almacenamiento de comprobantes no está configurado' });
+    }
+  } else {
+    const faltaComprobante = errorComprobante({ esTesorero, tieneArchivo: false });
+    if (faltaComprobante) {
+      return res.status(400).json({ error: faltaComprobante });
+    }
+  }
+
   const now = new Date();
-  agregarAbono(item, { monto, referencia, usuarioId: req.userId, aprobado: esTesorero, now });
+  const abono = agregarAbono(item, {
+    monto,
+    referencia,
+    usuarioId: req.userId,
+    aprobado: esTesorero,
+    now
+  });
+
+  if (req.file) {
+    let subido;
+    try {
+      subido = await subirComprobante(req.file.buffer, {
+        publicId: `${item._id}_${abono._id}_${Date.now()}`,
+        resourceType: formato.resourceType
+      });
+    } catch (error) {
+      return res.status(error.status || 502).json({ error: error.message });
+    }
+    abono.comprobante = {
+      url: subido.url,
+      publicId: subido.publicId,
+      tipo: formato.tipo,
+      nombre: req.file.originalname ? req.file.originalname.slice(0, 160) : null,
+      bytes: subido.bytes || req.file.size || null,
+      subidoPor: req.userId,
+      subidoEn: now
+    };
+  }
+
   sincronizarEstado(item, now);
-  await item.save();
+  try {
+    await item.save();
+  } catch (error) {
+    if (abono.comprobante && abono.comprobante.publicId) {
+      await borrarComprobante(
+        abono.comprobante.publicId,
+        abono.comprobante.tipo === 'pdf' ? 'raw' : 'image'
+      );
+    }
+    throw error;
+  }
   invalidateBalance(req.semilleroId);
   await auditar(req, item, esTesorero ? 'aporte.abono_registrado' : 'aporte.abono_reportado', `${monto}`);
   if (!esTesorero) {
@@ -435,65 +518,6 @@ const voidPayment = asyncHandler(async (req, res) => {
   res.status(200).json(item);
 });
 
-const report = asyncHandler(async (req, res) => {
-  const memberId = miMemberId(req);
-  if (!memberId) {
-    return res.status(403).json({
-      error: 'Tu cuenta no está vinculada a un integrante de este semillero'
-    });
-  }
-
-  const item = await Contribution.findOne({
-    _id: req.params.id,
-    semilleroId: req.semilleroId
-  });
-  if (!item) {
-    return res.status(404).json({ error: 'Aporte no encontrado' });
-  }
-  if (item.integranteId.toString() !== memberId) {
-    return res.status(403).json({ error: 'Solo puedes reportar tus propios aportes' });
-  }
-  if (item.estado === 'pagado' || saldoPendiente(item) === 0) {
-    return res.status(409).json({ error: 'El aporte ya fue pagado' });
-  }
-  if (item.estado === 'reportado' || abonoReportado(item)) {
-    return res.status(409).json({ error: 'El aporte ya fue reportado' });
-  }
-
-  const body = cuerpo(req);
-  const { referencia } = body;
-  if (referencia !== undefined && typeof referencia !== 'string') {
-    return res.status(400).json({ error: 'La referencia debe ser texto' });
-  }
-
-  const now = new Date();
-  const montoReportado = saldoPendiente(item);
-  agregarAbono(item, {
-    monto: montoReportado,
-    referencia: typeof referencia === 'string' ? referencia.trim() || null : null,
-    usuarioId: req.userId,
-    aprobado: false,
-    now
-  });
-  sincronizarEstado(item, now);
-  await item.save();
-  invalidateBalance(req.semilleroId);
-  await auditar(req, item, 'aporte.reportado');
-  const cuenta = await cuentaDeIntegrante(item.integranteId, req.semilleroId);
-  const tesoreros = await tesorerosDe(req.semilleroId, { excluirUserId: req.userId });
-  await notificar({
-    semilleroId: req.semilleroId,
-    destinatarios: tesoreros,
-    tipo: 'abono_reportado',
-    titulo: 'Pago reportado',
-    mensaje: `${cuenta ? cuenta.nombre : 'Un integrante'} reportó ${dinero(montoReportado)} para la cuota de ${mesLegible(item.mes)}.`,
-    contributionId: item._id,
-    memberId: item.integranteId,
-    actorNombre: cuenta ? cuenta.nombre : null
-  });
-  res.status(200).json(item);
-});
-
 // PATCH /api/contributions/:id/pay  (tesorero: cobra el saldo completo)
 const pay = asyncHandler(async (req, res) => {
   const item = await Contribution.findOne({
@@ -560,13 +584,6 @@ const reject = asyncHandler(async (req, res) => {
 
 // POST /api/contributions/:id/payments/:abonoId/comprobante
 // Recibe un archivo (imagen o PDF) y lo sube a Cloudinary desde el backend.
-const TIPOS_COMPROBANTE = {
-  'image/jpeg': { tipo: 'imagen', resourceType: 'image' },
-  'image/png': { tipo: 'imagen', resourceType: 'image' },
-  'image/webp': { tipo: 'imagen', resourceType: 'image' },
-  'application/pdf': { tipo: 'pdf', resourceType: 'raw' }
-};
-
 const attachReceipt = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.abonoId)) {
     return res.status(400).json({ error: 'El id del abono no es válido' });
@@ -643,7 +660,6 @@ module.exports = {
   list,
   create,
   bulkCreate,
-  report,
   pay,
   reject,
   addPayment,

@@ -70,15 +70,18 @@ class ApiClient {
     return _execute(() => _dio.put<dynamic>(path, data: data));
   }
 
-  /// Sube un archivo como multipart (comprobantes de abonos).
+  /// Sube un archivo como multipart (comprobantes de abonos), con campos
+  /// adicionales como monto o referencia.
   Future<dynamic> postMultipart(
     String path, {
     required Uint8List bytes,
     required String filename,
     required String contentType,
     String field = 'comprobante',
+    Map<String, dynamic> fields = const <String, dynamic>{},
   }) {
     final FormData data = FormData.fromMap(<String, dynamic>{
+      ...fields,
       field: MultipartFile.fromBytes(
         bytes,
         filename: filename,

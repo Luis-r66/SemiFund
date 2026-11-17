@@ -133,8 +133,33 @@ const movimientos = asyncHandler(async (req, res) => {
 
   rows.sort((a, b) => new Date(a.orden).getTime() - new Date(b.orden).getTime());
 
+  const saldoInicial = req.semillero.saldoInicial && Number.isFinite(Number(req.semillero.saldoInicial.monto))
+    ? Number(req.semillero.saldoInicial.monto)
+    : 0;
+
   const lines = [
     HEADERS.map(cell).join(','),
+    ...(saldoInicial > 0
+      ? [[
+          'saldo_inicial',
+          req.semillero.codigo,
+          req.semillero.nombre,
+          '',
+          fecha(req.semillero.createdAt),
+          '',
+          '',
+          '',
+          '',
+          '',
+          'Saldo inicial del semillero',
+          '',
+          dinero(saldoInicial),
+          'COP',
+          '',
+          '',
+          ''
+        ].map(cell).join(',')]
+      : []),
     ...rows.map((row) => row.values.map(cell).join(','))
   ];
   const csv = `\uFEFF${lines.join('\r\n')}\r\n`;
@@ -222,6 +247,7 @@ const libro = asyncHandler(async (req, res) => {
     { header: 'Concepto', key: 'concepto', width: 24 },
     { header: 'Valor', key: 'valor', width: 16 }
   ];
+  resumen.addRow({ concepto: 'Saldo inicial', valor: balance.saldoInicial });
   resumen.addRow({ concepto: 'Total aportado', valor: balance.totalAportado });
   resumen.addRow({ concepto: 'Total gastado', valor: balance.totalGastado });
   resumen.addRow({ concepto: 'Saldo disponible', valor: balance.saldoDisponible });

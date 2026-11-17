@@ -7,7 +7,8 @@ const {
   agregarAbono,
   aprobarAbono,
   rechazarAbono,
-  anularAbono
+  anularAbono,
+  errorComprobante
 } = require('../utils/payments');
 
 const TESORERO = 'tesorero';
@@ -121,4 +122,17 @@ test('aportes antiguos sin montoPagado: no pagados cuentan en cero', () => {
 test('no sobrepasa la cuota aunque se recalcule', () => {
   const c = cuota();
   assert.equal(saldoPendiente({ ...c, montoPagado: 40000 }), 0);
+});
+
+test('el integrante no puede reportar sin comprobante', () => {
+  assert.equal(
+    errorComprobante({ esTesorero: false, tieneArchivo: false }),
+    'Adjunta el comprobante del abono'
+  );
+  assert.equal(errorComprobante({ esTesorero: false, tieneArchivo: true }), null);
+});
+
+test('el tesorero puede registrar efectivo sin comprobante', () => {
+  assert.equal(errorComprobante({ esTesorero: true, tieneArchivo: false }), null);
+  assert.equal(errorComprobante({ esTesorero: true, tieneArchivo: true }), null);
 });

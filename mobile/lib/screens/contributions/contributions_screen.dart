@@ -49,6 +49,23 @@ enum _Tab { todos, pendiente, vencido, reportado }
 /// El backend rechaza archivos de más de 8 MB; validarlo aquí da un aviso claro.
 const int _maxArchivoImportacion = 8 * 1024 * 1024;
 
+/// Tipo MIME aceptado para el comprobante, según la extensión del archivo.
+String? _comprobanteContentType(String filename) {
+  final String ext = filename.split('.').last.toLowerCase();
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'pdf':
+      return 'application/pdf';
+  }
+  return null;
+}
+
 class _ContributionsScreenState extends State<ContributionsScreen> {
   _Tab _tab = _Tab.todos;
   bool _exporting = false;
@@ -133,22 +150,26 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
   Future<void> _reportAbono(Contribution contribution) async {
     final ContributionsProvider provider = context
         .read<ContributionsProvider>();
-    final _InputResult? result = await _ask(
-      _InputDialog(
-        title: 'Reportar pago',
-        description: 'Puedes reportar el total o una parte. El tesorero revisará el reporte antes de aprobarlo.',
-        confirmLabel: 'Reportar',
-        saldo: contribution.saldoPendiente,
-        fieldLabel: 'Referencia (opcional)',
-        fieldHint: 'Número de transacción',
-      ),
+    final _ReportResult? result = await showDialog<_ReportResult>(
+      context: context,
+      builder: (BuildContext dialogContext) =>
+          _ReportDialog(saldo: contribution.saldoPendiente),
     );
     if (result == null) return;
     await _guard(
       () => provider.addPayment(
         contribution,
         monto: result.monto,
-        referencia: result.texto,
+        referencia: result.referencia,
+        comprobanteBytes: result.bytes,
+        comprobanteNombre: result.filename,
+        comprobanteTipo: result.contentType,
+      ),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Reporte enviado. La tesorería lo revisará.'),
       ),
     );
   }
@@ -810,6 +831,261 @@ class _InputDialogState extends State<_InputDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton(onPressed: _confirm, child: Text(widget.confirmLabel)),
+      ],
+    );
+  }
+}
+
+class _ReportResult {
+  const _ReportResult({
+    required this.monto,
+    required this.referencia,
+    required this.bytes,
+    required this.filename,
+    required this.contentType,
+  });
+
+  final double monto;
+  final String? referencia;
+  final Uint8List bytes;
+  final String filename;
+  final String contentType;
+}
+
+class _ReportDialog extends StatefulWidget {
+  const _ReportDialog({required this.saldo});
+
+  final double saldo;
+
+  @override
+  State<_ReportDialog> createState() => _ReportDialogState();
+}
+
+class _ReportDialogState extends State<_ReportDialog> {
+  late final TextEditingController _amount = TextEditingController(
+    text: formatThousands(widget.saldo),
+  );
+  final TextEditingController _reference = TextEditingController();
+  PlatformFile? _file;
+  Uint8List? _bytes;
+  String? _contentType;
+  String? _error;
+  bool _reading = false;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _reference.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick() async {
+    if (_reading) return;
+    final PlatformFile? file = await FilePicker.pickFile(
+      dialogTitle: 'Elige el comprobante',
+      type: FileType.custom,
+      allowedExtensions: <String>['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+    );
+    if (file == null || !mounted) return;
+
+    final String? contentType = _comprobanteContentType(file.name);
+    if (contentType == null) {
+      setState(() => _error = 'El comprobante debe ser JPG, PNG, WebP o PDF.');
+      return;
+    }
+
+    setState(() => _reading = true);
+    try {
+      final Uint8List bytes = await file.readAsBytes();
+      if (!mounted) return;
+      if (bytes.isEmpty) {
+        setState(() => _error = 'El archivo está vacío.');
+        return;
+      }
+      if (bytes.length > AppConfig.maxComprobanteBytes) {
+        setState(() => _error = 'El comprobante supera el límite de 5 MB.');
+        return;
+      }
+      setState(() {
+        _file = file;
+        _bytes = bytes;
+        _contentType = contentType;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'No se pudo leer el archivo seleccionado.');
+      }
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+  }
+
+  String get _sizeLabel {
+    final int bytes = _bytes?.length ?? 0;
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / 1024).ceil()} KB';
+  }
+
+  void _confirm() {
+    final double monto = parseMoney(_amount.text);
+    if (monto <= 0) {
+      setState(() => _error = 'Ingresa un monto mayor a 0.');
+      return;
+    }
+    if (monto > widget.saldo) {
+      setState(
+        () => _error =
+            'No puede superar el saldo pendiente (${formatCop(widget.saldo)}).',
+      );
+      return;
+    }
+    if (_bytes == null || _file == null || _contentType == null) {
+      setState(() => _error = 'Adjunta el comprobante del abono.');
+      return;
+    }
+    final String referencia = _reference.text.trim();
+    Navigator.of(context).pop(
+      _ReportResult(
+        monto: monto,
+        referencia: referencia.isEmpty ? null : referencia,
+        bytes: _bytes!,
+        filename: _file!.name,
+        contentType: _contentType!,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isImage = (_contentType ?? '').startsWith('image/');
+    return AlertDialog(
+      title: const Text('Reportar pago'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Puedes reportar el total o una parte. El tesorero revisará el '
+              'reporte antes de aprobarlo.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _amount,
+              keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+                ThousandsInputFormatter(),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Monto (COP)',
+                prefixText: '\$ ',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reference,
+              decoration: const InputDecoration(
+                labelText: 'Referencia (opcional)',
+                hintText: 'Número de transacción',
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Comprobante obligatorio', style: AppTextStyles.smallSemibold),
+            const SizedBox(height: 4),
+            Text(
+              'JPG, PNG, WebP o PDF · máximo 5 MB',
+              style: AppTextStyles.tiny.copyWith(color: AppColors.ink3),
+            ),
+            const SizedBox(height: 10),
+            if (_bytes == null)
+              OutlinedButton.icon(
+                onPressed: _reading ? null : _pick,
+                icon: const Icon(LucideIcons.upload, size: 18),
+                label: Text(_reading ? 'Leyendo…' : 'Adjuntar comprobante'),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.line),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (isImage)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(
+                          _bytes!,
+                          height: 120,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    else
+                      const Icon(
+                        LucideIcons.fileText,
+                        size: 32,
+                        color: AppColors.ink2,
+                      ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _file?.name ?? 'Comprobante',
+                      style: AppTextStyles.small,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _sizeLabel,
+                      style: AppTextStyles.tiny.copyWith(color: AppColors.ink3),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        children: <Widget>[
+                          TextButton(
+                            onPressed: _reading ? null : _pick,
+                            child: const Text('Cambiar'),
+                          ),
+                          TextButton(
+                            onPressed: () => setState(() {
+                              _file = null;
+                              _bytes = null;
+                              _contentType = null;
+                            }),
+                            child: const Text('Quitar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: AppTextStyles.small.copyWith(color: AppColors.bad),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _reading ? null : _confirm,
+          child: const Text('Reportar'),
+        ),
       ],
     );
   }

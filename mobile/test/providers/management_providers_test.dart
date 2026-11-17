@@ -337,19 +337,14 @@ void main() {
     });
 
     test('reportar y rechazar llaman al endpoint y recargan', () async {
-      when(
-        () => writes.reportContribution(
-          any(),
-          referencia: any(named: 'referencia'),
-        ),
-      ).thenAnswer((_) async => pendingItem);
+      when(() => writes.addPayment(any(), referencia: any(named: 'referencia')))
+          .thenAnswer((_) async => pendingItem);
       when(() => writes.rejectContribution(any(), motivo: any(named: 'motivo')))
           .thenAnswer((_) async => pendingItem);
       await provider.load();
       await provider.report(pendingItem, referencia: 'TRX-1');
       await provider.reject(pendingItem, motivo: 'Revisar');
-      verify(() => writes.reportContribution('c1', referencia: 'TRX-1'))
-          .called(1);
+      verify(() => writes.addPayment('c1', referencia: 'TRX-1')).called(1);
       verify(() => writes.rejectContribution('c1', motivo: 'Revisar'))
           .called(1);
     });

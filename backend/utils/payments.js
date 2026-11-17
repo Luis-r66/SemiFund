@@ -27,6 +27,13 @@ function abonoReportado(contribucion) {
   return (contribucion.abonos || []).find((abono) => abono.estado === 'reportado') || null;
 }
 
+// El integrante siempre adjunta el comprobante en el mismo envío; el tesorero
+// puede registrar efectivo o consignación sin soporte y adjuntarlo después.
+function errorComprobante({ esTesorero = false, tieneArchivo = false } = {}) {
+  if (esTesorero || tieneArchivo) return null;
+  return 'Adjunta el comprobante del abono';
+}
+
 function estadoEsperado(contribucion, now = new Date()) {
   if (saldoPendiente(contribucion) === 0) return 'pagado';
   if (abonoReportado(contribucion)) return 'reportado';
@@ -111,6 +118,7 @@ module.exports = {
   saldoPendiente,
   estadoCobro,
   abonoReportado,
+  errorComprobante,
   estadoEsperado,
   sincronizarEstado,
   agregarAbono,

@@ -1,6 +1,7 @@
 # API Contract — Tesorería Semillero de Software
 
-> Fuente de verdad para la app Android. Todo es JSON.
+> Versión 1.5.0. Fuente de verdad para la app Android. Todo es JSON salvo los
+> endpoints `multipart` de comprobantes.
 > Base URL: `http://<HOST>:<PUERTO>/api` — local `http://10.0.2.2:3000/api` (emulador) o `http://<IP-LAN>:3000/api` (físico).
 
 ## 1. Modelos
@@ -50,6 +51,7 @@
 `estado`: `pendiente|pagado|vencido|reportado`. `mes`: `YYYY-MM`. `monto` > 0. `concepto`: requerido, no vacío.
 Campos nuevos: `referencia`, `fechaReporte`, `reportadoPor`, `fechaRevision`, `revisadoPor`, `motivoRechazo`.
 La respuesta de `GET /api/contributions` agrega `esPropio` para indicar si el aporte pertenece al integrante de la sesión.
+El **integrante solo recibe sus propias cuotas**: el filtro se aplica en el servidor. El tesorero puede filtrar con `memberId`.
 
 ### Expense
 
@@ -66,10 +68,17 @@ La respuesta de `GET /api/contributions` agrega `esPropio` para indicar si el ap
 ### Balance
 
 ```json
-{ "totalAportado": 350000, "totalGastado": 120000, "saldoDisponible": 230000 }
+{
+  "saldoInicial": 200000,
+  "totalAportado": 350000,
+  "totalGastado": 120000,
+  "saldoDisponible": 430000
+}
 ```
 
-Calculado en vivo, no almacenado. Error: `{ "error": "mensaje" }`.
+Calculado en vivo, no almacenado: `saldoDisponible = saldoInicial + totalAportado − totalGastado`.
+`saldoInicial` es dinero que el semillero ya tenía y **no** es aporte de ningún integrante.
+Los semilleros anteriores a la 1.5.0 lo devuelven en `0`. Error: `{ "error": "mensaje" }`.
 
 ## 2. Endpoints
 
@@ -104,22 +113,39 @@ Editar (parcial):
 GET   /api/contributions
 GET   /api/contributions?status=pending&memberId=
 POST  /api/contributions            -> 201 | 400 | 409 aporte duplicado
-PATCH /api/contributions/:id/report -> 200 | 403 | 404 | 409
 PATCH /api/contributions/:id/pay    -> 200 | 404 | 409
 PATCH /api/contributions/:id/reject -> 200 | 404 | 409
+POST  /api/contributions/:id/payments -> 201 abono | 400 | 403 | 404 | 409 | 413 | 415 | 503
+PATCH /api/contributions/:id/payments/:abonoId/approve -> 200 | 404 | 409
+PATCH /api/contributions/:id/payments/:abonoId/reject  -> 200 | 404 | 409
+PATCH /api/contributions/:id/payments/:abonoId/void    -> 200 | 404 | 409
+POST  /api/contributions/:id/payments/:abonoId/comprobante -> 200 | 400 | 403 | 404 | 409 | 413 | 415 | 503
 ```
 
 `status`: `pending|paid|overdue|reported` (= `pendiente|pagado|vencido|reportado`).
 
-- `report`: solo el integrante dueño del aporte. Pasa el estado a `reportado` y guarda `referencia` opcional.
 - `pay`: solo tesorero. Acepta pendiente, vencido o reportado; guarda `fechaPago`, `fechaRevision` y `revisadoPor`.
-- `reject`: solo tesorero y solo sobre un aporte `reportado`; lo devuelve a `pendiente` y guarda `motivoRechazo`.
+- `reject`: solo tesorero y solo sobre un aporte `reportado`; lo devuelve a `pendiente` y guarda `motivoRechazo`. Se conserva para datos anteriores.
+- `payments`: el integrante reporta un abono propio y **debe enviar comprobante en el mismo multipart**. El tesorero registra dinero recibido y puede omitir el comprobante.
+- `approve` / `reject` / `void`: solo tesorero. Un rechazo exige motivo en la app y devuelve la cuota a su estado anterior.
 
 Crear:
 
 ```json
 { "integranteId": "uuid", "monto": 50000, "mes": "2026-09", "concepto": "Cuota mensual" }
 ```
+
+Reportar abono (multipart `multipart/form-data`):
+
+```
+monto=25000              # opcional; sin monto usa el saldo pendiente
+referencia=TRX-123       # opcional
+comprobante=@pago.png    # obligatorio para el integrante
+```
+
+Reglas del comprobante: JPG, PNG, WebP o PDF; máximo 5 MB; un archivo.
+Sin comprobante el integrante recibe `400 {"error":"Adjunta el comprobante del abono"}` y **no** se crea el abono.
+Si Cloudinary no está configurado, `503`; si el tipo no es válido, `415`. En ambos casos tampoco se guarda el abono.
 
 Pagar: `PATCH` sin body → `estado: "pagado"` + `fechaPago`. Repetir → `409 {"error":"El aporte ya fue pagado"}`.
 
@@ -140,7 +166,7 @@ Crear:
 ### Balance
 
 ```
-GET /api/balance -> 200 { totalAportado, totalGastado, saldoDisponible }
+GET /api/balance -> 200 { saldoInicial, totalAportado, totalGastado, saldoDisponible }
 ```
 
 ### Avisos y resumen
@@ -205,19 +231,21 @@ Recuperación:
 ### Semilleros (hub — requieren Authorization, no `X-Semillero-Id`)
 
 ```
-GET    /api/semilleros                          -> 200 [ { semilleroId, semilleroNombre, semilleroCodigo (solo tesorero), esTesorero, esCreador, estado, miembros } ]
-POST   /api/semilleros  { nombre }              -> 201 { semillero, memberId } | 400
+GET    /api/semilleros                          -> 200 [ { semilleroId, semilleroNombre, semilleroCodigo (solo tesorero), esTesorero, esCreador, estado, miembros, saldoInicial, saldoInicialNota, puedeAjustarSaldoInicial } ]
+POST   /api/semilleros  { nombre, saldoInicial?, saldoInicialNota? } -> 201 { semillero: { id, nombre, codigo, saldoInicial }, saldoInicial, memberId } | 400
 POST   /api/semilleros/join  { codigo }         -> 201 { semilleroId, semilleroNombre, estado } | 404 | 409
 ```
 
 El creador queda como **tesorero automático** y se crea su `Member` vinculado con los datos académicos de su cuenta. El código de invitación tiene 8 caracteres alfanuméricos, es permanente y rotable; solo el tesorero lo ve.
 La creación del semillero, su integrante inicial y su membresía se revierte si falla una etapa.
 Las membresías cuyo semillero ya no existe o fue eliminado se omiten de las respuestas de listado y perfil. `esCreador` indica si la cuenta creó el semillero activo.
+`saldoInicial` es opcional, mayor o igual a cero y **no crea aportes**. `puedeAjustarSaldoInicial` indica si la cuenta puede corregirlo.
 
 ### Semillero activo (requieren Authorization + encabezado `X-Semillero-Id`)
 
 ```
-GET    /api/semilleros/me                                            -> 200 { id, nombre, creadoPor, esTesorero, codigo? }
+GET    /api/semilleros/me                                            -> 200 { id, nombre, creadoPor, esTesorero, esCreador, saldoInicial: { monto, nota, registradoPor, actualizadoEn }, puedeAjustarSaldoInicial, codigo? }
+PATCH  /api/semilleros/me/saldo-inicial  { monto, nota? }            -> 200 { saldoInicial, totalAportado, totalGastado, saldoDisponible } | 400 | 403
 PATCH  /api/semilleros/me  { nombre }                                -> 200 | 400 (solo tesorero)
 POST   /api/semilleros/me/code/rotate                                -> 200 { codigo } (solo tesorero)
 GET    /api/semilleros/me/accounts                                   -> 200 [ { id, usuario, integrante, esTesorero, estado, fechaSolicitud } ]
@@ -227,6 +255,13 @@ DELETE /api/semilleros/me  { confirmacion }                         -> 200 { ok,
 ```
 
 `estado` de una membresía: `pendiente | activo | rechazado | inactivo`. Al aprobar (`estado: 'activo'`) se crea/vincula el `Member` con los datos académicos de la cuenta de forma idempotente. Nunca se puede quedar el semillero sin al menos un tesorero activo (409).
+
+Saldo inicial:
+
+- `GET /semilleros/me` devuelve `saldoInicial.monto`, `saldoInicial.nota`, quién lo registró y cuándo. Los semilleros anteriores a la 1.5.0 responden `{ monto: 0 }` sin reescribir el documento.
+- `PATCH /semilleros/me/saldo-inicial` acepta `monto >= 0` y una nota de hasta 300 caracteres. Recalcula el saldo y devuelve también `totalAportado`, `totalGastado` y `saldoDisponible`.
+- Puede ajustarlo quien creó el semillero. Si el creador ya no tiene membresía activa, puede hacerlo el tesorero actual. En cualquier otro caso `403`.
+- Cada ajuste guarda en auditoría el monto anterior, el nuevo, el usuario y la nota. No crea ni modifica aportes de los integrantes.
 
 Salir y eliminar:
 - `POST /me/leave` marca la membresía como `inactivo` y desactiva su `Member`. Cualquier integrante activo puede salir; el último tesorero activo recibe `409` y debe transferir la tesorería antes.
@@ -239,18 +274,19 @@ Salir y eliminar:
 
 - `User`: cuenta de acceso (id, nombre, nombres, apellidos, email, tipoUsuario, programa, semestre, passwordHash, tokenVersion).
 - `Membership`: vincula un `User` con un `Semillero` (`userId`, `semilleroId`, `esTesorero`, `estado`, `memberId?`). Un usuario solo puede tener una membresía por semillero.
-- `Semillero`: conserva `creadoPor`, `activo`, `eliminadoEn` y `eliminadoPor` para el borrado lógico y la auditoría.
+- `Semillero`: conserva `creadoPor`, `saldoInicial` (`monto`, `nota`, `registradoPor`, `actualizadoEn`), `activo`, `eliminadoEn` y `eliminadoPor` para el borrado lógico y la auditoría.
 - `Member`: integrante que aporta (`userId?`, `nombre`, `nombres`, `apellidos`, `tipoUsuario`, `programa`, `semestre`, `activo`, `semilleroId`). Si está vinculado a una cuenta, el perfil académico se sincroniza desde `User` al crear el semillero, aprobar la solicitud o actualizar `/api/auth/me`. El tesorero no puede editar los datos académicos de un integrante vinculado.
-- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar. El integrante puede reportar sus propios aportes.
+- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear/editar/pagar/desactivar. El integrante solo ve y reporta sus propias cuotas, con comprobante obligatorio.
 
 ## 3. Reglas (backend manda)
 
-1. Gasto > saldo → `409 Saldo insuficiente`.
+1. Gasto > `saldoDisponible` → `409 Saldo insuficiente`. El disponible incluye el saldo inicial.
 2. Aporte: `pendiente→reportado→pagado`, `vencido→reportado→pagado`, `pendiente→pagado`, `pendiente→vencido`, `vencido→pagado`; desde `pagado` nada → `409`. Un rechazo devuelve el aporte a `pendiente`.
-3. Un integrante no puede reportar el aporte de otro (`403`). El tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
-4. `DELETE /members/:id` no borra, pone `activo:false`.
-5. Reactivar un integrante: `PUT /members/:id` con `{ "activo": true }`.
-6. Aporte `pendiente` con `mes` anterior al actual se actualiza a `vencido` al consultar.
+3. Un integrante solo ve sus cuotas y no puede reportar el aporte de otro (`403`). El tesorero no puede crear dos aportes del mismo integrante y mes (`409`).
+4. Reportar un abono exige comprobante en el mismo multipart; sin archivo → `400` y no se crea el abono. Si Cloudinary falla (`503`) o el tipo no es válido (`415`), tampoco se guarda. El tesorero puede registrar efectivo sin comprobante.
+5. El saldo inicial no es un aporte ni genera cuotas: se ajusta aparte, siempre auditado, y puede dejar el disponible en negativo (la app lo advierte en rojo).
+6. `DELETE /members/:id` no borra, pone `activo:false`. Reactivar: `PUT /members/:id` con `{ "activo": true }`.
+7. Aporte `pendiente` con `mes` anterior al actual se actualiza a `vencido` al consultar.
 
 ## 4. Códigos
 
@@ -302,6 +338,15 @@ interface SemilleroApi {
 
     @GET("balance")
     suspend fun getBalance(): Balance
+
+    @Multipart
+    @POST("contributions/{id}/payments")
+    suspend fun reportPayment(
+        @Path("id") id: String,
+        @Part("monto") monto: RequestBody?,
+        @Part("referencia") referencia: RequestBody?,
+        @Part comprobante: MultipartBody.Part?
+    ): Contribution
 }
 ```
 
@@ -349,5 +394,30 @@ data class CreateExpenseRequest(
     val fecha: String? = null
 )
 
-data class Balance(val totalAportado: Double, val totalGastado: Double, val saldoDisponible: Double)
+data class SaldoInicial(
+    val monto: Double = 0.0,
+    val nota: String? = null,
+    val registradoPor: String? = null,
+    val actualizadoEn: String? = null
+)
+
+data class SemilleroActivo(
+    val id: String,
+    val nombre: String,
+    val creadoPor: String,
+    val esTesorero: Boolean,
+    val esCreador: Boolean,
+    val saldoInicial: SaldoInicial = SaldoInicial(),
+    val puedeAjustarSaldoInicial: Boolean = false,
+    val codigo: String? = null
+)
+
+data class UpdateSaldoInicialRequest(val monto: Double, val nota: String? = null)
+
+data class Balance(
+    val saldoInicial: Double = 0.0,
+    val totalAportado: Double,
+    val totalGastado: Double,
+    val saldoDisponible: Double
+)
 ```

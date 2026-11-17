@@ -5,11 +5,15 @@ class Balance {
     required this.totalAportado,
     required this.totalGastado,
     required this.saldoDisponible,
+    this.saldoInicial = 0,
   });
 
   final double totalAportado;
   final double totalGastado;
   final double saldoDisponible;
+
+  /// Dinero que el semillero ya tenía antes de usar la app. No es un aporte.
+  final double saldoInicial;
 
   static const Balance empty = Balance(
     totalAportado: 0,
@@ -23,6 +27,7 @@ class Balance {
       totalAportado: asDouble(map['totalAportado']),
       totalGastado: asDouble(map['totalGastado']),
       saldoDisponible: asDouble(map['saldoDisponible']),
+      saldoInicial: asDouble(map['saldoInicial']),
     );
   }
 
@@ -30,5 +35,6 @@ class Balance {
     'totalAportado': totalAportado,
     'totalGastado': totalGastado,
     'saldoDisponible': saldoDisponible,
+    'saldoInicial': saldoInicial,
   };
 }

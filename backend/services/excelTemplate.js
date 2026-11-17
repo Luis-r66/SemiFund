@@ -631,6 +631,7 @@ function escribirResumen(workbook, { semillero, members, contributions, expenses
     ['Integrantes activos', activos],
     ['Integrantes totales', members.length],
     ['Aportes registrados', contributions.length],
+    ['Saldo inicial', round(balance.saldoInicial || 0)],
     ['Total cobrado', round(balance.totalAportado)],
     ['Saldo pendiente por cobrar', round(saldoPendienteTotal)],
     ['Total gastado', round(balance.totalGastado)],

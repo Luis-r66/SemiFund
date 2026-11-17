@@ -35,7 +35,9 @@ class BalanceCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: AnimatedMoney(
               value: saldo,
-              style: AppTextStyles.moneyLarge.copyWith(color: AppColors.paper),
+              style: AppTextStyles.moneyLarge.copyWith(
+                color: saldo < 0 ? const Color(0xFFFF7A7A) : AppColors.paper,
+              ),
             ),
           ),
           const SizedBox(height: 16),
