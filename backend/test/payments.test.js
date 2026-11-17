@@ -8,7 +8,9 @@ const {
   aprobarAbono,
   rechazarAbono,
   anularAbono,
-  errorComprobante
+  errorComprobante,
+  montoAbono,
+  errorEliminarAporte
 } = require('../utils/payments');
 
 const TESORERO = 'tesorero';
@@ -135,4 +137,25 @@ test('el integrante no puede reportar sin comprobante', () => {
 test('el tesorero puede registrar efectivo sin comprobante', () => {
   assert.equal(errorComprobante({ esTesorero: true, tieneArchivo: false }), null);
   assert.equal(errorComprobante({ esTesorero: true, tieneArchivo: true }), null);
+});
+
+test('el integrante siempre reporta el saldo pendiente completo', () => {
+  assert.equal(montoAbono({ esTesorero: false, montoCrudo: '1', saldo: 30000 }), 30000);
+  assert.equal(montoAbono({ esTesorero: false, montoCrudo: undefined, saldo: 12000 }), 12000);
+});
+
+test('el tesorero puede reportar un abono parcial o el total', () => {
+  assert.equal(montoAbono({ esTesorero: true, montoCrudo: '15000', saldo: 30000 }), 15000);
+  assert.equal(montoAbono({ esTesorero: true, montoCrudo: '', saldo: 30000 }), 30000);
+  assert.equal(montoAbono({ esTesorero: true, montoCrudo: undefined, saldo: 30000 }), 30000);
+});
+
+test('una cuota con abonos no se puede eliminar', () => {
+  const c = cuota();
+  assert.equal(errorEliminarAporte(c), null);
+  agregarAbono(c, { monto: 1000, usuarioId: 'a', aprobado: false, now: FUTURO });
+  assert.equal(
+    errorEliminarAporte(c),
+    'La cuota tiene abonos registrados; no se puede eliminar'
+  );
 });

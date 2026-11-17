@@ -8,6 +8,7 @@ const { academicFieldsFromUser } = require('../utils/memberSync');
 const { notificar, tesorerosDe } = require('../utils/notifications');
 const { registrar: auditar } = require('../utils/audit');
 const { getBalance, invalidateBalance } = require('../utils/balance');
+const { nombreSemilleroValido } = require('../utils/validators');
 const {
   puedeEliminar,
   nombreConfirma,
@@ -118,6 +119,11 @@ const crear = asyncHandler(async (req, res) => {
   if (!nombre || !nombre.trim()) {
     return res.status(400).json({ error: 'El nombre del semillero es requerido' });
   }
+  if (!nombreSemilleroValido(nombre)) {
+    return res.status(400).json({
+      error: 'El nombre del semillero solo puede tener letras, espacios y signos como &, punto, coma o guion'
+    });
+  }
   const monto = leerMonto(saldoInicial);
   if (monto.error) return res.status(400).json({ error: monto.error });
   const nota = leerNota(saldoInicialNota);
@@ -202,7 +208,8 @@ const unirse = asyncHandler(async (req, res) => {
     }
     yaExiste.estado = 'pendiente';
     yaExiste.esTesorero = false;
-    yaExiste.memberId = null;
+    // Se conserva memberId para que las cuotas anteriores sigan ligadas a la
+    // misma persona. Al aprobar se reactiva el integrante, no se crea otro.
     await yaExiste.save();
     return res.status(201).json({
       semilleroId: semillero._id,
@@ -306,6 +313,11 @@ const renombrar = asyncHandler(async (req, res) => {
   if (!nombre || !nombre.trim()) {
     return res.status(400).json({ error: 'El nombre es requerido' });
   }
+  if (!nombreSemilleroValido(nombre)) {
+    return res.status(400).json({
+      error: 'El nombre del semillero solo puede tener letras, espacios y signos como &, punto, coma o guion'
+    });
+  }
   const semillero = await Semillero.findByIdAndUpdate(
     req.semillero._id,
     { nombre: nombre.trim() },
@@ -392,6 +404,18 @@ const actualizarCuenta = asyncHandler(async (req, res) => {
   if (membresia.estado === 'activo' && membresia.userId) {
     const fields = academicFieldsFromUser(membresia.userId);
     if (!membresia.memberId) {
+      // Reutiliza el integrante que ya exista para esta cuenta y semillero:
+      // evita duplicados al reingresar o al aprobar dos veces.
+      const existente = await Member.findOne({
+        semilleroId: membresia.semilleroId,
+        userId: membresia.userId._id
+      }).sort({ fechaIngreso: 1 });
+      if (existente) {
+        membresia.memberId = existente._id;
+        await membresia.save();
+      }
+    }
+    if (!membresia.memberId) {
       const member = await Member.create({
         ...fields,
         userId: membresia.userId._id,
@@ -403,7 +427,7 @@ const actualizarCuenta = asyncHandler(async (req, res) => {
     } else {
       await Member.findOneAndUpdate(
         { _id: membresia.memberId, semilleroId: membresia.semilleroId },
-        { $set: { ...fields, userId: membresia.userId._id } }
+        { $set: { ...fields, userId: membresia.userId._id, activo: true } }
       );
     }
   }

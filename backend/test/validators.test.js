@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { nombreValido, hoyBogota } = require('../utils/validators');
+const { nombreValido, nombreSemilleroValido, hoyBogota } = require('../utils/validators');
 
 test('acepta nombres con letras, tildes, ñ, espacios, apóstrofe, punto y guion', () => {
   assert.equal(nombreValido('María José'), true);
@@ -23,6 +23,16 @@ test('rechaza nombres con números, símbolos o vacíos', () => {
 test('rechaza nombres demasiado largos', () => {
   assert.equal(nombreValido('a'.repeat(61)), false);
   assert.equal(nombreValido('a'.repeat(60)), true);
+});
+
+test('el nombre del semillero no admite números', () => {
+  assert.equal(nombreSemilleroValido('Semillero de Software'), true);
+  assert.equal(nombreSemilleroValido('Semillero de Investigación & Gestión'), true);
+  assert.equal(nombreSemilleroValido('Semillero de Software, Grupo A'), true);
+  assert.equal(nombreSemilleroValido('Semillero 2026'), false);
+  assert.equal(nombreSemilleroValido('Grupo 4'), false);
+  assert.equal(nombreSemilleroValido('   '), false);
+  assert.equal(nombreSemilleroValido('a'.repeat(61)), false);
 });
 
 test('hoyBogota devuelve la fecha en Colombia aunque el servidor esté en UTC', () => {

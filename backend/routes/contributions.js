@@ -26,6 +26,8 @@ router.get('/', c.list);
 router.post('/', requireTesorero, c.create);
 router.post('/bulk', requireTesorero, c.bulkCreate);
 router.patch('/:id/pay', validateObjectId, requireTesorero, c.pay);
+// El tesorero puede eliminar una cuota sin abonos para limpiar registros errados.
+router.delete('/:id', validateObjectId, requireTesorero, c.remove);
 // Abonos parciales: el integrante reporta con comprobante obligatorio;
 // el tesorero registra el dinero recibido.
 router.post('/:id/payments', validateObjectId, subirComprobante, c.addPayment);

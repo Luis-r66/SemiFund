@@ -34,6 +34,27 @@ function errorComprobante({ esTesorero = false, tieneArchivo = false } = {}) {
   return 'Adjunta el comprobante del abono';
 }
 
+// El integrante reporta siempre el total pendiente: el monto de la cuota no se
+// negocia ni se edita. El tesorero sí puede registrar un abono parcial por el
+// dinero que recibió, o dejar el total si no envía monto.
+function montoAbono({ esTesorero = false, montoCrudo, saldo }) {
+  if (!esTesorero) return saldo;
+  if (montoCrudo === undefined || montoCrudo === null || montoCrudo === '') {
+    return saldo;
+  }
+  return Number(montoCrudo);
+}
+
+// Una cuota con abonos conserva evidencia contable: para eliminarla hay que
+// limpiar antes sus abonos.
+function errorEliminarAporte(contribucion) {
+  const abonos = (contribucion && contribucion.abonos) || [];
+  if (abonos.length > 0) {
+    return 'La cuota tiene abonos registrados; no se puede eliminar';
+  }
+  return null;
+}
+
 function estadoEsperado(contribucion, now = new Date()) {
   if (saldoPendiente(contribucion) === 0) return 'pagado';
   if (abonoReportado(contribucion)) return 'reportado';
@@ -119,6 +140,8 @@ module.exports = {
   estadoCobro,
   abonoReportado,
   errorComprobante,
+  montoAbono,
+  errorEliminarAporte,
   estadoEsperado,
   sincronizarEstado,
   agregarAbono,

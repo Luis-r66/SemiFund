@@ -14,6 +14,8 @@ const {
   saldoPendiente,
   abonoReportado,
   errorComprobante,
+  montoAbono,
+  errorEliminarAporte,
   sincronizarEstado,
   agregarAbono,
   aprobarAbono,
@@ -269,6 +271,7 @@ const bulkCreate = asyncHandler(async (req, res) => {
 
 // POST /api/contributions/:id/payments  (multipart: monto?, referencia?, comprobante?)
 // Integrante: registra un abono reportado y DEBE adjuntar comprobante en el mismo envío.
+// El integrante reporta siempre el total pendiente; el monto enviado se ignora.
 // Tesorero: registra un abono ya aprobado (dinero recibido); el comprobante es opcional.
 // Sin monto se usa el saldo pendiente completo.
 const addPayment = asyncHandler(async (req, res) => {
@@ -296,11 +299,11 @@ const addPayment = asyncHandler(async (req, res) => {
   }
 
   const body = cuerpo(req);
-  const montoCrudo = body.monto;
-  const monto =
-    montoCrudo === undefined || montoCrudo === null || montoCrudo === ''
-      ? saldo
-      : Number(montoCrudo);
+  const monto = montoAbono({
+    esTesorero,
+    montoCrudo: body.monto,
+    saldo
+  });
   const errorMonto = validarMonto(monto, saldo);
   if (errorMonto) {
     return res.status(400).json({ error: errorMonto });
@@ -582,6 +585,37 @@ const reject = asyncHandler(async (req, res) => {
   res.status(200).json(item);
 });
 
+// DELETE /api/contributions/:id  (solo tesorero)
+// Borra una cuota sin abonos. La auditoría conserva el integrante, el mes y el
+// monto; si hay abonos, se bloquea para no perder evidencia contable.
+const remove = asyncHandler(async (req, res) => {
+  const item = await Contribution.findOne({
+    _id: req.params.id,
+    semilleroId: req.semilleroId
+  });
+  if (!item) {
+    return res.status(404).json({ error: 'Aporte no encontrado' });
+  }
+  const error = errorEliminarAporte(item);
+  if (error) {
+    return res.status(409).json({ error });
+  }
+
+  const integrante = await Member.findOne({
+    _id: item.integranteId,
+    semilleroId: req.semilleroId
+  }).select('nombre');
+  await Contribution.deleteOne({ _id: item._id, semilleroId: req.semilleroId });
+  invalidateBalance(req.semilleroId);
+  await auditar(
+    req,
+    item,
+    'aporte.eliminar',
+    `${item.mes} · ${dinero(item.monto)} · ${item.estado} · ${integrante ? integrante.nombre : 'integrante'}`
+  );
+  res.status(204).end();
+});
+
 // POST /api/contributions/:id/payments/:abonoId/comprobante
 // Recibe un archivo (imagen o PDF) y lo sube a Cloudinary desde el backend.
 const attachReceipt = asyncHandler(async (req, res) => {
@@ -662,6 +696,7 @@ module.exports = {
   bulkCreate,
   pay,
   reject,
+  remove,
   addPayment,
   approvePayment,
   rejectPayment,
