@@ -73,11 +73,11 @@ CLOUDINARY_API_SECRET=...   # solo Render y backend/.env local
 
 ```bash
 cd backend
-npm run dev    # desarrollo (nodemon)
+npm run dev    # desarrollo (node --watch)
 npm start      # producción
 ```
 
-Verificar: `GET http://localhost:3000/health` → `{ "ok": true }`.
+Verificar: `GET http://localhost:3000/health` → `{ "ok": true, "version": "1.5.2" }`.
 
 Para sincronizar los datos académicos de las cuentas con los integrantes existentes:
 
@@ -284,7 +284,7 @@ flutter build web --release --base-href /SemiFund/ \
 
 ## Mantener despierta la API en Render
 
-Render Free duerme por inactividad. `.github/workflows/render-ping.yml` llama cada 10 minutos a `https://semifund-api.onrender.com/health` y falla si la respuesta no es `{"ok":true}`.
+Render Free duerme por inactividad. `.github/workflows/render-ping.yml` llama cada 10 minutos a `https://semifund-api.onrender.com/health` y falla si la respuesta no contiene `"ok":true`. Ese endpoint también devuelve `version`, así se comprueba qué build está desplegado.
 
 - Se puede ejecutar a mano desde **Actions → Render ping → Run workflow**.
 - GitHub puede retrasar las ejecuciones programadas; el workflow reintenta hasta 4 veces para cubrir el arranque en frío.
