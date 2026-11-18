@@ -375,10 +375,10 @@ Para publicar una versión:
 
 ```bash
 cd mobile
-# subir version: 1.6.0+12 en pubspec.yaml
+# subir version: 1.6.1+13 en pubspec.yaml
 flutter build apk --release
-gh release create v1.6.0 build/app/outputs/flutter-apk/app-release.apk \
-  --title "SemiFund v1.6.0" --notes "Novedades"
+gh release create v1.6.1 build/app/outputs/flutter-apk/app-release.apk#SemiFund.apk \
+  --title "SemiFund v1.6.1" --notes "Novedades"
 ```
 
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
