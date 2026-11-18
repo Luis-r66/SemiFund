@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Member = require('../models/Member');
 const asyncHandler = require('../middleware/asyncHandler');
-const { nombreValido } = require('../utils/validators');
+const { nombreValido, textoValido, identificacionValida } = require('../utils/validators');
 const { registrar } = require('../utils/audit');
 const Contribution = require('../models/Contribution');
 const { round, montoPagadoDe, saldoPendiente } = require('../utils/payments');
@@ -68,15 +68,27 @@ const getById = asyncHandler(async (req, res) => {
 // POST /api/members  { nombres, apellidos, programa, semestre }
 const create = asyncHandler(async (req, res) => {
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
-  const { programa, semestre } = body;
+  const { programa, semestre, identificacion } = body;
   const nombre = extraerNombre(body);
   if (!nombre || !programa || semestre === undefined) {
     return res.status(400).json({ error: `${MSG_NOMBRES}; también programa y semestre` });
   }
+  const programaValidado = textoValido(programa, { campo: 'El programa', maximo: 80 });
+  if (programaValidado.error) return res.status(400).json({ error: programaValidado.error });
+
+  let documento = null;
+  if (identificacion !== undefined && identificacion !== null && `${identificacion}`.trim() !== '') {
+    if (!identificacionValida(identificacion)) {
+      return res.status(400).json({ error: 'La identificación solo puede tener números (con puntos o guiones)' });
+    }
+    documento = `${identificacion}`.trim();
+  }
+
   const member = await Member.create({
     ...nombre,
-    programa,
+    programa: programaValidado.valor,
     semestre,
+    identificacion: documento,
     activo: true,
     semilleroId: req.semilleroId
   });
@@ -93,7 +105,7 @@ const create = asyncHandler(async (req, res) => {
 
 // PUT /api/members/:id  (solo si pertenece al semillero activo)
 // Solo estos campos son editables; evita asignación masiva (semilleroId, _id, etc.)
-const CAMPOS_EDITABLES = ['nombre', 'nombres', 'apellidos', 'programa', 'semestre', 'activo'];
+const CAMPOS_EDITABLES = ['nombre', 'nombres', 'apellidos', 'programa', 'semestre', 'activo', 'identificacion'];
 
 const update = asyncHandler(async (req, res) => {
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
@@ -126,8 +138,19 @@ const update = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'El nombre no puede estar vacío' });
   }
 
-  if (cambios.programa !== undefined && (typeof cambios.programa !== 'string' || !cambios.programa.trim())) {
-    return res.status(400).json({ error: 'El programa no puede estar vacío' });
+  if (cambios.programa !== undefined) {
+    const programa = textoValido(cambios.programa, { campo: 'El programa', maximo: 80 });
+    if (programa.error) return res.status(400).json({ error: programa.error });
+    cambios.programa = programa.valor;
+  }
+  if (cambios.identificacion !== undefined) {
+    if (cambios.identificacion === null || `${cambios.identificacion}`.trim() === '') {
+      cambios.identificacion = null;
+    } else if (!identificacionValida(cambios.identificacion)) {
+      return res.status(400).json({ error: 'La identificación solo puede tener números (con puntos o guiones)' });
+    } else {
+      cambios.identificacion = `${cambios.identificacion}`.trim();
+    }
   }
   if (cambios.semestre !== undefined) {
     const semestre = Number(cambios.semestre);

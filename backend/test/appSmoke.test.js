@@ -10,23 +10,26 @@ test('la app se monta con todas las rutas y controladores', () => {
   assert.doesNotThrow(() => require('../app'));
 });
 
-test('el aporte propio del integrante está exportado y registrado', () => {
-  const controller = require('../controllers/contributionController');
-  assert.equal(typeof controller.createSelf, 'function');
+test('las rutas de documentos están montadas y protegidas para profesores', () => {
+  const controller = require('../controllers/documentController');
+  for (const nombre of ['etiquetas', 'listar', 'subir', 'reemplazar', 'eliminar', 'generar']) {
+    assert.equal(typeof controller[nombre], 'function', `documentController.${nombre}`);
+  }
 
-  const router = require('../routes/contributions');
-  const capa = router.stack.find(
-    (item) => item.route && item.route.path === '/self'
-  );
+  const router = require('../routes/documents');
+  const rutas = router.stack
+    .filter((item) => item.route)
+    .map((item) => `${Object.keys(item.route.methods).join(',')} ${item.route.path}`);
+  assert.ok(rutas.includes('get /tags'));
+  assert.ok(rutas.includes('get /templates'));
+  assert.ok(rutas.includes('post /templates'));
+  assert.ok(rutas.includes('put /templates/:id'));
+  assert.ok(rutas.includes('delete /templates/:id'));
+  assert.ok(rutas.includes('post /templates/:id/generate'));
 
-  assert.ok(capa, 'la ruta POST /self debe existir');
-  assert.deepEqual(Object.keys(capa.route.methods), ['post']);
-
-  for (const handler of capa.route.stack) {
-    assert.equal(
-      typeof handler.handle,
-      'function',
-      'ningún handler de /self puede quedar indefinido'
-    );
+  for (const capa of router.stack.filter((item) => item.route)) {
+    for (const handler of capa.route.stack) {
+      assert.equal(typeof handler.handle, 'function');
+    }
   }
 });

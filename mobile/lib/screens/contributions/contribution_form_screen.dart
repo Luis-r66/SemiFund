@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
@@ -15,6 +14,7 @@ import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
 import '../../widgets/success_check.dart';
+import '../../core/navigation/volver.dart';
 
 class ContributionFormScreen extends StatefulWidget {
   const ContributionFormScreen({super.key, this.hoy});
@@ -83,7 +83,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
       if (!mounted) return;
       await showSuccessCheck(context, message: 'Cuota creada');
       if (!mounted) return;
-      context.pop();
+      volver(context);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -103,7 +103,7 @@ class _ContributionFormScreenState extends State<ContributionFormScreen> {
           maxWidth: AppLayout.formMaxWidth,
           child: Column(
             children: <Widget>[
-              AppTopBar(title: 'Nueva cuota', onBack: () => context.pop()),
+              AppTopBar(title: 'Nueva cuota', onBack: () => volver(context)),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),

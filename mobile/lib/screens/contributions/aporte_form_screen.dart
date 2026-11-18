@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/layout/app_layout.dart';
@@ -16,6 +15,7 @@ import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
 import '../../widgets/success_check.dart';
+import '../../core/navigation/volver.dart';
 
 /// Aporte grupal del tesorero: viaje, materiales u otro destino común.
 /// No se escoge integrante: se crea la misma parte para todos los activos.
@@ -94,7 +94,7 @@ class _AporteFormScreenState extends State<AporteFormScreen> {
             : '${result.creadas} aportes creados',
       );
       if (!mounted) return;
-      context.pop();
+      volver(context);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -111,7 +111,7 @@ class _AporteFormScreenState extends State<AporteFormScreen> {
           maxWidth: AppLayout.formMaxWidth,
           child: Column(
             children: <Widget>[
-              AppTopBar(title: 'Nuevo aporte', onBack: () => context.pop()),
+              AppTopBar(title: 'Nuevo aporte', onBack: () => volver(context)),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),

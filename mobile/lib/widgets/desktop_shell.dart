@@ -116,6 +116,13 @@ class _DesktopSidebar extends StatelessWidget {
                     selected: _isActive('/expenses'),
                     onTap: () => context.go('/expenses'),
                   ),
+                  if (session.user?.esProfesor == true)
+                    _NavItem(
+                      icon: LucideIcons.fileText,
+                      label: 'Documentos',
+                      selected: _isActive('/documents'),
+                      onTap: () => context.go('/documents'),
+                    ),
                   if (session.isTesorero) ...<Widget>[
                     const SizedBox(height: 22),
                     const SectionLabel('Administración'),

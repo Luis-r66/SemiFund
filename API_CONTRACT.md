@@ -1,7 +1,7 @@
 # API Contract — Tesorería Semillero de Software
 
-> Versión 1.5.2. Fuente de verdad para la app Android. Todo es JSON salvo los
-> endpoints `multipart` de comprobantes y aportes propios.
+> Versión 1.6.0. Fuente de verdad para la app Android. Todo es JSON salvo los
+> endpoints `multipart` de comprobantes y plantillas de documentos.
 > Base URL: `http://<HOST>:<PUERTO>/api` — local `http://10.0.2.2:3000/api` (emulador) o `http://<IP-LAN>:3000/api` (físico).
 
 ## 1. Modelos
@@ -115,8 +115,7 @@ Editar (parcial):
 GET   /api/contributions
 GET   /api/contributions?status=pending&memberId=
 POST  /api/contributions            -> 201 | 400 | 409 cuota duplicada
-POST  /api/contributions/bulk       -> 201 cuotas o aportes para todos los activos
-POST  /api/contributions/self       -> 201 aporte propio reportado | 400 | 403 | 413 | 415 | 503
+POST  /api/contributions/bulk       -> 201 cuotas o aportes para los integrantes elegidos
 PATCH /api/contributions/:id/pay    -> 200 | 404 | 409
 PATCH /api/contributions/:id/reject -> 200 | 404 | 409
 DELETE /api/contributions/:id      -> 204 | 404 | 409 cuota con abonos
@@ -131,8 +130,8 @@ POST  /api/contributions/:id/payments/:abonoId/comprobante -> 200 | 400 | 403 | 
 
 - `pay`: solo tesorero. Acepta pendiente, vencido o reportado; guarda `fechaPago`, `fechaRevision` y `revisadoPor`.
 - `reject`: solo tesorero y solo sobre un aporte `reportado`; lo devuelve a `pendiente` y guarda `motivoRechazo`. Se conserva para datos anteriores.
-- `bulk`: solo tesorero. Crea la misma cuota para todos los activos y omite a quien ya la tenga. Con `tipo: "aporte"` omite solo a quien ya tenga el mismo aporte (`mes + concepto`), de modo que se pueda repetir para integrantes nuevos.
-- `self`: cualquier integrante con ficha activa crea **su propio aporte** (`tipo: "aporte"`), adjunta el comprobante obligatorio y queda en estado `reportado` para que el tesorero lo apruebe.
+- `bulk`: solo tesorero. Crea la misma cuota para los integrantes activos elegidos y omite a quien ya la tenga. Sin `integranteIds` se aplica a todos los activos. Con `tipo: "aporte"` omite solo a quien ya tenga el mismo aporte (`mes + concepto`), de modo que se pueda repetir para integrantes nuevos.
+- El integrante **no crea aportes propios**: la tesorería le asigna la cuota y él la paga o reporta desde el detalle.
 - `payments`: el integrante reporta un abono propio y **debe enviar comprobante en el mismo multipart**. El monto que envíe se ignora: el abono cubre siempre el saldo pendiente completo. El tesorero registra dinero recibido (total o parcial) y puede omitir el comprobante.
 - `DELETE /contributions/:id`: solo tesorero. Elimina una cuota o aporte **sin abonos** y responde `204`. Si existe cualquier abono responde `409 {"error":"La cuota tiene abonos registrados; no se puede eliminar"}`. La auditoría guarda el mes, el monto, el estado y el nombre del integrante.
 - `approve` / `reject` / `void`: solo tesorero. Un rechazo exige motivo en la app y devuelve el registro a su estado anterior.
@@ -145,21 +144,13 @@ Crear:
 
 `tipo` es opcional y vale `cuota` por defecto. Una segunda cuota del mismo integrante y mes responde `409`; los aportes con `tipo: "aporte"` se pueden repetir.
 
-Aporte masivo:
+Aporte masivo (todos los activos o solo los elegidos):
 
 ```json
-{ "mes": "2026-09", "monto": 40000, "concepto": "Viaje a Medellín", "tipo": "aporte" }
+{ "mes": "2026-09", "monto": 40000, "concepto": "Viaje a Medellín", "tipo": "aporte", "integranteIds": ["uuid1", "uuid2"] }
 ```
 
-Aporte propio (multipart `multipart/form-data`):
-
-```
-monto=40000
-mes=2026-09
-concepto=Viaje a Medellín
-referencia=TRX-123       # opcional
-comprobante=@pago.png    # obligatorio
-```
+`integranteIds` es opcional: si se omite, se aplica a todos los integrantes activos con cuenta. Los ids inexistentes, inactivos o de otro semillero se ignoran y se informan en `omitidas`.
 
 Reportar abono (multipart `multipart/form-data`):
 
@@ -224,6 +215,38 @@ GET /api/reports/movimientos.csv -> 200 text/csv | 403
 - Columnas: `tipo_registro, semillero_codigo, semillero_nombre, periodo, fecha, fecha_pago, integrante_nombre, integrante_email, programa, semestre, descripcion, categoria, monto, moneda, estado, referencia, id_origen`.
 - `integrante_email` sale de la cuenta vinculada; si el integrante es manual, queda vacío.
 - UTF-8 con BOM, separador coma, fechas `YYYY-MM-DD`, montos con dos decimales.
+
+### Documentos (solo profesores)
+
+Plantillas propias del profesor (`.docx` o `.xlsx`) con etiquetas `{{campo}}`.
+El archivo lleno se genera al momento y **no se guarda** en el servidor.
+Todos los endpoints exigen `tipoUsuario: profesor`; un estudiante recibe `403`.
+
+```
+GET    /api/documents/tags                  -> 200 { simples[], bloques[] }
+GET    /api/documents/templates             -> 200 [ { id, nombre, tipo, bytes, etiquetas[], creadoPor, puedeEliminar, updatedAt } ]
+POST   /api/documents/templates             (multipart: archivo, nombre?) -> 201 | 400 | 415 | 422 | 503
+PUT    /api/documents/templates/:id         (multipart: archivo, nombre?) -> 200 | 404 | 415 | 422 | 503
+DELETE /api/documents/templates/:id         -> 204 | 403 | 404
+POST   /api/documents/templates/:id/generate { mes?, inicio?, fin?, ciudades?, objeto?, hora?, lugar?, observaciones?, ciudad?, valorEntregado? } -> 200 archivo | 400 | 404 | 500 | 502
+```
+
+- `tags`: catálogo de etiquetas que la app sabe llenar, con su descripción.
+  `simples` son valores únicos (`{{semillero.nombre}}`, `{{profesor.nombre}}`,
+  `{{mes}}`…). `bloques` son listas que se repiten (`integrantes`, `gastos`,
+  `movimientos`) con sus campos.
+- Al subir o reemplazar se leen las etiquetas del archivo. Si alguna no está en
+  el catálogo, responde `422` con `desconocidas[]` y no guarda nada. Un bloque
+  abierto y no cerrado también se rechaza.
+- Dentro de un bloque se acepta `{{campo}}` o `{{bloque.campo}}`.
+- Solo `.docx` y `.xlsx`, hasta 10 MB. Cualquier otra extensión devuelve `415`.
+- `generate` devuelve el archivo como descarga (`Content-Disposition`), con el
+  nombre de la plantilla y el mes si se indicó. Si Cloudinary no está
+  configurado, la subida responde `503`.
+- `puedeEliminar`: quien subió la plantilla o el tesorero. El resto recibe
+  `403` al intentar borrarla.
+- Cada subida, reemplazo, borrado y generación queda en auditoría.
+
 ## 6. Autenticación y semilleros (Fase 2)
 
 ### Auth (públicas)

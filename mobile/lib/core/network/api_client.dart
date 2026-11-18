@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -70,6 +71,36 @@ class ApiClient {
     return _execute(() => _dio.put<dynamic>(path, data: data));
   }
 
+  /// Reemplaza un archivo como multipart (por ejemplo, la plantilla nueva de
+  /// un documento conservando su nombre y sus etiquetas).
+  Future<dynamic> putMultipart(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String contentType,
+    String field = 'archivo',
+    Map<String, dynamic> fields = const <String, dynamic>{},
+  }) {
+    final FormData data = FormData.fromMap(<String, dynamic>{
+      ...fields,
+      field: MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType.parse(contentType),
+      ),
+    });
+    return _execute(
+      () => _dio.put<dynamic>(
+        path,
+        data: data,
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      ),
+    );
+  }
+
   /// Sube un archivo como multipart (comprobantes de abonos), con campos
   /// adicionales como monto o referencia.
   Future<dynamic> postMultipart(
@@ -121,6 +152,41 @@ class ApiClient {
         ),
       );
     } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Envía datos y recibe un archivo binario (documentos generados). Si el
+  /// servidor responde con un error en JSON, se conserva su mensaje.
+  Future<Response<List<int>>> postForBytes(
+    String path, {
+    Object? data,
+    String accept = 'application/octet-stream',
+  }) async {
+    try {
+      return await _dio.post<List<int>>(
+        path,
+        data: data,
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(seconds: 90),
+          sendTimeout: const Duration(seconds: 60),
+          headers: <String, dynamic>{'Accept': accept},
+        ),
+      );
+    } on DioException catch (error) {
+      final dynamic cuerpo = error.response?.data;
+      if (cuerpo is List<int>) {
+        try {
+          final dynamic json = jsonDecode(utf8.decode(cuerpo));
+          throw ApiException.fromResponse(
+            statusCode: error.response?.statusCode,
+            data: json,
+          );
+        } catch (traduccion) {
+          if (traduccion is ApiException) rethrow;
+        }
+      }
       throw ApiException.fromDio(error);
     }
   }

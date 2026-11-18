@@ -9,3 +9,18 @@ final List<TextInputFormatter> lettersOnlyFormatters = <TextInputFormatter>[
 final List<TextInputFormatter> semilleroNameFormatters = <TextInputFormatter>[
   FilteringTextInputFormatter.allow(RegExp(r"[\p{L} '.,&\-]", unicode: true)),
 ];
+
+/// Carrera, ciudad y centro de costos: letras y signos habituales, sin dígitos.
+final List<TextInputFormatter> simpleTextFormatters = <TextInputFormatter>[
+  FilteringTextInputFormatter.allow(RegExp(r"[\p{L} '.,&\-()/]", unicode: true)),
+];
+
+/// Semestre: solo dígitos.
+final List<TextInputFormatter> digitsOnlyFormatters = <TextInputFormatter>[
+  FilteringTextInputFormatter.digitsOnly,
+];
+
+/// Documento de identidad: dígitos con puntos o guiones.
+final List<TextInputFormatter> identificationFormatters = <TextInputFormatter>[
+  FilteringTextInputFormatter.allow(RegExp(r'[0-9.\- ]')),
+];

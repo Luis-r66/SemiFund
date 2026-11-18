@@ -192,27 +192,6 @@ class ContributionsProvider extends ChangeNotifier {
     await reloadFirstPage();
   }
 
-  Future<void> createSelf({
-    required double monto,
-    required String mes,
-    required String concepto,
-    String? referencia,
-    required Uint8List comprobanteBytes,
-    required String comprobanteNombre,
-    required String comprobanteTipo,
-  }) async {
-    await _writes.createSelfContribution(
-      monto: monto,
-      mes: mes,
-      concepto: concepto,
-      referencia: referencia,
-      comprobanteBytes: comprobanteBytes,
-      comprobanteNombre: comprobanteNombre,
-      comprobanteTipo: comprobanteTipo,
-    );
-    await reloadFirstPage();
-  }
-
   Future<void> pay(Contribution contribution) async {
     await _writes.payContribution(contribution.id);
     await refresh();
@@ -296,23 +275,23 @@ class ContributionsProvider extends ChangeNotifier {
     required String mes,
     required double monto,
     required String concepto,
+    List<String> integranteIds = const <String>[],
     ContributionType tipo = ContributionType.cuota,
   }) async {
     final BulkContributionResult result = await _writes.createBulkContributions(
       mes: mes,
       monto: monto,
       concepto: concepto,
+      integranteIds: integranteIds,
       tipo: tipo,
     );
     await reloadFirstPage();
     return result;
   }
 
-  Future<CsvDownload> exportCsv() => _writes.exportMovimientos();
+  Future<FileDownload> exportExcel() => _writes.exportLibro();
 
-  Future<CsvDownload> exportExcel() => _writes.exportLibro();
-
-  Future<CsvDownload> downloadTemplate() => _writes.downloadTemplate();
+  Future<FileDownload> downloadTemplate() => _writes.downloadTemplate();
 
   Future<ImportPreview> previewImport(Uint8List bytes) =>
       _writes.previewImport(bytes);

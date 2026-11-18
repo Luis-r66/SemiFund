@@ -9,7 +9,7 @@ const PasswordReset = require('../models/PasswordReset');
 const asyncHandler = require('../middleware/asyncHandler');
 const { sendResetCode } = require('../utils/mailer');
 const { syncMembersForUser } = require('../utils/memberSync');
-const { nombreValido } = require('../utils/validators');
+const { nombreValido, textoValido, identificacionValida } = require('../utils/validators');
 
 const JWT_SECRET = require('../config/jwt');
 const JWT_EXPIRES_IN = '7d';
@@ -35,7 +35,9 @@ function publicUser(user) {
     email: user.email,
     tipoUsuario: user.tipoUsuario || null,
     programa: user.programa || null,
-    semestre: user.semestre ?? null
+    semestre: user.semestre ?? null,
+    identificacion: user.identificacion || null,
+    cargo: user.cargo || null
   };
 }
 
@@ -255,6 +257,14 @@ const updateMe = asyncHandler(async (req, res) => {
   const nombre = extraerNombre(body, user);
   if (nombre.error) return res.status(400).json({ error: nombre.error });
 
+  // El rol se define una sola vez, en el primer perfil. Cambiarlo después
+  // dejaría datos (semestre, documentos) incoherentes con la cuenta.
+  if (user.tipoUsuario && body.tipoUsuario !== undefined && body.tipoUsuario !== user.tipoUsuario) {
+    return res.status(400).json({
+      error: 'El rol ya está definido y no se puede cambiar. Escribe a soporte si necesitas corregirlo.'
+    });
+  }
+
   const tipoSolicitado = body.tipoUsuario !== undefined ? body.tipoUsuario : user.tipoUsuario;
   if (tipoSolicitado !== null && tipoSolicitado !== undefined && !TIPOS_USUARIO.includes(tipoSolicitado)) {
     return res.status(400).json({ error: 'tipoUsuario debe ser estudiante o profesor' });
@@ -263,6 +273,31 @@ const updateMe = asyncHandler(async (req, res) => {
   const programaSolicitado = body.programa !== undefined
     ? (typeof body.programa === 'string' ? body.programa.trim() : null)
     : user.programa;
+
+  if (body.programa !== undefined) {
+    const programa = textoValido(body.programa, { campo: 'La carrera o área', maximo: 80 });
+    if (programa.error) return res.status(400).json({ error: programa.error });
+  }
+
+  // Campos opcionales de la ficha. Se validan solo cuando vienen.
+  const identificacionSolicitada = body.identificacion !== undefined
+    ? (typeof body.identificacion === 'string' ? body.identificacion.trim() : null)
+    : user.identificacion;
+  if (body.identificacion !== undefined && body.identificacion !== null && `${body.identificacion}`.trim() !== '') {
+    if (!identificacionValida(body.identificacion)) {
+      return res.status(400).json({
+        error: 'La identificación debe tener entre 5 y 20 caracteres y solo números (puede incluir puntos o guiones)'
+      });
+    }
+  }
+
+  const cargoSolicitado = body.cargo !== undefined
+    ? (typeof body.cargo === 'string' ? body.cargo.trim() : null)
+    : user.cargo;
+  if (body.cargo !== undefined && body.cargo !== null && `${body.cargo}`.trim() !== '') {
+    const cargo = textoValido(body.cargo, { campo: 'El cargo', maximo: 60 });
+    if (cargo.error) return res.status(400).json({ error: cargo.error });
+  }
 
   let semestre = body.semestre !== undefined ? body.semestre : user.semestre;
   const tipo = tipoSolicitado || null;
@@ -294,6 +329,8 @@ const updateMe = asyncHandler(async (req, res) => {
   user.tipoUsuario = tipo;
   user.programa = programaSolicitado || null;
   user.semestre = semestre ?? null;
+  user.identificacion = identificacionSolicitada || null;
+  user.cargo = cargoSolicitado || null;
   await user.save();
   await syncMembersForUser(user).catch((error) => {
     console.error('No se pudo sincronizar el perfil del integrante:', error.message);

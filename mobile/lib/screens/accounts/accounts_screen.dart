@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
@@ -15,6 +14,7 @@ import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/section_label.dart';
+import '../../core/navigation/volver.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -58,7 +58,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 title: 'Cuentas',
                 onBack: AppLayout.isDesktop(context)
                     ? null
-                    : () => context.pop(),
+                    : () => volver(context),
               ),
               Expanded(
                 child: RefreshIndicator(

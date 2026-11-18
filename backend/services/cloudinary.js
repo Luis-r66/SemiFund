@@ -3,6 +3,7 @@ const { Readable } = require('stream');
 const cloudinary = require('cloudinary').v2;
 
 const CARPETA = 'semifund/comprobantes';
+const CARPETA_PLANTILLAS = 'semifund/plantillas';
 
 let configurado = false;
 
@@ -28,9 +29,9 @@ function configurar() {
 
 // Sube un archivo en memoria a Cloudinary.
 // Devuelve { url, publicId, formato, bytes }.
-function subirComprobante(buffer, { publicId, resourceType = 'auto' } = {}) {
+function subirArchivo(buffer, { carpeta = CARPETA, publicId, resourceType = 'auto' } = {}) {
   if (!configurar()) {
-    const error = new Error('El almacenamiento de comprobantes no está configurado');
+    const error = new Error('El almacenamiento de archivos no está configurado');
     error.status = 503;
     throw error;
   }
@@ -38,7 +39,7 @@ function subirComprobante(buffer, { publicId, resourceType = 'auto' } = {}) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: CARPETA,
+        folder: carpeta,
         public_id: publicId || crypto.randomUUID(),
         resource_type: resourceType,
         overwrite: false,
@@ -47,7 +48,7 @@ function subirComprobante(buffer, { publicId, resourceType = 'auto' } = {}) {
       },
       (error, result) => {
         if (error || !result) {
-          const fallo = new Error('No pudimos guardar el comprobante. Intenta de nuevo.');
+          const fallo = new Error('No pudimos guardar el archivo. Intenta de nuevo.');
           fallo.status = 502;
           return reject(fallo);
         }
@@ -63,8 +64,23 @@ function subirComprobante(buffer, { publicId, resourceType = 'auto' } = {}) {
   });
 }
 
+function subirComprobante(buffer, { publicId, resourceType = 'auto' } = {}) {
+  return subirArchivo(buffer, { carpeta: CARPETA, publicId, resourceType });
+}
+
+// Las plantillas son .docx y .xlsx: Cloudinary los guarda como "raw" para no
+// reinterpretarlos como imagen.
+function subirPlantilla(buffer, { publicId, extension }) {
+  const nombre = extension ? `${publicId}.${extension}` : publicId;
+  return subirArchivo(buffer, {
+    carpeta: CARPETA_PLANTILLAS,
+    publicId: nombre,
+    resourceType: 'raw'
+  });
+}
+
 // Borrado best-effort: si falla, no rompe la operación principal.
-async function borrarComprobante(publicId, resourceType = 'image') {
+async function borrarArchivo(publicId, resourceType = 'image') {
   if (!publicId || !configurar()) return false;
   try {
     await cloudinary.uploader.destroy(publicId, {
@@ -77,9 +93,32 @@ async function borrarComprobante(publicId, resourceType = 'image') {
   }
 }
 
+function borrarComprobante(publicId, resourceType = 'image') {
+  return borrarArchivo(publicId, resourceType);
+}
+
+function borrarPlantilla(publicId) {
+  return borrarArchivo(publicId, 'raw');
+}
+
+// Descarga los bytes de una plantilla guardada (URL segura de Cloudinary).
+async function descargarPlantilla(url) {
+  const respuesta = await fetch(url);
+  if (!respuesta.ok) {
+    const error = new Error('No pudimos leer la plantilla guardada. Vuelve a subirla.');
+    error.status = 502;
+    throw error;
+  }
+  return Buffer.from(await respuesta.arrayBuffer());
+}
+
 module.exports = {
   CARPETA,
+  CARPETA_PLANTILLAS,
   estaConfigurado,
   subirComprobante,
-  borrarComprobante
+  subirPlantilla,
+  descargarPlantilla,
+  borrarComprobante,
+  borrarPlantilla
 };

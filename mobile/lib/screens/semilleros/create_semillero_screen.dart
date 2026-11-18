@@ -15,6 +15,7 @@ import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
+import '../../core/navigation/volver.dart';
 
 class CreateSemilleroScreen extends StatefulWidget {
   const CreateSemilleroScreen({super.key});
@@ -90,7 +91,7 @@ class _CreateSemilleroScreenState extends State<CreateSemilleroScreen> {
           maxWidth: AppLayout.formMaxWidth,
           child: Column(
             children: <Widget>[
-              AppTopBar(title: 'Crear semillero', onBack: () => context.pop()),
+              AppTopBar(title: 'Crear semillero', onBack: () => volver(context)),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),

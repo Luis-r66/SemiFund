@@ -326,130 +326,6 @@ const bulkCreate = asyncHandler(async (req, res) => {
   res.status(201).json({ creadas, omitidas });
 });
 
-// POST /api/contributions/self  (multipart: monto, mes, concepto, referencia?, comprobante)
-// El integrante crea su propio aporte (viaje, materiales, etc.) y lo deja
-// reportado con el comprobante obligatorio. El tesorero lo aprueba después.
-const createSelf = asyncHandler(async (req, res) => {
-  const memberId = miMemberId(req);
-  if (!memberId) {
-    return res.status(403).json({
-      error: 'Tu cuenta no está vinculada a una ficha de integrante en este semillero'
-    });
-  }
-
-  const body = cuerpo(req);
-  const monto = Number(body.monto);
-  const { mes, concepto, referencia } = body;
-  if (!Number.isFinite(monto) || round(monto) <= 0) {
-    return res.status(400).json({ error: 'El monto debe ser un número mayor a 0' });
-  }
-  if (typeof mes !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
-    return res.status(400).json({ error: 'mes debe tener formato YYYY-MM' });
-  }
-  if (typeof concepto !== 'string' || !concepto.trim()) {
-    return res.status(400).json({ error: 'El concepto no puede estar vacío' });
-  }
-  if (concepto.trim().length > 200) {
-    return res.status(400).json({ error: 'El concepto no puede superar 200 caracteres' });
-  }
-  if (referencia !== undefined && typeof referencia !== 'string') {
-    return res.status(400).json({ error: 'La referencia debe ser texto' });
-  }
-  const referenciaTexto = typeof referencia === 'string' ? referencia.trim() || null : null;
-  if (referenciaTexto && referenciaTexto.length > 120) {
-    return res.status(400).json({ error: 'La referencia no puede superar 120 caracteres' });
-  }
-
-  if (!req.file || !req.file.buffer || req.file.buffer.length === 0) {
-    return res.status(400).json({ error: 'Adjunta el comprobante del aporte' });
-  }
-  const formato = TIPOS_COMPROBANTE[req.file.mimetype];
-  if (!formato) {
-    return res.status(415).json({
-      error: 'El comprobante debe ser una imagen JPG, PNG, WebP o un PDF'
-    });
-  }
-  if (!estaConfigurado()) {
-    return res.status(503).json({ error: 'El almacenamiento de comprobantes no está configurado' });
-  }
-
-  const member = await Member.findOne({
-    _id: memberId,
-    semilleroId: req.semilleroId,
-    activo: true
-  });
-  if (!member) {
-    return res.status(403).json({ error: 'Tu ficha de integrante no está activa en este semillero' });
-  }
-
-  const now = new Date();
-  const item = new Contribution({
-    integranteId: member._id,
-    semilleroId: req.semilleroId,
-    monto: round(monto),
-    mes,
-    concepto: concepto.trim(),
-    tipo: 'aporte',
-    montoPagado: 0,
-    abonos: []
-  });
-  const abono = agregarAbono(item, {
-    monto: round(monto),
-    referencia: referenciaTexto,
-    usuarioId: req.userId,
-    aprobado: false,
-    now
-  });
-
-  let subido;
-  try {
-    subido = await subirComprobante(req.file.buffer, {
-      publicId: `${item._id}_${abono._id}_${Date.now()}`,
-      resourceType: formato.resourceType
-    });
-  } catch (error) {
-    return res.status(error.status || 502).json({ error: error.message });
-  }
-  abono.comprobante = {
-    url: subido.url,
-    publicId: subido.publicId,
-    tipo: formato.tipo,
-    nombre: req.file.originalname ? req.file.originalname.slice(0, 160) : null,
-    bytes: subido.bytes || req.file.size || null,
-    subidoPor: req.userId,
-    subidoEn: now
-  };
-
-  sincronizarEstado(item, now);
-  try {
-    await item.save();
-  } catch (error) {
-    if (abono.comprobante && abono.comprobante.publicId) {
-      await borrarComprobante(
-        abono.comprobante.publicId,
-        abono.comprobante.tipo === 'pdf' ? 'raw' : 'image'
-      );
-    }
-    throw error;
-  }
-  invalidateBalance(req.semilleroId);
-  await auditar(req, item, 'aporte.reportado', `aporte · ${item.mes} · ${round(monto)}`);
-
-  const tesoreros = await tesorerosDe(req.semilleroId, { excluirUserId: req.userId });
-  await notificar({
-    semilleroId: req.semilleroId,
-    destinatarios: tesoreros,
-    tipo: 'abono_reportado',
-    titulo: 'Aporte reportado',
-    mensaje: `${member.nombre} reportó un aporte de ${dinero(monto)} para ${mesLegible(mes)}: ${item.concepto}.`,
-    contributionId: item._id,
-    memberId: item.integranteId,
-    actorNombre: member.nombre
-  });
-
-  res.status(201).json(item);
-});
-
 // POST /api/contributions/:id/payments  (multipart: monto?, referencia?, comprobante?)
 // Integrante: registra un abono reportado y DEBE adjuntar comprobante en el mismo envío.
 // El integrante reporta siempre el total pendiente; el monto enviado se ignora.
@@ -874,7 +750,6 @@ const attachReceipt = asyncHandler(async (req, res) => {
 module.exports = {
   list,
   create,
-  createSelf,
   bulkCreate,
   pay,
   reject,

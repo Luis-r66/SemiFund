@@ -25,7 +25,6 @@ import 'package:semi_fund/screens/accounts/accounts_screen.dart';
 import 'package:semi_fund/screens/contributions/aporte_form_screen.dart';
 import 'package:semi_fund/screens/contributions/contribution_form_screen.dart';
 import 'package:semi_fund/screens/contributions/contributions_screen.dart';
-import 'package:semi_fund/screens/contributions/self_aporte_form_screen.dart';
 import 'package:semi_fund/screens/expenses/expense_form_screen.dart';
 import 'package:semi_fund/screens/expenses/expenses_screen.dart';
 import 'package:semi_fund/screens/invite/invite_screen.dart';
@@ -508,19 +507,6 @@ void main() {
       tester,
       AporteFormScreen(hoy: DateTime(2026, 10, 4)),
       name: 'aporte_form',
-      extra: <ChangeNotifierProvider<ChangeNotifier>>[
-        ChangeNotifierProvider<ContributionsProvider>(
-          create: (_) => ContributionsProvider(reads, writes),
-        ),
-      ],
-    );
-  });
-
-  testWidgets('self aporte form', (WidgetTester tester) async {
-    await golden(
-      tester,
-      SelfAporteFormScreen(hoy: DateTime(2026, 10, 4)),
-      name: 'self_aporte_form',
       extra: <ChangeNotifierProvider<ChangeNotifier>>[
         ChangeNotifierProvider<ContributionsProvider>(
           create: (_) => ContributionsProvider(reads, writes),

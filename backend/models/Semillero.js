@@ -17,6 +17,10 @@ const semilleroSchema = new mongoose.Schema(
   {
     nombre: { type: String, required: [true, 'El nombre del semillero es requerido'], trim: true },
     codigo: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    // Datos que se imprimen en los documentos del profesor. La ciudad se
+    // propone en cada acta y el centro de costos en la legalización de viáticos.
+    ciudad: { type: String, trim: true, default: null },
+    centroCostos: { type: String, trim: true, default: null },
     creadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     saldoInicial: { type: saldoInicialSchema, default: () => ({ monto: 0 }) },
     activo: { type: Boolean, default: true },

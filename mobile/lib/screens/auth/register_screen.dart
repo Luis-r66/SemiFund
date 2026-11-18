@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +13,7 @@ import '../../widgets/auth_scaffold.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/google_sign_in_button.dart';
+import '../../core/navigation/volver.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -176,7 +176,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: IconButton(
-              onPressed: () => context.pop(),
+              onPressed: () => volver(context),
               tooltip: 'Atrás',
               icon: const Icon(LucideIcons.arrowLeft, size: 20),
               constraints: const BoxConstraints.tightFor(width: 40, height: 40),

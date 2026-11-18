@@ -16,6 +16,7 @@ import '../../widgets/app_update_widgets.dart';
 import '../../widgets/balance_card.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/guided_intro.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/notification_bell.dart';
@@ -32,6 +33,12 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _loadedSemilleroId;
+  bool _introAbierta = false;
+
+  final GlobalKey _balanceKey = GlobalKey();
+  final GlobalKey _aportesKey = GlobalKey();
+  final GlobalKey _gastosKey = GlobalKey();
+  final GlobalKey _documentosKey = GlobalKey();
 
   /// Abre un módulo y refresca el saldo al volver (puede haber cambiado).
   Future<void> _open(String path) async {
@@ -48,6 +55,80 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       context.read<HomeProvider>().load(active.semilleroId, force: true);
     });
+  }
+
+  /// La primera vez (o cuando el perfil lo pide) se muestra la introducción
+  /// guiada sobre esta misma pantalla. No se repite al volver a Inicio.
+  void _quizasMostrarIntro(SessionProvider session) {
+    final bool quiere = session.introSolicitada || session.tutorialPendiente;
+    if (!quiere || _introAbierta) return;
+
+    _introAbierta = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await GuidedIntro.mostrar(context, steps: _pasosIntro(session));
+      if (!mounted) return;
+      session.consumirIntroduccion();
+      await session.marcarTutorialVisto();
+      _introAbierta = false;
+    });
+  }
+
+  List<GuidedStep> _pasosIntro(SessionProvider session) {
+    final bool tesorero = session.isTesorero;
+    final bool profesor = session.user?.esProfesor ?? false;
+
+    return <GuidedStep>[
+      const GuidedStep(
+        icon: LucideIcons.cloud,
+        title: 'Tu semillero, en orden',
+        body:
+            'Te muestro dónde está cada cosa. Puedes saltar la guía y verla '
+            'otra vez desde tu perfil.',
+      ),
+      GuidedStep(
+        icon: LucideIcons.wallet,
+        target: _balanceKey,
+        title: 'El saldo, siempre a la vista',
+        body:
+            'Aquí ves cuánto dinero tiene el semillero: lo aportado menos lo '
+            'gastado. Se actualiza con cada movimiento.',
+      ),
+      GuidedStep(
+        icon: LucideIcons.wallet,
+        target: _aportesKey,
+        title: tesorero ? 'Cuotas y aportes' : 'Tus cuotas',
+        body: tesorero
+            ? 'Asigna una cuota a varios integrantes a la vez y revisa los '
+                  'pagos que reportan con su comprobante.'
+            : 'Cuando la tesorería te asigne una cuota aparecerá aquí. Abre '
+                  'su detalle para reportar el pago con el comprobante.',
+      ),
+      GuidedStep(
+        icon: LucideIcons.receipt,
+        target: _gastosKey,
+        title: 'Cada gasto con su soporte',
+        body:
+            'Proveedor, NIT, factura y valor quedan guardados. Con esos datos '
+            'se llenan los documentos del profesor.',
+      ),
+      if (profesor)
+        GuidedStep(
+          icon: LucideIcons.fileText,
+          target: _documentosKey,
+          title: 'Documentos para la universidad',
+          body:
+              'Sube tu formato Word o Excel una sola vez. SemiFund lo llena '
+              'con los datos del semillero y tú lo descargas para enviarlo.',
+        ),
+      const GuidedStep(
+        icon: LucideIcons.check,
+        title: 'Listo para empezar',
+        body:
+            'Si quieres repetir este recorrido, entra a tu perfil y elige '
+            '"Ver introducción".',
+      ),
+    ];
   }
 
   @override
@@ -68,6 +149,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final HomeSnapshot? snapshot = home.snapshot;
 
+    // La guía se abre cuando ya hay tarjetas en pantalla para señalar.
+    if (snapshot != null) _quizasMostrarIntro(session);
+
     if (AppLayout.isDesktop(context)) {
       return _DesktopHome(
         session: session,
@@ -75,6 +159,9 @@ class _HomeScreenState extends State<HomeScreen> {
         active: active,
         snapshot: snapshot,
         onOpen: _open,
+        balanceKey: _balanceKey,
+        aportesKey: _aportesKey,
+        gastosKey: _gastosKey,
       );
     }
 
@@ -172,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         StaggeredEntrance(
                           index: 0,
                           child: BalanceCard(
+                            key: _balanceKey,
                             saldo: snapshot.balance.saldoDisponible,
                             updatedAt: snapshot.updatedAt,
                           ),
@@ -182,24 +270,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: _TotalsCard(balance: snapshot.balance),
                         ),
                         if (!session.isTesorero) ...<Widget>[
-                          const SizedBox(height: 12),
                           if (snapshot.pendingContributions > 0) ...<Widget>[
+                            const SizedBox(height: 12),
                             PrimaryButton(
                               label: 'Reportar pago',
                               onPressed: () => _open('/contributions'),
                             ),
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: 'Nuevo aporte',
-                              onPressed: () =>
-                                  _open('/contributions/mi-aporte'),
-                            ),
-                          ] else
-                            PrimaryButton(
-                              label: 'Nuevo aporte',
-                              onPressed: () =>
-                                  _open('/contributions/mi-aporte'),
-                            ),
+                          ],
                         ],
                         const SizedBox(height: 28),
                         StaggeredEntrance(
@@ -218,6 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onTap: () => _open('/members'),
                                   ),
                                   _ManageTile(
+                                    key: _aportesKey,
                                     icon: LucideIcons.wallet,
                                     title: 'Aportes',
                                     subtitle: _aportesResumen(
@@ -227,12 +305,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onTap: () => _open('/contributions'),
                                   ),
                                   _ManageTile(
+                                    key: _gastosKey,
                                     icon: LucideIcons.receipt,
                                     title: 'Gastos',
                                     subtitle:
                                         '${snapshot.expensesCount} registrados',
                                     onTap: () => _open('/expenses'),
                                   ),
+                                  if (session.user?.esProfesor == true)
+                                    _ManageTile(
+                                      key: _documentosKey,
+                                      icon: LucideIcons.fileText,
+                                      title: 'Documentos',
+                                      subtitle: 'Plantillas y actas',
+                                      onTap: () => _open('/documents'),
+                                    ),
                                 ],
                               ),
                             ],
@@ -295,6 +382,9 @@ class _DesktopHome extends StatelessWidget {
     required this.active,
     required this.snapshot,
     required this.onOpen,
+    required this.balanceKey,
+    required this.aportesKey,
+    required this.gastosKey,
   });
 
   final SessionProvider session;
@@ -302,6 +392,9 @@ class _DesktopHome extends StatelessWidget {
   final SemilleroMembership active;
   final HomeSnapshot? snapshot;
   final Future<void> Function(String path) onOpen;
+  final GlobalKey balanceKey;
+  final GlobalKey aportesKey;
+  final GlobalKey gastosKey;
 
   @override
   Widget build(BuildContext context) {
@@ -352,19 +445,12 @@ class _DesktopHome extends StatelessWidget {
                         onPressed: () => onOpen('/contributions/aporte'),
                       ),
                     ] else ...<Widget>[
-                      if ((snapshot?.pendingContributions ?? 0) > 0) ...<Widget>[
+                      if ((snapshot?.pendingContributions ?? 0) > 0)
                         _HeaderAction(
                           label: 'Reportar pago',
-                          filled: false,
+                          filled: true,
                           onPressed: () => onOpen('/contributions'),
                         ),
-                        const SizedBox(width: 10),
-                      ],
-                      _HeaderAction(
-                        label: 'Nuevo aporte',
-                        filled: true,
-                        onPressed: () => onOpen('/contributions/mi-aporte'),
-                      ),
                     ],
                   ],
                 ),
@@ -404,6 +490,7 @@ class _DesktopHome extends StatelessWidget {
                                 Expanded(
                                   flex: 3,
                                   child: BalanceCard(
+                                    key: balanceKey,
                                     saldo: snapshot!.balance.saldoDisponible,
                                     updatedAt: snapshot!.updatedAt,
                                   ),
@@ -439,6 +526,7 @@ class _DesktopHome extends StatelessWidget {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: _StatCard(
+                                      key: aportesKey,
                                       icon: LucideIcons.wallet,
                                       label: isTreasurer
                                           ? 'Aportes por cobrar'
@@ -451,6 +539,7 @@ class _DesktopHome extends StatelessWidget {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: _StatCard(
+                                      key: gastosKey,
                                       icon: LucideIcons.receipt,
                                       label: 'Gastos registrados',
                                       value: '${snapshot!.expensesCount}',
@@ -531,6 +620,7 @@ class _HeaderAction extends StatelessWidget {
 
 class _StatCard extends StatelessWidget {
   const _StatCard({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,
@@ -725,6 +815,7 @@ class _ManageGrid extends StatelessWidget {
 
 class _ManageTile extends StatelessWidget {
   const _ManageTile({
+    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,

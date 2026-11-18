@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
@@ -11,6 +10,7 @@ import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
+import '../../core/navigation/volver.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -83,7 +83,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Contraseña actualizada')));
-      context.pop();
+      volver(context);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -108,7 +108,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             children: <Widget>[
               AppTopBar(
                 title: 'Cambiar contraseña',
-                onBack: () => context.pop(),
+                onBack: () => volver(context),
               ),
               Expanded(
                 child: SingleChildScrollView(

@@ -75,6 +75,21 @@ class SemilleroService {
     });
   }
 
+  /// Actualiza nombre, ciudad o centro de costos del semillero activo
+  /// (solo tesorero). Los tres datos alimentan los documentos del profesor.
+  Future<void> updateDatos({
+    String? nombre,
+    String? ciudad,
+    String? centroCostos,
+  }) async {
+    final Map<String, dynamic> body = <String, dynamic>{};
+    if (nombre != null && nombre.trim().isNotEmpty) body['nombre'] = nombre.trim();
+    if (ciudad != null) body['ciudad'] = ciudad.trim();
+    if (centroCostos != null) body['centroCostos'] = centroCostos.trim();
+    if (body.isEmpty) return;
+    await _api.patch('/semilleros/me', data: body);
+  }
+
   Future<String> rotateCode() async {
     final dynamic data = await _api.post('/semilleros/me/code/rotate');
     return asString(asMap(data)['codigo']);

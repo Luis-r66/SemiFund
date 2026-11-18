@@ -8,6 +8,7 @@ function academicFieldsFromUser(user) {
     apellidos: user.apellidos || null,
     tipoUsuario: user.tipoUsuario || null,
     programa: user.programa || 'Sin definir',
+    identificacion: user.identificacion || null,
     semestre: esProfesor ? null : (user.semestre ?? 1)
   };
 }

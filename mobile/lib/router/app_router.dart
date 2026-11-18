@@ -13,12 +13,11 @@ import '../screens/auth/welcome_screen.dart';
 import '../screens/contributions/aporte_form_screen.dart';
 import '../screens/contributions/contribution_form_screen.dart';
 import '../screens/contributions/contributions_screen.dart';
-import '../screens/contributions/self_aporte_form_screen.dart';
+import '../screens/documents/documents_screen.dart';
 import '../screens/expenses/expense_form_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/onboarding/academic_profile_screen.dart';
-import '../screens/onboarding/tutorial_screen.dart';
 import '../screens/invite/invite_screen.dart';
 import '../screens/members/member_detail_screen.dart';
 import '../screens/members/member_form_screen.dart';
@@ -37,6 +36,7 @@ const Set<String> _semilleroRoutes = <String>{
   '/home',
   '/accounts',
   '/invite',
+  '/documents',
   '/semilleros/settings',
 };
 
@@ -95,9 +95,6 @@ class AppRouter {
           }
 
           if (location == '/onboarding') {
-            if (!session.hasActiveSemillero && session.tutorialPendiente) {
-              return '/tutorial';
-            }
             return session.hasActiveSemillero ? '/home' : '/semilleros';
           }
           const Set<String> authRoutes = <String>{
@@ -120,6 +117,11 @@ class AppRouter {
           if (session.hasActiveSemillero &&
               !session.isTesorero &&
               _isTreasurerRoute(location)) {
+            return '/home';
+          }
+
+          // Los documentos son exclusivos de los profesores.
+          if (location == '/documents' && session.user?.esProfesor != true) {
             return '/home';
           }
 
@@ -158,12 +160,6 @@ class AppRouter {
           GoRoute(
             path: '/onboarding',
             builder: (_, _) => const AcademicProfileScreen(),
-          ),
-          GoRoute(
-            path: '/tutorial',
-            builder: (_, GoRouterState state) => TutorialScreen(
-              replay: state.uri.queryParameters['replay'] == '1',
-            ),
           ),
           GoRoute(
             path: '/profile/academic',
@@ -232,11 +228,11 @@ class AppRouter {
                     path: 'aporte',
                     builder: (_, _) => const AporteFormScreen(),
                   ),
-                  GoRoute(
-                    path: 'mi-aporte',
-                    builder: (_, _) => const SelfAporteFormScreen(),
-                  ),
                 ],
+              ),
+              GoRoute(
+                path: '/documents',
+                builder: (_, _) => const DocumentsScreen(),
               ),
               GoRoute(
                 path: '/expenses',

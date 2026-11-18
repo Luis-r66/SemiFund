@@ -15,6 +15,7 @@ import '../../widgets/member_avatar.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/semillero_switcher_sheet.dart';
 import '../../widgets/status_badge.dart';
+import '../../core/navigation/volver.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -63,15 +64,12 @@ class ProfileScreen extends StatelessWidget {
               title: 'Perfil',
               onBack: AppLayout.isDesktop(context)
                   ? null
-                  : () {
-                      if (GoRouter.of(context).canPop()) {
-                        context.pop();
-                      } else {
-                        context.go(
-                          session.hasActiveSemillero ? '/home' : '/semilleros',
-                        );
-                      }
-                    },
+                  : () => volver(
+                      context,
+                      fallback: session.hasActiveSemillero
+                          ? '/home'
+                          : '/semilleros',
+                    ),
             ),
             Expanded(
               child: ListView(
@@ -143,6 +141,17 @@ class ProfileScreen extends StatelessWidget {
                                 : '${user!.semestre}°',
                           ),
                         ],
+                        if ((user?.identificacion ?? '').isNotEmpty) ...<Widget>[
+                          const Divider(),
+                          _InfoRow(
+                            label: 'Documento',
+                            value: user!.identificacion!,
+                          ),
+                        ],
+                        if ((user?.cargo ?? '').isNotEmpty) ...<Widget>[
+                          const Divider(),
+                          _InfoRow(label: 'Cargo', value: user!.cargo!),
+                        ],
                       ],
                     ),
                   ),
@@ -210,8 +219,11 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   SecondaryButton(
-                    label: 'Ver tutorial',
-                    onPressed: () => context.push('/tutorial?replay=1'),
+                    label: 'Ver introducción',
+                    onPressed: () {
+                      session.solicitarIntroduccion();
+                      context.go('/home');
+                    },
                   ),
                   const SizedBox(height: 28),
                   const UpdateSection(),

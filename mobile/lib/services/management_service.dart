@@ -12,8 +12,8 @@ import '../models/member.dart';
 const String xlsxMimeType =
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-class CsvDownload {
-  const CsvDownload({required this.bytes, required this.filename});
+class FileDownload {
+  const FileDownload({required this.bytes, required this.filename});
 
   final Uint8List bytes;
   final String filename;
@@ -46,6 +46,7 @@ class ManagementService {
     required String apellidos,
     required String programa,
     required int semestre,
+    String? identificacion,
   }) async {
     final dynamic data = await _api.post(
       '/members',
@@ -54,6 +55,7 @@ class ManagementService {
         'apellidos': apellidos,
         'programa': programa,
         'semestre': semestre,
+        'identificacion': ?identificacion,
       },
     );
     return Member.fromJson(data);
@@ -200,6 +202,7 @@ class ManagementService {
     required String mes,
     required double monto,
     required String concepto,
+    List<String> integranteIds = const <String>[],
     ContributionType tipo = ContributionType.cuota,
   }) async {
     final dynamic data = await _api.post(
@@ -209,49 +212,17 @@ class ManagementService {
         'monto': monto,
         'concepto': concepto,
         'tipo': tipo.apiValue,
+        if (integranteIds.isNotEmpty) 'integranteIds': integranteIds,
       },
     );
     return BulkContributionResult.fromJson(data);
   }
 
-  /// El integrante crea su propio aporte y lo deja reportado con comprobante.
-  /// El tesorero lo revisa después desde el detalle.
-  Future<Contribution> createSelfContribution({
-    required double monto,
-    required String mes,
-    required String concepto,
-    String? referencia,
-    required Uint8List comprobanteBytes,
-    required String comprobanteNombre,
-    required String comprobanteTipo,
-  }) async {
-    final Map<String, dynamic> fields = <String, dynamic>{
-      'monto': monto,
-      'mes': mes,
-      'concepto': concepto,
-    };
-    if (referencia != null && referencia.trim().isNotEmpty) {
-      fields['referencia'] = referencia.trim();
-    }
-    final dynamic data = await _api.postMultipart(
-      '/contributions/self',
-      bytes: comprobanteBytes,
-      filename: comprobanteNombre,
-      contentType: comprobanteTipo,
-      fields: fields,
-    );
-    return Contribution.fromJson(data);
-  }
-
-  Future<CsvDownload> exportMovimientos() {
-    return _download('/reports/movimientos.csv', 'movimientos.csv');
-  }
-
-  Future<CsvDownload> exportLibro() {
+  Future<FileDownload> exportLibro() {
     return _download('/reports/libro.xlsx', 'libro.xlsx', accept: xlsxMimeType);
   }
 
-  Future<CsvDownload> downloadTemplate() {
+  Future<FileDownload> downloadTemplate() {
     return _download(
       '/reports/plantilla.xlsx',
       'plantilla.xlsx',
@@ -277,7 +248,7 @@ class ManagementService {
     return ImportResult.fromJson(data);
   }
 
-  Future<CsvDownload> _download(
+  Future<FileDownload> _download(
     String path,
     String fallbackName, {
     String accept = 'text/csv',
@@ -290,7 +261,7 @@ class ManagementService {
     final RegExpMatch? match = disposition == null
         ? null
         : RegExp(r'filename="?([^";]+)"?').firstMatch(disposition);
-    return CsvDownload(
+    return FileDownload(
       bytes: Uint8List.fromList(response.data ?? const <int>[]),
       filename: match?.group(1) ?? fallbackName,
     );

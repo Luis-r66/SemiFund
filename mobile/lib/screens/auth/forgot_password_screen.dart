@@ -12,6 +12,7 @@ import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
+import '../../core/navigation/volver.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -144,7 +145,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   if (_codeSent) {
                     setState(() => _codeSent = false);
                   } else {
-                    context.pop();
+                    volver(context);
                   }
                 },
               ),

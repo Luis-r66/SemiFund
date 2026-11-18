@@ -16,6 +16,7 @@ const semilleros = require('./routes/semilleros');
 const reports = require('./routes/reports');
 const audit = require('./routes/audit');
 const imports = require('./routes/imports');
+const documents = require('./routes/documents');
 
 const app = express();
 
@@ -71,6 +72,8 @@ app.use('/api/notifications', requireAuth, requireSemillero, notifications);
 app.use('/api/reports', reports);
 app.use('/api/audit', requireAuth, requireSemillero, requireTesorero, audit);
 app.use('/api/import', requireAuth, requireSemillero, requireTesorero, imports);
+// Documentos generados a partir de las plantillas propias del profesor.
+app.use('/api/documents', requireAuth, requireSemillero, documents);
 
 // 404 para rutas no definidas (siempre JSON)
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));

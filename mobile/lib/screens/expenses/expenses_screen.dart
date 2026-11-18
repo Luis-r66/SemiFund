@@ -16,6 +16,7 @@ import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/pager.dart';
 import '../../widgets/section_label.dart';
+import '../../core/navigation/volver.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -48,7 +49,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 title: 'Gastos',
                 onBack: AppLayout.isDesktop(context)
                     ? null
-                    : () => context.pop(),
+                    : () => volver(context),
                 trailing: isTreasurer
                     ? RoundAddButton(
                         onPressed: () => context.push('/expenses/new'),

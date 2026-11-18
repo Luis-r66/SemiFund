@@ -25,8 +25,6 @@ router.get('/', c.list);
 // Solo el tesorero puede registrar y pagar aportes.
 router.post('/', requireTesorero, c.create);
 router.post('/bulk', requireTesorero, c.bulkCreate);
-// El integrante crea su propio aporte con comprobante; el tesorero lo aprueba.
-router.post('/self', subirComprobante, c.createSelf);
 router.patch('/:id/pay', validateObjectId, requireTesorero, c.pay);
 // El tesorero puede eliminar una cuota sin abonos para limpiar registros errados.
 router.delete('/:id', validateObjectId, requireTesorero, c.remove);

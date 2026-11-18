@@ -12,6 +12,7 @@ import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
+import '../../core/navigation/volver.dart';
 
 class JoinSemilleroScreen extends StatefulWidget {
   const JoinSemilleroScreen({super.key});
@@ -86,7 +87,7 @@ class _JoinSemilleroScreenState extends State<JoinSemilleroScreen> {
             children: <Widget>[
               AppTopBar(
                 title: 'Unirme con código',
-                onBack: () => context.pop(),
+                onBack: () => volver(context),
               ),
               Expanded(
                 child: SingleChildScrollView(

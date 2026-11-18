@@ -13,6 +13,7 @@ import 'core/storage/session_storage.dart';
 import 'providers/accounts_provider.dart';
 import 'providers/app_info_provider.dart';
 import 'providers/contributions_provider.dart';
+import 'providers/documents_provider.dart';
 import 'providers/expenses_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'providers/home_provider.dart';
@@ -22,6 +23,7 @@ import 'providers/session_provider.dart';
 import 'services/auth_service.dart';
 import 'services/app_update_service.dart';
 import 'services/dashboard_service.dart';
+import 'services/documents_service.dart';
 import 'services/google_auth_service.dart';
 import 'services/management_service.dart';
 import 'services/semillero_service.dart';
@@ -51,6 +53,7 @@ Future<void> main() async {
   final SemilleroService semilleroService = SemilleroService(apiClient);
   final DashboardService dashboardService = DashboardService(apiClient);
   final ManagementService managementService = ManagementService(apiClient);
+  final DocumentsService documentsService = DocumentsService(apiClient);
   final AppUpdateService appUpdateService = AppUpdateService(
     preferences: preferences,
   );
@@ -93,6 +96,9 @@ Future<void> main() async {
           ChangeNotifierProvider<ContributionsProvider>(
             create: (_) =>
                 ContributionsProvider(dashboardService, managementService),
+          ),
+          ChangeNotifierProvider<DocumentsProvider>(
+            create: (_) => DocumentsProvider(documentsService),
           ),
           ChangeNotifierProvider<ExpensesProvider>(
             create: (_) =>

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/network/api_exception.dart';
 import '../../core/layout/app_layout.dart';
+import '../../core/navigation/volver.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/utils/input_formatters.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/input_formatters.dart';
+import '../../core/utils/programas.dart';
 import '../../models/user.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_text_field.dart';
@@ -29,13 +30,21 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
   final TextEditingController _names = TextEditingController();
   final TextEditingController _surnames = TextEditingController();
   final TextEditingController _program = TextEditingController();
+  final TextEditingController _document = TextEditingController();
+  final TextEditingController _position = TextEditingController();
 
   UserType? _type;
   int? _semester;
+  String? _programChoice;
   bool _saving = false;
   String? _error;
   String? _typeError;
   String? _semesterError;
+  String? _programError;
+  String? _documentError;
+
+  /// El rol se define en el primer perfil y después queda bloqueado.
+  bool _roleLocked = false;
 
   @override
   void initState() {
@@ -52,14 +61,37 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
     _surnames.text = (user?.apellidos ?? '').isNotEmpty
         ? user!.apellidos
         : (parts.length > 1 ? parts.skip(1).join(' ') : '');
-    _program.text = user?.programa ?? '';
     _type = user?.tipoUsuario;
     _semester = user?.semestre;
+    _roleLocked = user?.tipoUsuario != null;
+    _document.text = user?.identificacion ?? '';
+    _position.text = user?.cargo ?? '';
+
+    final String guardado = (user?.programa ?? '').trim();
+    final bool esProfesor = _type == UserType.profesor;
+    if (guardado.isNotEmpty) {
+      final List<String> opciones = programasPara(esProfesor: esProfesor);
+      String? conocida;
+      for (final String opcion in opciones) {
+        if (opcion.toLowerCase() == guardado.toLowerCase()) {
+          conocida = opcion;
+          break;
+        }
+      }
+      if (conocida != null) {
+        _programChoice = conocida;
+      } else {
+        _programChoice = otroPrograma;
+        _program.text = guardado;
+      }
+    }
 
     for (final TextEditingController controller in <TextEditingController>[
       _names,
       _surnames,
       _program,
+      _document,
+      _position,
     ]) {
       controller.addListener(() => setState(() {}));
     }
@@ -70,28 +102,55 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
     _names.dispose();
     _surnames.dispose();
     _program.dispose();
+    _document.dispose();
+    _position.dispose();
     super.dispose();
   }
 
   bool get _isStudent => _type == UserType.estudiante;
+  bool get _isProfesor => _type == UserType.profesor;
+
+  List<String> get _programOptions => <String>[
+    ...programasPara(esProfesor: _isProfesor),
+    otroPrograma,
+  ];
+
+  String get _programValue {
+    if (_programChoice == otroPrograma) return _program.text.trim();
+    return _programChoice ?? '';
+  }
+
+  bool get _needsCustomProgram => _programChoice == otroPrograma;
+
+  String? _validateDocument(String text) {
+    final String value = text.trim();
+    if (value.isEmpty) return null;
+    if (!RegExp(r'^[0-9][0-9.\- ]{4,19}$').hasMatch(value)) {
+      return 'Escribe entre 5 y 20 números (puedes usar puntos o guiones).';
+    }
+    return null;
+  }
 
   bool get _canSave =>
       _names.text.trim().isNotEmpty &&
       _surnames.text.trim().isNotEmpty &&
-      _program.text.trim().isNotEmpty &&
+      _programValue.isNotEmpty &&
       !_saving;
 
   void _selectType(UserType type) {
+    if (_roleLocked) return;
     setState(() {
       _type = type;
       _typeError = null;
       _semesterError = null;
+      _programChoice = null;
+      _program.clear();
       if (type == UserType.profesor) _semester = null;
     });
   }
 
   Future<void> _save() async {
-    if (!_canSave) return;
+    final String? documentError = _validateDocument(_document.text);
     setState(() {
       _typeError = _type == null
           ? 'Selecciona si eres estudiante o profesor.'
@@ -99,9 +158,19 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
       _semesterError = _isStudent && _semester == null
           ? 'Selecciona tu semestre.'
           : null;
+      _programError = _programValue.isEmpty
+          ? 'Selecciona una opción o escribe la tuya.'
+          : null;
+      _documentError = documentError;
       _error = null;
     });
-    if (_typeError != null || _semesterError != null) return;
+    if (_typeError != null ||
+        _semesterError != null ||
+        _programError != null ||
+        _documentError != null) {
+      return;
+    }
+    if (!_canSave) return;
 
     FocusScope.of(context).unfocus();
     setState(() {
@@ -114,15 +183,21 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
         nombres: _names.text.trim(),
         apellidos: _surnames.text.trim(),
         tipoUsuario: _type!,
-        programa: _program.text.trim(),
+        programa: _programValue,
         semestre: _isStudent ? _semester : null,
+        identificacion: _document.text.trim().isEmpty
+            ? null
+            : _document.text.trim(),
+        cargo: _isProfesor && _position.text.trim().isNotEmpty
+            ? _position.text.trim()
+            : null,
       );
       if (!mounted) return;
       if (widget.editMode) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Datos académicos actualizados')),
         );
-        context.pop();
+        volver(context, fallback: '/profile');
       }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -154,7 +229,9 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                 title: widget.editMode
                     ? 'Datos académicos'
                     : 'Completa tu perfil',
-                onBack: widget.editMode ? () => context.pop() : null,
+                onBack: widget.editMode
+                    ? () => volver(context, fallback: '/profile')
+                    : null,
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -185,6 +262,7 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                               icon: LucideIcons.graduationCap,
                               label: 'Estudiante',
                               selected: _type == UserType.estudiante,
+                              locked: _roleLocked,
                               onTap: () => _selectType(UserType.estudiante),
                             ),
                           ),
@@ -194,11 +272,33 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                               icon: LucideIcons.briefcaseBusiness,
                               label: 'Profesor',
                               selected: _type == UserType.profesor,
+                              locked: _roleLocked,
                               onTap: () => _selectType(UserType.profesor),
                             ),
                           ),
                         ],
                       ),
+                      if (_roleLocked) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: <Widget>[
+                            const Icon(
+                              LucideIcons.lock,
+                              size: 14,
+                              color: AppColors.ink3,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'El rol se define una sola vez y no se puede cambiar.',
+                                style: AppTextStyles.tiny.copyWith(
+                                  color: AppColors.ink3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (_typeError != null) ...<Widget>[
                         const SizedBox(height: 8),
                         Text(
@@ -231,16 +331,34 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                       ),
                       LabeledField(
                         label: programLabel,
-                        child: AppTextField(
-                          controller: _program,
-                          inputFormatters: lettersOnlyFormatters,
+                        error: _programError,
+                        child: SelectField<String>(
+                          value: _programChoice,
+                          items: _programOptions,
+                          labelOf: (String value) => value,
                           hintText: _isStudent
-                              ? 'Ej. Ingeniería de Sistemas'
-                              : 'Ej. Departamento de Sistemas',
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
+                              ? 'Selecciona tu carrera'
+                              : 'Selecciona tu área',
+                          onChanged: (String? value) => setState(() {
+                            _programChoice = value;
+                            _programError = null;
+                            if (value != otroPrograma) _program.clear();
+                          }),
                         ),
                       ),
+                      if (_needsCustomProgram)
+                        LabeledField(
+                          label: _isStudent ? 'Escribe tu carrera' : 'Escribe tu área',
+                          child: AppTextField(
+                            controller: _program,
+                            inputFormatters: simpleTextFormatters,
+                            hintText: _isStudent
+                                ? 'Ej. Ingeniería Ambiental'
+                                : 'Ej. Departamento de Lenguas',
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
                       if (_isStudent)
                         LabeledField(
                           label: 'Semestre',
@@ -255,6 +373,31 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                             hintText: 'Selecciona tu semestre',
                             onChanged: (int? value) =>
                                 setState(() => _semester = value),
+                          ),
+                        ),
+                      LabeledField(
+                        label: 'Documento de identidad (opcional)',
+                        error: _documentError,
+                        helper: _isProfesor
+                            ? 'Se imprime en los documentos que generes.'
+                            : null,
+                        child: AppTextField(
+                          controller: _document,
+                          inputFormatters: identificationFormatters,
+                          hintText: 'Ej. 1.020.304.050',
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.next,
+                        ),
+                      ),
+                      if (_isProfesor)
+                        LabeledField(
+                          label: 'Cargo (opcional)',
+                          child: AppTextField(
+                            controller: _position,
+                            inputFormatters: simpleTextFormatters,
+                            hintText: 'Ej. Docente de planta',
+                            textCapitalization: TextCapitalization.sentences,
+                            textInputAction: TextInputAction.done,
                           ),
                         ),
                       if (_error != null) ...<Widget>[
@@ -298,46 +441,51 @@ class _RoleCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.selected,
+    required this.locked,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
+  final bool locked;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.mist : AppColors.paper,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: selected ? AppColors.ink : AppColors.line,
-          width: selected ? 1.4 : 1,
+    return Opacity(
+      opacity: locked && !selected ? 0.45 : 1,
+      child: Material(
+        color: selected ? AppColors.mist : AppColors.paper,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: selected ? AppColors.ink : AppColors.line,
+            width: selected ? 1.4 : 1,
+          ),
         ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                icon,
-                size: 22,
-                color: selected ? AppColors.ink : AppColors.ink3,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: AppTextStyles.bodySemibold.copyWith(
-                  color: selected ? AppColors.ink : AppColors.ink2,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  icon,
+                  size: 22,
+                  color: selected ? AppColors.ink : AppColors.ink3,
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  label,
+                  style: AppTextStyles.bodySemibold.copyWith(
+                    color: selected ? AppColors.ink : AppColors.ink2,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

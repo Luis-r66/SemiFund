@@ -19,6 +19,7 @@ import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
+import '../../core/navigation/volver.dart';
 import 'statement_sheet.dart';
 
 class MemberDetailScreen extends StatefulWidget {
@@ -121,7 +122,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            AppTopBar(title: 'Integrante', onBack: () => context.pop()),
+            AppTopBar(title: 'Integrante', onBack: () => volver(context)),
             Expanded(
               child: _loading && member == null
                   ? const LoadingView()

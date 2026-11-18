@@ -8,7 +8,7 @@ const { academicFieldsFromUser } = require('../utils/memberSync');
 const { notificar, tesorerosDe } = require('../utils/notifications');
 const { registrar: auditar } = require('../utils/audit');
 const { getBalance, invalidateBalance } = require('../utils/balance');
-const { nombreSemilleroValido } = require('../utils/validators');
+const { nombreSemilleroValido, textoValido } = require('../utils/validators');
 const {
   puedeEliminar,
   nombreConfirma,
@@ -74,7 +74,7 @@ const listarMisSemilleros = asyncHandler(async (req, res) => {
   // Las membresías inactivas no se listan: al salir o eliminar el semillero
   // la tarjeta desaparece en lugar de quedar como un fantasma.
   const membresias = await Membership.find({ userId: req.userId, estado: { $ne: 'inactivo' } })
-    .populate('semilleroId', 'nombre codigo activo creadoPor saldoInicial')
+    .populate('semilleroId', 'nombre codigo activo creadoPor saldoInicial ciudad centroCostos')
     .sort({ createdAt: -1 });
   const items = [];
   for (const m of membresias) {
@@ -100,6 +100,8 @@ const listarMisSemilleros = asyncHandler(async (req, res) => {
       esCreador,
       estado: m.estado,
       miembros,
+      ciudad: m.semilleroId.ciudad || null,
+      centroCostos: m.semilleroId.centroCostos || null,
       saldoInicial: saldoInicialDe(m.semilleroId).monto,
       saldoInicialNota: saldoInicialDe(m.semilleroId).nota,
       puedeAjustarSaldoInicial: puedeAjustarSaldoInicial({
@@ -244,6 +246,8 @@ const detalle = asyncHandler(async (req, res) => {
     creadoPor: semillero.creadoPor.toString(),
     esTesorero,
     esCreador,
+    ciudad: semillero.ciudad || null,
+    centroCostos: semillero.centroCostos || null,
     saldoInicial: saldoInicialDe(semillero),
     puedeAjustarSaldoInicial: puedeAjustarSaldoInicial({
       creadoPor: semillero.creadoPor,
@@ -307,23 +311,71 @@ const actualizarSaldoInicial = asyncHandler(async (req, res) => {
   });
 });
 
-// PATCH /api/semillero  { nombre }  (solo tesorero)
+// PATCH /api/semillero  { nombre?, ciudad?, centroCostos? }  (solo tesorero)
+// Los tres datos alimentan los documentos del profesor: la ciudad se imprime
+// en las actas y el centro de costos en la legalización de viáticos.
 const renombrar = asyncHandler(async (req, res) => {
-  const { nombre } = req.body;
-  if (!nombre || !nombre.trim()) {
-    return res.status(400).json({ error: 'El nombre es requerido' });
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const cambios = {};
+
+  if (body.nombre !== undefined) {
+    const { nombre } = body;
+    if (!nombre || !nombre.trim()) {
+      return res.status(400).json({ error: 'El nombre es requerido' });
+    }
+    if (!nombreSemilleroValido(nombre)) {
+      return res.status(400).json({
+        error: 'El nombre del semillero solo puede tener letras, espacios y signos como &, punto, coma o guion'
+      });
+    }
+    cambios.nombre = nombre.trim();
   }
-  if (!nombreSemilleroValido(nombre)) {
-    return res.status(400).json({
-      error: 'El nombre del semillero solo puede tener letras, espacios y signos como &, punto, coma o guion'
-    });
+
+  if (body.ciudad !== undefined) {
+    if (body.ciudad === null || `${body.ciudad}`.trim() === '') {
+      cambios.ciudad = null;
+    } else {
+      const ciudad = textoValido(body.ciudad, { campo: 'La ciudad', maximo: 60 });
+      if (ciudad.error) return res.status(400).json({ error: ciudad.error });
+      cambios.ciudad = ciudad.valor;
+    }
   }
+
+  if (body.centroCostos !== undefined) {
+    if (body.centroCostos === null || `${body.centroCostos}`.trim() === '') {
+      cambios.centroCostos = null;
+    } else {
+      const centro = textoValido(body.centroCostos, { campo: 'El centro de costos', maximo: 80 });
+      if (centro.error) return res.status(400).json({ error: centro.error });
+      cambios.centroCostos = centro.valor;
+    }
+  }
+
+  if (Object.keys(cambios).length === 0) {
+    return res.status(400).json({ error: 'No hay datos para actualizar' });
+  }
+
   const semillero = await Semillero.findByIdAndUpdate(
     req.semillero._id,
-    { nombre: nombre.trim() },
+    { $set: cambios },
     { returnDocument: 'after' }
   );
-  res.status(200).json({ id: semillero.id, nombre: semillero.nombre });
+
+  await auditar({
+    semilleroId: req.semillero._id,
+    usuarioId: req.userId,
+    accion: 'semillero.datos_actualizados',
+    entidad: 'Semillero',
+    entidadId: req.semillero._id,
+    detalle: Object.keys(cambios).join(', ')
+  });
+
+  res.status(200).json({
+    id: semillero.id,
+    nombre: semillero.nombre,
+    ciudad: semillero.ciudad || null,
+    centroCostos: semillero.centroCostos || null
+  });
 });
 
 // POST /api/semillero/code/rotate  (solo tesorero)

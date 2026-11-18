@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,6 +12,7 @@ import '../../providers/invitation_provider.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
+import '../../core/navigation/volver.dart';
 
 class InviteScreen extends StatefulWidget {
   const InviteScreen({super.key});
@@ -75,7 +75,7 @@ class _InviteScreenState extends State<InviteScreen> {
           children: <Widget>[
             AppTopBar(
               title: 'Invitar integrantes',
-              onBack: AppLayout.isDesktop(context) ? null : () => context.pop(),
+              onBack: AppLayout.isDesktop(context) ? null : () => volver(context),
             ),
             Expanded(
               child: ListView(

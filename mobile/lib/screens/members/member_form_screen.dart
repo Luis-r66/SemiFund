@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
@@ -7,6 +6,7 @@ import '../../core/layout/app_layout.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/input_formatters.dart';
+import '../../core/utils/programas.dart';
 import '../../models/member.dart';
 import '../../providers/members_provider.dart';
 import '../../services/dashboard_service.dart';
@@ -14,7 +14,9 @@ import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/form_controls.dart';
 import '../../widgets/loading_view.dart';
+import '../../core/navigation/volver.dart';
 
 class MemberFormScreen extends StatefulWidget {
   const MemberFormScreen({super.key, this.memberId});
@@ -30,7 +32,9 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
   final TextEditingController _surnames = TextEditingController();
   final TextEditingController _program = TextEditingController();
   final TextEditingController _semester = TextEditingController();
+  final TextEditingController _document = TextEditingController();
 
+  String? _programChoice;
   bool _loading = false;
   bool _saving = false;
   String? _error;
@@ -45,6 +49,7 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
       _surnames,
       _program,
       _semester,
+      _document,
     ]) {
       c.addListener(() => setState(() {}));
     }
@@ -59,6 +64,7 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
     _surnames.dispose();
     _program.dispose();
     _semester.dispose();
+    _document.dispose();
     super.dispose();
   }
 
@@ -80,8 +86,23 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
       _surnames.text = member.apellidos.isNotEmpty
           ? member.apellidos
           : (parts.length > 1 ? parts.skip(1).join(' ') : '');
-      _program.text = member.programa;
       _semester.text = member.semestre?.toString() ?? '';
+      _document.text = member.identificacion ?? '';
+
+      final String guardado = member.programa.trim();
+      String? conocida;
+      for (final String opcion in programasAcademicos) {
+        if (opcion.toLowerCase() == guardado.toLowerCase()) {
+          conocida = opcion;
+          break;
+        }
+      }
+      if (conocida != null) {
+        _programChoice = conocida;
+      } else if (guardado.isNotEmpty) {
+        _programChoice = otroPrograma;
+        _program.text = guardado;
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -95,10 +116,17 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
     return value;
   }
 
+  String get _programValue {
+    if (_programChoice == otroPrograma) return _program.text.trim();
+    return _programChoice ?? '';
+  }
+
+  bool get _needsCustomProgram => _programChoice == otroPrograma;
+
   bool get _canSave =>
       _names.text.trim().isNotEmpty &&
       _surnames.text.trim().isNotEmpty &&
-      _program.text.trim().isNotEmpty &&
+      _programValue.isNotEmpty &&
       _semesterValue != null &&
       !_saving;
 
@@ -110,24 +138,27 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
       _error = null;
     });
     final MembersProvider members = context.read<MembersProvider>();
+    final String documento = _document.text.trim();
     try {
       if (_isEdit) {
         await members.update(widget.memberId!, <String, dynamic>{
           'nombres': _names.text.trim(),
           'apellidos': _surnames.text.trim(),
-          'programa': _program.text.trim(),
+          'programa': _programValue,
           'semestre': _semesterValue,
+          'identificacion': documento.isEmpty ? null : documento,
         });
       } else {
         await members.create(
           nombres: _names.text.trim(),
           apellidos: _surnames.text.trim(),
-          programa: _program.text.trim(),
+          programa: _programValue,
           semestre: _semesterValue!,
+          identificacion: documento.isEmpty ? null : documento,
         );
       }
       if (!mounted) return;
-      context.pop();
+      volver(context);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -150,7 +181,7 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
             children: <Widget>[
               AppTopBar(
                 title: _isEdit ? 'Editar integrante' : 'Nuevo integrante',
-                onBack: () => context.pop(),
+                onBack: () => volver(context),
               ),
               if (!_isEdit)
                 Padding(
@@ -191,13 +222,32 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                             ),
                             LabeledField(
                               label: 'Programa académico',
-                              child: AppTextField(
-                                controller: _program,
-                                inputFormatters: lettersOnlyFormatters,
-                                hintText: 'Ej. Ingeniería de Sistemas',
-                                textInputAction: TextInputAction.next,
+                              child: SelectField<String>(
+                                value: _programChoice,
+                                items: <String>[
+                                  ...programasAcademicos,
+                                  otroPrograma,
+                                ],
+                                labelOf: (String value) => value,
+                                hintText: 'Selecciona la carrera',
+                                onChanged: (String? value) => setState(() {
+                                  _programChoice = value;
+                                  if (value != otroPrograma) _program.clear();
+                                }),
                               ),
                             ),
+                            if (_needsCustomProgram)
+                              LabeledField(
+                                label: 'Escribe la carrera',
+                                child: AppTextField(
+                                  controller: _program,
+                                  inputFormatters: simpleTextFormatters,
+                                  hintText: 'Ej. Ingeniería Ambiental',
+                                  textCapitalization:
+                                      TextCapitalization.words,
+                                  textInputAction: TextInputAction.next,
+                                ),
+                              ),
                             LabeledField(
                               label: 'Semestre',
                               error: semesterInvalid
@@ -205,7 +255,18 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                                   : null,
                               child: AppTextField(
                                 controller: _semester,
+                                inputFormatters: digitsOnlyFormatters,
                                 hintText: '1 - 10',
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                              ),
+                            ),
+                            LabeledField(
+                              label: 'Documento de identidad (opcional)',
+                              child: AppTextField(
+                                controller: _document,
+                                inputFormatters: identificationFormatters,
+                                hintText: 'Ej. 1.020.304.050',
                                 keyboardType: TextInputType.number,
                                 textInputAction: TextInputAction.done,
                                 onSubmitted: (_) => _save(),

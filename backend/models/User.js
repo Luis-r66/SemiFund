@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema(
     },
     tipoUsuario: { type: String, enum: ['estudiante', 'profesor', null], default: null },
     programa: { type: String, trim: true, default: null },
+    // Documento de identidad y cargo: se imprimen en los documentos que
+    // genera el profesor (actas, certificados, legalización de viáticos).
+    identificacion: { type: String, trim: true, default: null },
+    cargo: { type: String, trim: true, default: null },
     semestre: {
       type: Number,
       default: null,

@@ -34,6 +34,8 @@ class SemilleroMembership {
     this.saldoInicial = 0,
     this.saldoInicialNota,
     this.puedeAjustarSaldoInicial = false,
+    this.ciudad,
+    this.centroCostos,
   });
 
   final String id;
@@ -49,6 +51,10 @@ class SemilleroMembership {
   final double saldoInicial;
   final String? saldoInicialNota;
   final bool puedeAjustarSaldoInicial;
+
+  /// Ciudad y centro de costos: datos que se imprimen en los documentos.
+  final String? ciudad;
+  final String? centroCostos;
 
   bool get isActive => estado == MembershipStatus.activo;
 
@@ -72,6 +78,8 @@ class SemilleroMembership {
       saldoInicial: asDouble(map['saldoInicial']),
       saldoInicialNota: asNullableString(map['saldoInicialNota']),
       puedeAjustarSaldoInicial: asBool(map['puedeAjustarSaldoInicial']),
+      ciudad: asNullableString(map['ciudad']),
+      centroCostos: asNullableString(map['centroCostos']),
     );
   }
 
@@ -87,6 +95,8 @@ class SemilleroMembership {
     'saldoInicial': saldoInicial,
     'saldoInicialNota': saldoInicialNota,
     'puedeAjustarSaldoInicial': puedeAjustarSaldoInicial,
+    'ciudad': ciudad,
+    'centroCostos': centroCostos,
   };
 
   SemilleroMembership copyWith({
@@ -101,6 +111,8 @@ class SemilleroMembership {
     double? saldoInicial,
     String? saldoInicialNota,
     bool? puedeAjustarSaldoInicial,
+    String? ciudad,
+    String? centroCostos,
   }) {
     return SemilleroMembership(
       id: id ?? this.id,
@@ -115,6 +127,8 @@ class SemilleroMembership {
       saldoInicialNota: saldoInicialNota ?? this.saldoInicialNota,
       puedeAjustarSaldoInicial:
           puedeAjustarSaldoInicial ?? this.puedeAjustarSaldoInicial,
+      ciudad: ciudad ?? this.ciudad,
+      centroCostos: centroCostos ?? this.centroCostos,
     );
   }
 }

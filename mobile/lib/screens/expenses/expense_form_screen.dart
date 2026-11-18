@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +14,7 @@ import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
 import '../../widgets/success_check.dart';
+import '../../core/navigation/volver.dart';
 
 class ExpenseFormScreen extends StatefulWidget {
   const ExpenseFormScreen({super.key, this.hoy});
@@ -111,7 +111,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       if (!mounted) return;
       await showSuccessCheck(context, message: 'Gasto registrado');
       if (!mounted) return;
-      context.pop();
+      volver(context);
     } on ApiException catch (error) {
       if (!mounted) return;
       // 409 del backend: saldo insuficiente (el saldo puede haber cambiado).
@@ -138,7 +138,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
           maxWidth: AppLayout.formMaxWidth,
           child: Column(
             children: <Widget>[
-              AppTopBar(title: 'Nuevo gasto', onBack: () => context.pop()),
+              AppTopBar(title: 'Nuevo gasto', onBack: () => volver(context)),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),

@@ -41,6 +41,7 @@ class SessionProvider extends ChangeNotifier {
   bool _expiring = false;
   bool _descartandoEliminado = false;
   bool _tutorialPendiente = false;
+  bool _introSolicitada = false;
 
   SessionStatus get status => _status;
   UserModel? get user => _user;
@@ -52,6 +53,18 @@ class SessionProvider extends ChangeNotifier {
 
   /// La cuenta completó sus datos y todavía no ha visto el recorrido inicial.
   bool get tutorialPendiente => _tutorialPendiente;
+
+  /// El perfil pidió repetir la introducción guiada en el inicio.
+  bool get introSolicitada => _introSolicitada;
+
+  void solicitarIntroduccion() {
+    _introSolicitada = true;
+    notifyListeners();
+  }
+
+  void consumirIntroduccion() {
+    _introSolicitada = false;
+  }
 
   bool get isAuthenticated => _status == SessionStatus.authenticated;
   bool get hasActiveSemillero => _activeSemillero != null;
@@ -228,6 +241,8 @@ class SessionProvider extends ChangeNotifier {
     required UserType tipoUsuario,
     required String programa,
     int? semestre,
+    String? identificacion,
+    String? cargo,
   }) async {
     final UserModel updated = await _authService.updateProfile(
       UpdateProfileRequest(
@@ -236,6 +251,8 @@ class SessionProvider extends ChangeNotifier {
         tipoUsuario: tipoUsuario,
         programa: programa.trim(),
         semestre: tipoUsuario == UserType.estudiante ? semestre : null,
+        identificacion: identificacion?.trim(),
+        cargo: cargo?.trim(),
       ),
     );
     _user = updated;
@@ -313,6 +330,21 @@ class SessionProvider extends ChangeNotifier {
     final JoinSemilleroResult result = await _semilleroService.join(codigo);
     await _reloadSemillerosSafely();
     return result;
+  }
+
+  /// Guarda nombre, ciudad y centro de costos del semillero activo.
+  Future<void> actualizarDatosSemillero({
+    String? nombre,
+    String? ciudad,
+    String? centroCostos,
+  }) async {
+    await _semilleroService.updateDatos(
+      nombre: nombre,
+      ciudad: ciudad,
+      centroCostos: centroCostos,
+    );
+    await _reloadSemillerosSafely();
+    notifyListeners();
   }
 
   /// Sale del semillero activo sin borrarlo.
@@ -470,6 +502,7 @@ class SessionProvider extends ChangeNotifier {
     _semilleros = <SemilleroMembership>[];
     _activeSemillero = null;
     _tutorialPendiente = false;
+    _introSolicitada = false;
     await _store.clearAll();
   }
 }

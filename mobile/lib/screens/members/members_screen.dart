@@ -19,6 +19,7 @@ import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/pager.dart';
 import '../../widgets/status_badge.dart';
+import '../../core/navigation/volver.dart';
 
 class MembersScreen extends StatefulWidget {
   const MembersScreen({super.key});
@@ -71,7 +72,7 @@ class _MembersScreenState extends State<MembersScreen> {
                 title: 'Integrantes',
                 onBack: AppLayout.isDesktop(context)
                     ? null
-                    : () => context.pop(),
+                    : () => volver(context),
                 trailing: isTreasurer
                     ? RoundAddButton(
                         onPressed: () => context.push('/members/new'),

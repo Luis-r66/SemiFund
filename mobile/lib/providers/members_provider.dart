@@ -147,12 +147,14 @@ class MembersProvider extends ChangeNotifier {
     required String apellidos,
     required String programa,
     required int semestre,
+    String? identificacion,
   }) async {
     final Member created = await _writes.createMember(
       nombres: nombres,
       apellidos: apellidos,
       programa: programa,
       semestre: semestre,
+      identificacion: identificacion,
     );
     await load(query: _query);
     return created;

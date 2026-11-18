@@ -23,6 +23,8 @@ const memberSchema = new mongoose.Schema(
     },
     activo: { type: Boolean, default: true },
     fechaIngreso: { type: Date, default: Date.now },
+    // Documento de identidad, opcional, para documentos y certificados.
+    identificacion: { type: String, trim: true, default: null },
     semilleroId: { type: mongoose.Schema.Types.ObjectId, ref: 'Semillero', required: true }
   },
   { collection: 'members', timestamps: false }

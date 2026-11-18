@@ -17,7 +17,9 @@ import '../../core/utils/formatters.dart';
 import '../../models/abono.dart';
 import '../../models/contribution.dart';
 import '../../models/import_result.dart';
+import '../../models/member.dart';
 import '../../providers/contributions_provider.dart';
+import '../../providers/members_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../services/management_service.dart';
 import '../../widgets/app_top_bar.dart';
@@ -29,6 +31,7 @@ import '../../widgets/loading_view.dart';
 import '../../widgets/pager.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
+import '../../core/navigation/volver.dart';
 import 'excel_import_sheet.dart';
 
 /// En web `externalApplication` no está soportado por url_launcher; el modo
@@ -177,9 +180,8 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     if (confirmed != true) return;
     final bool ok = await _guard(() => provider.delete(contribution));
     if (!ok || !mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aporte eliminado.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Aporte eliminado.')));
   }
 
   Future<void> _reportAbono(Contribution contribution) async {
@@ -187,11 +189,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         .read<ContributionsProvider>();
     final _ReportResult? result = await showDialog<_ReportResult>(
       context: context,
-      builder: (BuildContext dialogContext) =>
-          _ReportDialog(
-            saldo: contribution.saldoPendiente,
-            tipo: contribution.tipo,
-          ),
+      builder: (BuildContext dialogContext) => _ReportDialog(
+        saldo: contribution.saldoPendiente,
+        tipo: contribution.tipo,
+      ),
     );
     if (result == null) return;
     final bool ok = await _guard(
@@ -246,8 +247,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final _InputResult? result = await _ask(
       _InputDialog(
         title: 'Rechazar abono',
-        description:
-            'El abono no suma al cobrado. El saldo sigue igual.',
+        description: 'El abono no suma al cobrado. El saldo sigue igual.',
         confirmLabel: 'Rechazar',
         fieldLabel: 'Motivo (opcional)',
         fieldHint: 'Ej. Comprobante ilegible',
@@ -329,9 +329,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
   Future<void> _openBulk() async {
     final ContributionsProvider provider = context
         .read<ContributionsProvider>();
+    final MembersProvider members = context.read<MembersProvider>();
+    await members.loadForPicker();
+    if (!mounted) return;
     final _BulkInput? input = await showDialog<_BulkInput>(
       context: context,
-      builder: (BuildContext dialogContext) => const _BulkDialog(),
+      builder: (BuildContext dialogContext) =>
+          _BulkDialog(members: members.pickerMembers),
     );
     if (input == null) return;
     try {
@@ -339,6 +343,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         mes: input.mes,
         monto: input.monto,
         concepto: input.concepto,
+        integranteIds: input.integranteIds,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -356,12 +361,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     }
   }
 
-  Future<void> _export(String format) async {
-    final bool excel = format != 'csv';
-    await _shareFile(
-      (ContributionsProvider provider) =>
-          excel ? provider.exportExcel() : provider.exportCsv(),
-      mimeType: excel ? xlsxMimeType : 'text/csv',
+  Future<void> _exportExcel() {
+    return _shareFile(
+      (ContributionsProvider provider) => provider.exportExcel(),
+      mimeType: xlsxMimeType,
     );
   }
 
@@ -372,13 +375,61 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     );
   }
 
+  /// El menú de Excel solo importa o exporta el libro completo. La plantilla
+  /// vive dentro de la importación para no mezclarla con las exportaciones.
+  Future<void> _openImportDialog() async {
+    if (_importing) return;
+    final String? opcion = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Importar desde Excel'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Descarga la plantilla de SemiFund, llénala y sube el archivo. '
+              'Solo se crean los registros nuevos; nada existente se modifica.',
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(LucideIcons.download, size: 20),
+              title: const Text('Descargar plantilla'),
+              subtitle: const Text('Excel con las hojas del semillero'),
+              onTap: () => Navigator.of(dialogContext).pop('plantilla'),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(LucideIcons.upload, size: 20),
+              title: const Text('Subir archivo lleno'),
+              subtitle: const Text('Revisa la vista previa antes de guardar'),
+              onTap: () => Navigator.of(dialogContext).pop('importar'),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+    if (opcion == 'plantilla') {
+      await _downloadTemplate();
+    } else if (opcion == 'importar') {
+      await _pickImport();
+    }
+  }
+
   Future<void> _shareFile(
-    Future<CsvDownload> Function(ContributionsProvider provider) fetch, {
+    Future<FileDownload> Function(ContributionsProvider provider) fetch, {
     required String mimeType,
   }) async {
     setState(() => _exporting = true);
     try {
-      final CsvDownload file = await fetch(
+      final FileDownload file = await fetch(
         context.read<ContributionsProvider>(),
       );
       await SharePlus.instance.share(
@@ -510,7 +561,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                 title: 'Aportes',
                 onBack: AppLayout.isDesktop(context)
                     ? null
-                    : () => context.pop(),
+                    : () => volver(context),
                 trailing: isTreasurer
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
@@ -548,34 +599,23 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                             enabled: !_exporting && !_importing,
                             onSelected: (String option) {
                               switch (option) {
-                                case 'plantilla':
-                                  _downloadTemplate();
-                                  break;
                                 case 'importar':
-                                  _pickImport();
+                                  _openImportDialog();
                                   break;
-                                default:
-                                  _export(option);
+                                case 'xlsx':
+                                  _exportExcel();
+                                  break;
                               }
                             },
                             itemBuilder: (BuildContext context) =>
                                 const <PopupMenuEntry<String>>[
                                   PopupMenuItem<String>(
-                                    value: 'plantilla',
-                                    child: Text('Descargar plantilla Excel'),
-                                  ),
-                                  PopupMenuItem<String>(
                                     value: 'importar',
                                     child: Text('Importar Excel'),
                                   ),
-                                  PopupMenuDivider(),
                                   PopupMenuItem<String>(
                                     value: 'xlsx',
-                                    child: Text('Excel (libro completo)'),
-                                  ),
-                                  PopupMenuItem<String>(
-                                    value: 'csv',
-                                    child: Text('CSV (movimientos)'),
+                                    child: Text('Exportar libro completo'),
                                   ),
                                 ],
                             icon: _exporting || _importing
@@ -592,22 +632,12 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                                   ),
                           ),
                           RoundAddButton(
-                            onPressed: () => context.push(
-                              '/contributions/aporte',
-                            ),
+                            onPressed: () =>
+                                context.push('/contributions/aporte'),
                           ),
                         ],
                       )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          RoundAddButton(
-                            onPressed: () => context.push(
-                              '/contributions/mi-aporte',
-                            ),
-                          ),
-                        ],
-                      ),
+                    : null,
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -641,7 +671,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                           title: 'Sin aportes',
                           message: isTreasurer
                               ? 'No hay aportes para este filtro.'
-                              : 'Crea tu propio aporte con su comprobante o espera a que la tesorería te asigne una cuota.',
+                              : 'Cuando la tesorería te asigne una cuota aparecerá aquí. Abre su detalle para reportar el pago con el comprobante.',
                         )
                       else ...<Widget>[
                         SectionLabel(
@@ -695,15 +725,21 @@ class _BulkInput {
     required this.mes,
     required this.monto,
     required this.concepto,
+    required this.integranteIds,
   });
 
   final String mes;
   final double monto;
   final String concepto;
+  final List<String> integranteIds;
 }
 
 class _BulkDialog extends StatefulWidget {
-  const _BulkDialog();
+  const _BulkDialog({required this.members});
+
+  /// Integrantes activos del semillero; si la lista viene vacía se asigna la
+  /// cuota a todos los que ya tienen cuenta activa.
+  final List<Member> members;
 
   @override
   State<_BulkDialog> createState() => _BulkDialogState();
@@ -716,13 +752,47 @@ class _BulkDialogState extends State<_BulkDialog> {
   final TextEditingController _concept = TextEditingController(
     text: 'Cuota mensual',
   );
+  final Set<String> _selected = <String>{};
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected.addAll(widget.members.map((Member item) => item.id));
+  }
 
   @override
   void dispose() {
     _amount.dispose();
     _concept.dispose();
     super.dispose();
+  }
+
+  bool get _todos =>
+      widget.members.isNotEmpty && _selected.length == widget.members.length;
+
+  void _toggleTodos(bool? marcar) {
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(
+          marcar == true
+              ? widget.members.map((Member item) => item.id)
+              : const <String>[],
+        );
+      _error = null;
+    });
+  }
+
+  void _toggleUno(Member member, bool? marcar) {
+    setState(() {
+      if (marcar == true) {
+        _selected.add(member.id);
+      } else {
+        _selected.remove(member.id);
+      }
+      _error = null;
+    });
   }
 
   void _confirm() {
@@ -739,9 +809,20 @@ class _BulkDialogState extends State<_BulkDialog> {
       setState(() => _error = 'Escribe un concepto.');
       return;
     }
-    Navigator.of(
-      context,
-    ).pop(_BulkInput(mes: _mes!, monto: monto, concepto: _concept.text.trim()));
+    if (widget.members.isNotEmpty && _selected.isEmpty) {
+      setState(() => _error = 'Elige al menos un integrante.');
+      return;
+    }
+    Navigator.of(context).pop(
+      _BulkInput(
+        mes: _mes!,
+        monto: monto,
+        concepto: _concept.text.trim(),
+        integranteIds: widget.members.isEmpty
+            ? const <String>[]
+            : _selected.toList(),
+      ),
+    );
   }
 
   @override
@@ -754,7 +835,8 @@ class _BulkDialogState extends State<_BulkDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             const Text(
-              'Se crea una cuota para cada integrante activo que aún no tenga una en ese mes.',
+              'Se crea una cuota para cada integrante elegido que aún no tenga '
+              'una en ese mes.',
             ),
             const SizedBox(height: 12),
             SelectField<String>(
@@ -776,6 +858,51 @@ class _BulkDialogState extends State<_BulkDialog> {
               decoration: const InputDecoration(labelText: 'Concepto'),
               onChanged: (_) => setState(() => _error = null),
             ),
+            const SizedBox(height: 16),
+            if (widget.members.isEmpty)
+              Text(
+                'No se pudieron cargar los integrantes. La cuota se asignará a '
+                'todos los activos.',
+                style: AppTextStyles.small.copyWith(color: AppColors.ink3),
+              )
+            else ...<Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Integrantes',
+                      style: AppTextStyles.smallSemibold,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _toggleTodos(!_todos),
+                    child: Text(_todos ? 'Quitar todos' : 'Elegir todos'),
+                  ),
+                ],
+              ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: <Widget>[
+                    for (final Member member in widget.members)
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: _selected.contains(member.id),
+                        onChanged: (bool? value) => _toggleUno(member, value),
+                        title: Text(
+                          member.nombre,
+                          style: AppTextStyles.small,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             if (_error != null) ...<Widget>[
               const SizedBox(height: 12),
               Text(
@@ -1041,7 +1168,10 @@ class _ReportDialogState extends State<_ReportDialog> {
                 children: <Widget>[
                   Text('Monto a reportar', style: AppTextStyles.smallSemibold),
                   const Spacer(),
-                  Text(formatCop(widget.saldo), style: AppTextStyles.moneySmall),
+                  Text(
+                    formatCop(widget.saldo),
+                    style: AppTextStyles.moneySmall,
+                  ),
                 ],
               ),
             ),

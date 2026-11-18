@@ -68,4 +68,13 @@ function requireTesorero(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireSemillero, requireTesorero };
+// Los documentos son exclusivos de los profesores: ellos los descargan y los
+// envían a la universidad. Un estudiante no ve esta sección.
+function requireProfesor(req, res, next) {
+  if (!req.user || req.user.tipoUsuario !== 'profesor') {
+    return res.status(403).json({ error: 'Los documentos están disponibles solo para profesores' });
+  }
+  next();
+}
+
+module.exports = { requireAuth, requireSemillero, requireTesorero, requireProfesor };

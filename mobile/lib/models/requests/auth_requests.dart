@@ -40,6 +40,8 @@ class UpdateProfileRequest {
     required this.tipoUsuario,
     required this.programa,
     this.semestre,
+    this.identificacion,
+    this.cargo,
   });
 
   final String nombres;
@@ -47,6 +49,8 @@ class UpdateProfileRequest {
   final UserType tipoUsuario;
   final String programa;
   final int? semestre;
+  final String? identificacion;
+  final String? cargo;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'nombres': nombres,
@@ -54,6 +58,8 @@ class UpdateProfileRequest {
     'tipoUsuario': tipoUsuario.apiValue,
     'programa': programa,
     'semestre': semestre,
+    'identificacion': identificacion,
+    'cargo': cargo,
   };
 }
 

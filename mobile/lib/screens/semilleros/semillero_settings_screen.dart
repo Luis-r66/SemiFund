@@ -6,14 +6,17 @@ import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/input_formatters.dart';
 import '../../models/semillero_membership.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/session_provider.dart';
+import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/form_controls.dart';
 import '../../widgets/section_label.dart';
 import '../../widgets/status_badge.dart';
+import '../../core/navigation/volver.dart';
 
 /// Ajustes de la membresía activa: salir del semillero o eliminarlo.
 class SemilleroSettingsScreen extends StatefulWidget {
@@ -175,6 +178,37 @@ class _SemilleroSettingsScreenState extends State<SemilleroSettingsScreen> {
     }
   }
 
+  Future<void> _editarDatos(SemilleroMembership membership) async {
+    final SessionProvider session = context.read<SessionProvider>();
+    final _DatosInput? input = await showDialog<_DatosInput>(
+      context: context,
+      builder: (BuildContext dialogContext) => _DatosSemilleroDialog(
+        nombre: membership.nombre,
+        ciudad: membership.ciudad,
+        centroCostos: membership.centroCostos,
+      ),
+    );
+    if (input == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await session.actualizarDatosSemillero(
+        nombre: input.nombre,
+        ciudad: input.ciudad,
+        centroCostos: input.centroCostos,
+      );
+      if (!mounted) return;
+      context.read<HomeProvider>().refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Datos del semillero actualizados.')),
+      );
+    } catch (error) {
+      if (mounted) _error(error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _ajustarSaldo(SemilleroMembership membership) async {
     final SessionProvider session = context.read<SessionProvider>();
     final _SaldoInput? input = await showDialog<_SaldoInput>(
@@ -236,7 +270,7 @@ class _SemilleroSettingsScreenState extends State<SemilleroSettingsScreen> {
           children: <Widget>[
             AppTopBar(
               title: 'Ajustes del semillero',
-              onBack: () => context.pop(),
+              onBack: () => volver(context),
             ),
             Expanded(
               child: membership == null
@@ -270,6 +304,50 @@ class _SemilleroSettingsScreenState extends State<SemilleroSettingsScreen> {
                           ],
                         ),
                         const SizedBox(height: 28),
+                        if (session.isTesorero) ...<Widget>[
+                          const SectionLabel('Datos del semillero'),
+                          Text(
+                            'La ciudad y el centro de costos se imprimen en los '
+                            'documentos que generas para la universidad.',
+                            style: AppTextStyles.small.copyWith(
+                              color: AppColors.ink2,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.line),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                _DatoFila(
+                                  label: 'Ciudad',
+                                  value: membership.ciudad,
+                                ),
+                                const SizedBox(height: 10),
+                                const Divider(height: 1, color: AppColors.line),
+                                const SizedBox(height: 10),
+                                _DatoFila(
+                                  label: 'Centro de costos',
+                                  value: membership.centroCostos,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SecondaryButton(
+                            label: 'Editar datos',
+                            onPressed: _busy
+                                ? null
+                                : () => _editarDatos(membership),
+                          ),
+                          const SizedBox(height: 32),
+                        ],
                         if (membership.puedeAjustarSaldoInicial) ...<Widget>[
                           const SectionLabel('Saldo inicial'),
                           Text(
@@ -457,5 +535,164 @@ class _SaldoInicialDialogState extends State<_SaldoInicialDialog> {
     final String nota = _nota.text.trim();
     Navigator.of(context)
         .pop(_SaldoInput(monto: monto, nota: nota.isEmpty ? null : nota));
+  }
+}
+
+class _DatoFila extends StatelessWidget {
+  const _DatoFila({required this.label, required this.value});
+
+  final String label;
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final String texto = (value ?? '').trim();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.small.copyWith(color: AppColors.ink2),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            texto.isEmpty ? 'Sin definir' : texto,
+            textAlign: TextAlign.right,
+            style: texto.isEmpty
+                ? AppTextStyles.small.copyWith(color: AppColors.ink3)
+                : AppTextStyles.smallSemibold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DatosInput {
+  const _DatosInput({
+    required this.nombre,
+    required this.ciudad,
+    required this.centroCostos,
+  });
+
+  final String nombre;
+  final String ciudad;
+  final String centroCostos;
+}
+
+class _DatosSemilleroDialog extends StatefulWidget {
+  const _DatosSemilleroDialog({
+    required this.nombre,
+    this.ciudad,
+    this.centroCostos,
+  });
+
+  final String nombre;
+  final String? ciudad;
+  final String? centroCostos;
+
+  @override
+  State<_DatosSemilleroDialog> createState() => _DatosSemilleroDialogState();
+}
+
+class _DatosSemilleroDialogState extends State<_DatosSemilleroDialog> {
+  late final TextEditingController _nombre = TextEditingController(
+    text: widget.nombre,
+  );
+  late final TextEditingController _ciudad = TextEditingController(
+    text: widget.ciudad ?? '',
+  );
+  late final TextEditingController _centroCostos = TextEditingController(
+    text: widget.centroCostos ?? '',
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _ciudad.dispose();
+    _centroCostos.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final String nombre = _nombre.text.trim();
+    if (nombre.isEmpty) {
+      setState(() => _error = 'Escribe el nombre del semillero.');
+      return;
+    }
+    Navigator.of(context).pop(
+      _DatosInput(
+        nombre: nombre,
+        ciudad: _ciudad.text.trim(),
+        centroCostos: _centroCostos.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Datos del semillero'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Estos datos se imprimen en los documentos generados. La ciudad '
+              'también se usa como ciudad por defecto del periodo.',
+            ),
+            const SizedBox(height: 16),
+            LabeledField(
+              label: 'Nombre',
+              child: AppTextField(
+                controller: _nombre,
+                hintText: 'Nombre del semillero',
+                textCapitalization: TextCapitalization.sentences,
+                inputFormatters: semilleroNameFormatters,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => setState(() => _error = null),
+              ),
+            ),
+            LabeledField(
+              label: 'Ciudad',
+              child: AppTextField(
+                controller: _ciudad,
+                hintText: 'Ej. Bogotá D.C.',
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: simpleTextFormatters,
+                textInputAction: TextInputAction.next,
+              ),
+            ),
+            LabeledField(
+              label: 'Centro de costos',
+              child: AppTextField(
+                controller: _centroCostos,
+                hintText: 'Ej. Facultad de Ingeniería',
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _confirm(),
+              ),
+            ),
+            if (_error != null)
+              Text(
+                _error!,
+                style: AppTextStyles.small.copyWith(color: AppColors.bad),
+              ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _confirm, child: const Text('Guardar')),
+      ],
+    );
   }
 }

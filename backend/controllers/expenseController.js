@@ -39,9 +39,28 @@ const list = asyncHandler(async (req, res) => {
 // POST /api/expenses  { descripcion, categoria, monto, fecha? }
 // REGLA 1: monto no puede superar el saldo disponible -> 409
 const create = asyncHandler(async (req, res) => {
-  const { descripcion, categoria, monto, fecha } = req.body;
+  const { descripcion, categoria, monto, fecha, proveedor, nit, numeroFactura, tasaCambio } = req.body;
   if (!descripcion || !categoria || monto === undefined) {
     return res.status(400).json({ error: 'descripcion, categoria y monto son requeridos' });
+  }
+
+  // Campos de factura: texto libre, se recortan y se guardan solo si vienen.
+  const datosFactura = {};
+  if (proveedor !== undefined && proveedor !== null && `${proveedor}`.trim()) {
+    datosFactura.proveedor = `${proveedor}`.trim().slice(0, 120);
+  }
+  if (nit !== undefined && nit !== null && `${nit}`.trim()) {
+    datosFactura.nit = `${nit}`.trim().slice(0, 40);
+  }
+  if (numeroFactura !== undefined && numeroFactura !== null && `${numeroFactura}`.trim()) {
+    datosFactura.numeroFactura = `${numeroFactura}`.trim().slice(0, 60);
+  }
+  if (tasaCambio !== undefined && tasaCambio !== null && tasaCambio !== '') {
+    const tasa = Number(tasaCambio);
+    if (!Number.isFinite(tasa) || tasa < 0) {
+      return res.status(400).json({ error: 'La tasa de cambio debe ser un número positivo' });
+    }
+    datosFactura.tasaCambio = tasa;
   }
 
   let fechaGasto = null;
@@ -66,6 +85,7 @@ const create = asyncHandler(async (req, res) => {
     descripcion,
     categoria,
     monto,
+    ...datosFactura,
     semilleroId: req.semilleroId,
     ...(fechaGasto ? { fecha: fechaGasto } : {})
   });

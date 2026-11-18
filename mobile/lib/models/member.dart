@@ -14,6 +14,7 @@ class Member {
     this.tipoUsuario,
     this.esCuentaVinculada = false,
     this.fechaIngreso,
+    this.identificacion,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class Member {
   final UserType? tipoUsuario;
   final bool esCuentaVinculada;
   final DateTime? fechaIngreso;
+  final String? identificacion;
 
   bool get esProfesor => tipoUsuario == UserType.profesor;
 
@@ -53,6 +55,7 @@ class Member {
       tipoUsuario: UserType.tryParse(map['tipoUsuario']),
       esCuentaVinculada: asBool(map['esCuentaVinculada']),
       fechaIngreso: asDate(map['fechaIngreso']),
+      identificacion: asNullableString(map['identificacion']),
     );
   }
 
@@ -67,6 +70,7 @@ class Member {
     'tipoUsuario': tipoUsuario?.apiValue,
     'esCuentaVinculada': esCuentaVinculada,
     'fechaIngreso': fechaIngreso?.toIso8601String(),
+    'identificacion': identificacion,
   };
 
   Member copyWith({
@@ -80,6 +84,7 @@ class Member {
     UserType? tipoUsuario,
     bool? esCuentaVinculada,
     DateTime? fechaIngreso,
+    String? identificacion,
   }) {
     return Member(
       id: id ?? this.id,
@@ -92,6 +97,7 @@ class Member {
       tipoUsuario: tipoUsuario ?? this.tipoUsuario,
       esCuentaVinculada: esCuentaVinculada ?? this.esCuentaVinculada,
       fechaIngreso: fechaIngreso ?? this.fechaIngreso,
+      identificacion: identificacion ?? this.identificacion,
     );
   }
 }

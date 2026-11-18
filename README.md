@@ -77,7 +77,7 @@ npm run dev    # desarrollo (node --watch)
 npm start      # producción
 ```
 
-Verificar: `GET http://localhost:3000/health` → `{ "ok": true, "version": "1.5.2" }`.
+Verificar: `GET http://localhost:3000/health` → `{ "ok": true, "version": "1.6.0" }`.
 
 Para sincronizar los datos académicos de las cuentas con los integrantes existentes:
 
@@ -167,7 +167,7 @@ El saldo inicial es dinero que el semillero ya tenía antes de usar la app. **No
 
 ## Plantilla Excel e importación
 
-La app descarga `GET /reports/plantilla.xlsx` desde **Aportes → menú de Excel → Descargar plantilla Excel**, la llena y la sube con **Importar Excel**. La app muestra la vista previa antes de confirmar.
+La app descarga `GET /reports/plantilla.xlsx` desde **Aportes → menú de Excel → Importar Excel → Descargar plantilla**, la llena y la sube en la misma ventana. La app muestra la vista previa antes de confirmar. El menú de Excel solo tiene **Importar Excel** y **Exportar libro completo**.
 
 La plantilla solo usa los datos que hoy guarda el APK: nombres y apellidos, programa, semestre, tipo de usuario, aportes, abonos y gastos. No pide documento, correo ni teléfono.
 
@@ -196,8 +196,33 @@ Pruebas de las reglas puras:
 
 ```bash
 cd backend
-npm test    # 72 pruebas en 12 archivos
+npm test    # 90 pruebas en 15 archivos
 ```
+
+## Documentos con plantillas propias
+
+Solo para cuentas con `tipoUsuario: profesor`. El profesor sube su propio
+`.docx` o `.xlsx` (el acta, la carta, el formato de la universidad), la app lo
+llena con los datos del semillero y él descarga el archivo para enviarlo.
+
+- El profesor decide qué escribir: dentro del archivo las marcas son
+  `{{campo}}`, por ejemplo `{{semillero.nombre}}`, `{{profesor.nombre}}` o
+  `{{mes}}`.
+- Las listas se repiten con `{{#integrantes}}...{{/integrantes}}`,
+  `{{#gastos}}...{{/gastos}}` y `{{#movimientos}}...{{/movimientos}}`. Dentro del
+  bloque se escribe `{{nombre}}` o `{{integrantes.nombre}}`, ambas funcionan.
+- Al subir la plantilla la app lee las etiquetas y rechaza el archivo con la
+  lista exacta de las que no puede llenar. También rechaza un bloque sin cerrar.
+- **Reemplazar** cambia el archivo conservando el nombre: sirve cuando la
+  universidad cambia el formato cada semestre.
+- **Generar** pide el mes y los datos propios del documento (fechas, ciudad,
+  objeto, hora, lugar, observaciones, valor entregado). El backend entrega el
+  archivo lleno y lo descarta: no se guarda en el servidor.
+- No hay vista previa ni PDF: el profesor abre el Word o Excel descargado y lo
+  convierte si lo necesita. Las marcas desaparecen del archivo generado.
+- Las plantillas se guardan en Cloudinary (`semifund/plantillas`, tipo `raw`).
+  Sin `CLOUDINARY_*` configurado, subir responde `503`.
+- Un estudiante recibe `403` en todos los endpoints de documentos.
 
 ## Inicio de sesión con Google
 
@@ -334,23 +359,26 @@ Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core
 - Si hay una versión nueva, aparece un aviso en Inicio y en Perfil. **Descargar**
   abre el APK en el navegador; Android pide confirmación para instalarlo, porque
   fuera de Play Store el sistema no permite instalar sola.
-- El recorrido de bienvenida aparece una vez por cuenta después de completar el
-  perfil académico y se puede repetir desde **Perfil → Ver tutorial**.
+- La introducción guiada aparece una vez por cuenta, cuando el inicio ya tiene
+  datos, y señala con nubes los botones reales: saldo, aportes, gastos y
+  documentos. Se puede saltar y repetir desde **Perfil → Ver introducción**.
 - **Perfil → Ajustes del semillero** permite salir del semillero o, si la cuenta
   lo creó, eliminarlo escribiendo el nombre exacto. También muestra **Saldo
-  inicial**, un ajuste auditado que no crea aportes. Si el creador ya no está
-  activo, el tesorero actual puede corregirlo. El último tesorero no puede salir
-  sin transferir la tesorería. Eliminar es un borrado lógico: el semillero y su
-  historial dejan de estar disponibles, pero quedan registrados para auditoría.
+  inicial**, un ajuste auditado que no crea aportes, y los **datos del semillero**
+  (ciudad y centro de costos) que se imprimen en los documentos; los edita el
+  tesorero. Si el creador ya no está activo, el tesorero actual puede corregir el
+  saldo. El último tesorero no puede salir sin transferir la tesorería. Eliminar
+  es un borrado lógico: el semillero y su historial dejan de estar disponibles,
+  pero quedan registrados para auditoría.
 
 Para publicar una versión:
 
 ```bash
 cd mobile
-# subir version: 1.5.2+11 en pubspec.yaml
+# subir version: 1.6.0+12 en pubspec.yaml
 flutter build apk --release
-gh release create v1.5.2 build/app/outputs/flutter-apk/app-release.apk \
-  --title "SemiFund v1.5.2" --notes "Novedades"
+gh release create v1.6.0 build/app/outputs/flutter-apk/app-release.apk \
+  --title "SemiFund v1.6.0" --notes "Novedades"
 ```
 
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
@@ -367,10 +395,11 @@ ser tesorera en un semillero e integrante en otro.
 - **Tesorero:** aprueba cuentas, crea cuotas y aportes grupales, aprueba abonos,
   registra gastos, descarga reportes y consulta la auditoría. Su propia cuota la
   registra directo, con comprobante opcional.
-- **Integrante:** consulta **solo sus** registros, su estado de cuenta, reporta sus
-  cuotas y crea **sus propios aportes** con comprobante obligatorio. El contador
-  del inicio es personal: el servidor filtra por su `memberId`. Los botones
-  «Reportar pago» y «Nuevo aporte» aparecen según sus pendientes.
+- **Integrante:** consulta **solo sus** registros, su estado de cuenta y reporta
+  las cuotas que la tesorería le asignó. No crea aportes por su cuenta: cada
+  cuota o aporte lo asigna el dueño a uno, varios o todos los integrantes. El
+  contador del inicio es personal: el servidor filtra por su `memberId`.
+- **Profesor:** además de lo anterior, sube sus plantillas y genera documentos.
 - **Nombres:** los de personas y del semillero rechazan números en la app y en el
   servidor. Conceptos, descripciones, notas y referencias sí aceptan números.
 
@@ -380,7 +409,7 @@ roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
 datos. Si el proyecto creciera, un admin global exigiría un campo aparte en
 `User` —nunca auto-registrable—, siembra por variable de entorno, validación
 contra la base en cada petición, auditoría de cada acción y segundo factor.
-Queda fuera de la v1.5.2.
+Queda fuera de la v1.6.0.
 
 ## Estructura por capas
 
@@ -393,9 +422,10 @@ backend/
   controllers/ (lógica negocio + reglas)
   routes/ (solo mapeo método→controlador)
   middleware/ (asyncHandler, validateObjectId, errorHandler)
-  services/ (excelTemplate.js, excelImport.js)
+  services/ (excelTemplate.js, excelImport.js, documentEngine.js, documentData.js)
   utils/balance.js (agregaciones en vivo)
   utils/importValidation.js (reglas puras de la plantilla)
+  utils/programas.js (carreras y áreas)
 postman/Semillero-API.postman_collection.json
 API_CONTRACT.md (contrato para Android)
 ```

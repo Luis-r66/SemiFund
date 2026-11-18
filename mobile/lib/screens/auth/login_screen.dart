@@ -13,6 +13,7 @@ import '../../widgets/auth_scaffold.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/google_sign_in_button.dart';
+import '../../core/navigation/volver.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -117,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: IconButton(
-              onPressed: () => context.pop(),
+              onPressed: () => volver(context),
               tooltip: 'Atrás',
               icon: const Icon(LucideIcons.arrowLeft, size: 20),
               constraints: const BoxConstraints.tightFor(width: 40, height: 40),
