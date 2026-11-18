@@ -329,7 +329,7 @@ Salir y eliminar:
 - `Membership`: vincula un `User` con un `Semillero` (`userId`, `semilleroId`, `esTesorero`, `estado`, `memberId?`). Un usuario solo puede tener una membresía por semillero.
 - `Semillero`: conserva `creadoPor`, `saldoInicial` (`monto`, `nota`, `registradoPor`, `actualizadoEn`), `activo`, `eliminadoEn` y `eliminadoPor` para el borrado lógico y la auditoría.
 - `Member`: integrante que aporta (`userId?`, `nombre`, `nombres`, `apellidos`, `tipoUsuario`, `programa`, `semestre`, `activo`, `semilleroId`). Si está vinculado a una cuenta, el perfil académico se sincroniza desde `User` al crear el semillero, aprobar la solicitud o actualizar `/api/auth/me`. El tesorero no puede editar los datos académicos de un integrante vinculado.
-- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear cuotas, aportes grupales y gastos. El integrante solo ve sus propios registros y puede crear un aporte propio con comprobante obligatorio, además de reportar sus cuotas.
+- Todos los miembros del semillero pueden consultar aportes y gastos; solo el tesorero puede crear cuotas, aportes grupales y gastos. El integrante solo ve sus propios registros y reporta el pago de su cuota o aporte con comprobante.
 
 ## 3. Reglas (backend manda)
 
@@ -379,16 +379,6 @@ interface SemilleroApi {
 
     @POST("contributions/bulk")
     suspend fun createBulkContributions(@Body body: CreateBulkContributionRequest): BulkResult
-
-    @Multipart
-    @POST("contributions/self")
-    suspend fun createSelfContribution(
-        @Part("monto") monto: RequestBody,
-        @Part("mes") mes: RequestBody,
-        @Part("concepto") concepto: RequestBody,
-        @Part("referencia") referencia: RequestBody?,
-        @Part comprobante: MultipartBody.Part
-    ): Contribution
 
     @PATCH("contributions/{id}/pay")
     suspend fun payContribution(@Path("id") id: String): Contribution

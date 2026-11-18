@@ -354,7 +354,9 @@ const changePassword = asyncHandler(async (req, res) => {
   }
   const valida = await user.compararPassword(currentPassword);
   if (!valida) {
-    return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+    // 400 y no 401: la sesión es válida, lo incorrecto es la contraseña actual.
+    // Un 401 haría que los clientes cerraran la sesión desde el formulario.
+    return res.status(400).json({ error: 'La contraseña actual es incorrecta' });
   }
 
   user.passwordHash = await bcrypt.hash(newPassword, 10);

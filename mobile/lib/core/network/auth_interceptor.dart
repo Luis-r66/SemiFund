@@ -2,6 +2,25 @@ import 'package:dio/dio.dart';
 
 import '../storage/session_storage.dart';
 
+/// Rutas de `/auth/` donde un `401` significa que los datos enviados son
+/// incorrectos, no que la sesión haya vencido. Cambiar la contraseña con la
+/// actual equivocada debe mostrar el error en el formulario y no cerrar sesión.
+bool debeExpirarSesion(String path, int? statusCode) {
+  if (statusCode != 401) return false;
+  const List<String> rutasSinExpirar = <String>[
+    '/auth/login',
+    '/auth/register',
+    '/auth/google',
+    '/auth/password',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+  ];
+  for (final String ruta in rutasSinExpirar) {
+    if (path.contains(ruta)) return false;
+  }
+  return true;
+}
+
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({
     required SessionStore store,
@@ -12,10 +31,6 @@ class AuthInterceptor extends Interceptor {
   final SessionStore _store;
   final void Function()? onUnauthorized;
   final void Function()? onSemilleroEliminado;
-
-  static bool _isLoginOrRegister(String path) {
-    return path.contains('/auth/login') || path.contains('/auth/register');
-  }
 
   @override
   Future<void> onRequest(
@@ -45,7 +60,7 @@ class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     final int? statusCode = err.response?.statusCode;
-    if (statusCode == 401 && !_isLoginOrRegister(err.requestOptions.path)) {
+    if (debeExpirarSesion(err.requestOptions.path, statusCode)) {
       onUnauthorized?.call();
     }
     // El semillero fue eliminado por su creador: la sesión local debe soltarlo

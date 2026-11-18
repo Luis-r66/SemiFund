@@ -120,7 +120,6 @@ npm run sync:members                # aplicar
 | GET | `/contributions?status=pending&memberId=` | 200 | 400 |
 | POST | `/contributions` `{integranteId, monto, mes, concepto, tipo?}` | 201 | 400, 409 cuota duplicada |
 | POST | `/contributions/bulk` `{mes, monto, concepto, tipo?, integranteIds?}` | 201 `{creadas, omitidas}` | 400, 403 no tesorero |
-| POST | `/contributions/self` (multipart: `monto`, `mes`, `concepto`, `referencia?`, `comprobante`) | 201 aporte reportado | 400, 403, 413, 415, 503 |
 | PATCH | `/contributions/:id/pay` | 200 | 404, 409 ya pagado |
 | PATCH | `/contributions/:id/reject` `{motivo?}` | 200 | 404, 409 no está reportado |
 | DELETE | `/contributions/:id` (solo sin abonos) | 204 | 404, 409 tiene abonos |
@@ -145,7 +144,7 @@ npm run sync:members                # aplicar
 
 - El integrante solo ve y reporta **sus propios registros**: el filtro se aplica en el servidor, no solo en la app.
 - **Cuota** y **aporte** son tipos distintos: la cuota es la mensualidad única por integrante y mes; el aporte es un destino concreto (viaje, materiales, etc.) y puede repetirse en el mismo mes. `tipo` es opcional y vale `cuota` por defecto; los registros anteriores a la 1.5.2 se leen como cuota.
-- El integrante puede crear **su propio aporte** con `POST /contributions/self`, con comprobante obligatorio. Queda en estado `reportado` y el tesorero lo aprueba después.
+- Desde la 1.6.0 el integrante **no crea aportes propios**: la tesorería asigna la cuota y los aportes a uno, varios o todos los integrantes, y el integrante reporta el pago desde el detalle.
 - Reportar exige **comprobante en el mismo envío** (JPG, PNG, WebP o PDF, máximo 5 MB). Sin archivo la API responde `400` y no crea el abono. Si Cloudinary falla, tampoco queda un pago reportado sin respaldo.
 - El integrante reporta siempre el **saldo pendiente completo**: la app muestra el monto fijo y la API ignora cualquier `monto` que envíe. El tesorero sí puede registrar abonos parciales.
 - El tesorero puede **eliminar una cuota sin abonos** desde el detalle del aporte. Si tiene cualquier abono, la API responde `409` y la conserva para no perder evidencia contable. El borrado queda en auditoría con mes, monto, estado e integrante.
@@ -377,7 +376,9 @@ Para publicar una versión:
 cd mobile
 # subir version: 1.6.1+13 en pubspec.yaml
 flutter build apk --release
-gh release create v1.6.1 build/app/outputs/flutter-apk/app-release.apk#SemiFund.apk \
+# el adjunto debe llamarse SemiFund.apk para que la app lo encuentre primero
+cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/SemiFund.apk
+gh release create v1.6.1 build/app/outputs/flutter-apk/SemiFund.apk \
   --title "SemiFund v1.6.1" --notes "Novedades"
 ```
 
