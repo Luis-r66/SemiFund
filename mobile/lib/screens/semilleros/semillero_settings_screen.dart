@@ -12,6 +12,7 @@ import '../../providers/home_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/form_controls.dart';
 import '../../widgets/section_label.dart';
@@ -305,7 +306,10 @@ class _SemilleroSettingsScreenState extends State<SemilleroSettingsScreen> {
                         ),
                         const SizedBox(height: 28),
                         if (session.isTesorero) ...<Widget>[
-                          const SectionLabel('Datos del semillero'),
+                          SectionLabel(
+                            'Datos del semillero',
+                            key: AppTourKeys.semillerosDatos,
+                          ),
                           Text(
                             'La ciudad y el centro de costos se imprimen en los '
                             'documentos que generas para la universidad.',

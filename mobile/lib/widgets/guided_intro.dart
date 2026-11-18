@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,76 +9,60 @@ import '../core/theme/app_text_styles.dart';
 import '../widgets/buttons.dart';
 
 /// Un paso del recorrido: si [target] apunta a un widget visible, la nube se
-/// coloca junto a él y el resto de la pantalla se atenúa alrededor.
+/// coloca junto a él y el resto de la pantalla se atenúa alrededor. [route] es
+/// la pantalla que debe estar abierta para mostrar el paso.
 class GuidedStep {
   const GuidedStep({
     required this.icon,
     required this.title,
     required this.body,
     this.target,
+    this.route,
   });
 
   final IconData icon;
   final String title;
   final String body;
   final GlobalKey? target;
+  final String? route;
 }
 
-/// Introducción guiada sobre la pantalla real, al estilo de las nubes de Lulo.
-/// Se puede avanzar paso a paso o saltar; al terminar se marca como vista.
-class GuidedIntro {
-  const GuidedIntro._();
+/// Capa visual del recorrido: atenúa la pantalla, deja un hueco sobre el widget
+/// señalado y muestra la tarjeta con el paso actual. Vive encima del navegador
+/// (ver `TourHost`), así sobrevive a los cambios de pantalla.
+class GuidedIntroLayer extends StatefulWidget {
+  const GuidedIntroLayer({
+    super.key,
+    required this.step,
+    required this.index,
+    required this.total,
+    required this.onSkip,
+    required this.onNext,
+  });
 
-  static Future<void> mostrar(
-    BuildContext context, {
-    required List<GuidedStep> steps,
-    VoidCallback? onDone,
-  }) async {
-    if (steps.isEmpty) return;
-    await showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      barrierLabel: 'Introducción guiada',
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (_, _, _) => _GuidedIntroView(steps: steps),
-      transitionBuilder:
-          (BuildContext context, Animation<double> animation, _, Widget child) {
-            final Animation<double> curva = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            );
-            return FadeTransition(
-              opacity: curva,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.98, end: 1).animate(curva),
-                child: child,
-              ),
-            );
-          },
-    );
-    onDone?.call();
-  }
-}
-
-class _GuidedIntroView extends StatefulWidget {
-  const _GuidedIntroView({required this.steps});
-
-  final List<GuidedStep> steps;
+  final GuidedStep step;
+  final int index;
+  final int total;
+  final VoidCallback onSkip;
+  final VoidCallback onNext;
 
   @override
-  State<_GuidedIntroView> createState() => _GuidedIntroViewState();
+  State<GuidedIntroLayer> createState() => _GuidedIntroLayerState();
 }
 
-class _GuidedIntroViewState extends State<_GuidedIntroView> {
-  int _index = 0;
+class _GuidedIntroLayerState extends State<GuidedIntroLayer> {
+  /// La pantalla de destino puede tardar en montarse: se reintenta la medición
+  /// durante unos segundos antes de mostrar la tarjeta centrada.
+  static const int _maxIntentos = 40;
+  static const Duration _espera = Duration(milliseconds: 80);
+
   Rect? _targetRect;
   double _cardTop = 0;
   double _cardLeft = 0;
   double _cardWidth = 340;
-
-  GuidedStep get _step => widget.steps[_index];
-  bool get _esUltimo => _index == widget.steps.length - 1;
+  int _intentos = 0;
+  bool _colocada = false;
+  bool _reintentoFinal = false;
 
   @override
   void initState() {
@@ -85,24 +70,45 @@ class _GuidedIntroViewState extends State<_GuidedIntroView> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _medir());
   }
 
+  Rect? _rectDelObjetivo() {
+    final GlobalKey? clave = widget.step.target;
+    if (clave == null) return null;
+    final BuildContext? objetivo = clave.currentContext;
+    if (objetivo == null) return null;
+    final RenderObject? render = objetivo.findRenderObject();
+    if (render is! RenderBox || !render.hasSize) return null;
+
+    final Size pantalla = MediaQuery.sizeOf(context);
+    final Offset origen = render.localToGlobal(Offset.zero);
+    final Rect visible = (origen & render.size).intersect(
+      Offset.zero & pantalla,
+    );
+    if (visible.width > 8 && visible.height > 8) return visible;
+    return null;
+  }
+
   void _medir() {
     if (!mounted) return;
-    final Size pantalla = MediaQuery.sizeOf(context);
-    final BuildContext? objetivo = _step.target?.currentContext;
-    Rect? rect;
-
-    if (objetivo != null) {
-      final RenderObject? render = objetivo.findRenderObject();
-      if (render is RenderBox && render.hasSize) {
-        final Offset origen = render.localToGlobal(Offset.zero);
-        final Rect completo = origen & render.size;
-        final Rect visible = completo.intersect(Offset.zero & pantalla);
-        if (visible.width > 8 && visible.height > 8) rect = visible;
-      }
+    final Rect? rect = _rectDelObjetivo();
+    if (rect == null &&
+        widget.step.target != null &&
+        _intentos < _maxIntentos) {
+      _intentos += 1;
+      unawaited(
+        Future<void>.delayed(_espera, () {
+          if (mounted) _medir();
+        }),
+      );
+      return;
     }
+    _colocar(rect);
+  }
 
+  void _colocar(Rect? rect) {
+    final Size pantalla = MediaQuery.sizeOf(context);
     final double ancho = math.min(360, pantalla.width - 32);
-    final double estimado = 286;
+    const double altoEstimado = 300;
+
     final double izquierda = rect == null
         ? (pantalla.width - ancho) / 2
         : (rect.center.dx - ancho / 2).clamp(
@@ -112,15 +118,15 @@ class _GuidedIntroViewState extends State<_GuidedIntroView> {
     final bool debajo = rect == null || rect.center.dy < pantalla.height * 0.55;
     double arriba;
     if (rect == null) {
-      arriba = (pantalla.height - estimado) / 2;
+      arriba = (pantalla.height - altoEstimado) / 2;
     } else if (debajo) {
       arriba = rect.bottom + 16;
     } else {
-      arriba = rect.top - estimado - 16;
+      arriba = rect.top - altoEstimado - 16;
     }
     arriba = arriba.clamp(
       16.0,
-      math.max(16.0, pantalla.height - estimado - 16),
+      math.max(16.0, pantalla.height - altoEstimado - 16),
     );
 
     setState(() {
@@ -128,51 +134,58 @@ class _GuidedIntroViewState extends State<_GuidedIntroView> {
       _cardWidth = ancho;
       _cardLeft = izquierda;
       _cardTop = arriba;
+      _colocada = true;
     });
-  }
 
-  void _siguiente() {
-    if (_esUltimo) {
-      Navigator.of(context).pop();
-      return;
+    // La transición entre pantallas puede mover el widget señalado: se vuelve
+    // a medir una vez que la animación terminó para que el hueco quede justo.
+    if (!_reintentoFinal) {
+      _reintentoFinal = true;
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) _medir();
+        }),
+      );
     }
-    setState(() {
-      _index += 1;
-      _targetRect = null;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _medir());
   }
-
-  void _saltar() => Navigator.of(context).pop();
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      type: MaterialType.transparency,
       child: Stack(
         children: <Widget>[
+          // Absorbe los toques para que la pantalla de fondo no cambie
+          // mientras se explica cada paso.
           Positioned.fill(
-            child: CustomPaint(painter: _SpotlightPainter(hole: _targetRect)),
-          ),
-          Positioned(
-            left: _cardLeft,
-            top: _cardTop,
-            width: _cardWidth,
-            child: _IntroCard(
-              step: _step,
-              index: _index,
-              total: widget.steps.length,
-              onSkip: _saltar,
-              onNext: _siguiente,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {},
+              child: CustomPaint(painter: _SpotlightPainter(hole: _targetRect)),
             ),
           ),
+          if (_colocada)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              left: _cardLeft,
+              top: _cardTop,
+              width: _cardWidth,
+              child: _IntroCard(
+                step: widget.step,
+                index: widget.index,
+                total: widget.total,
+                onSkip: widget.onSkip,
+                onNext: widget.onNext,
+              ),
+            ),
           Positioned(
             left: 0,
             right: 0,
             bottom: 16,
             child: Center(
               child: TextButton(
-                onPressed: _saltar,
+                onPressed: widget.onSkip,
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.paper,
                   backgroundColor: AppColors.ink.withValues(alpha: 0.55),

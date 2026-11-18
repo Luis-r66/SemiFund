@@ -11,6 +11,7 @@ import '../../models/expense.dart';
 import '../../providers/expenses_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
@@ -52,6 +53,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     : () => volver(context),
                 trailing: isTreasurer
                     ? RoundAddButton(
+                        key: AppTourKeys.gastosAgregar,
+                        tooltip: 'Nuevo gasto',
                         onPressed: () => context.push('/expenses/new'),
                       )
                     : null,
@@ -75,6 +78,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         const SizedBox(height: 360, child: LoadingView())
                       else ...<Widget>[
                         Padding(
+                          key: AppTourKeys.gastosResumen,
                           padding: const EdgeInsets.fromLTRB(4, 0, 4, 18),
                           child: Row(
                             children: <Widget>[

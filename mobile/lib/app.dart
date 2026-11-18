@@ -6,6 +6,7 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/session_provider.dart';
 import 'router/app_router.dart';
+import 'widgets/tour_host.dart';
 
 class SemiFundApp extends StatefulWidget {
   const SemiFundApp({super.key, required this.session});
@@ -54,7 +55,11 @@ class _SemiFundAppState extends State<SemiFundApp> {
             systemNavigationBarColor: AppColors.paper,
             systemNavigationBarIconBrightness: Brightness.dark,
           ),
-          child: content,
+          child: TourHost(
+            router: _appRouter.router,
+            session: widget.session,
+            child: content,
+          ),
         );
       },
     );

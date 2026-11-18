@@ -9,6 +9,7 @@ import '../../models/semillero_membership.dart';
 import '../../models/user.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/app_update_widgets.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/member_avatar.dart';
@@ -61,6 +62,7 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           children: <Widget>[
             AppTopBar(
+              key: AppTourKeys.perfilTitulo,
               title: 'Perfil',
               onBack: AppLayout.isDesktop(context)
                   ? null
@@ -141,7 +143,8 @@ class ProfileScreen extends StatelessWidget {
                                 : '${user!.semestre}°',
                           ),
                         ],
-                        if ((user?.identificacion ?? '').isNotEmpty) ...<Widget>[
+                        if ((user?.identificacion ?? '')
+                            .isNotEmpty) ...<Widget>[
                           const Divider(),
                           _InfoRow(
                             label: 'Documento',

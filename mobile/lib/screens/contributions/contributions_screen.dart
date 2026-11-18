@@ -23,6 +23,7 @@ import '../../providers/members_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../services/management_service.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
@@ -326,6 +327,58 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     );
   }
 
+  /// El + reúne las tres formas de crear movimientos: cuota individual, cuotas
+  /// del mes y aporte. Así no quedan acciones sueltas en la pantalla.
+  Future<void> _openAddMenu() async {
+    final String? opcion = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+              child: Text('Agregar al semillero', style: AppTextStyles.h4),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.userRound, size: 22),
+              title: const Text('Nueva cuota individual'),
+              subtitle: const Text('Para un integrante y un mes'),
+              onTap: () => Navigator.of(sheetContext).pop('individual'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.users, size: 22),
+              title: const Text('Cuotas del mes'),
+              subtitle: const Text('Para varios integrantes a la vez'),
+              onTap: () => Navigator.of(sheetContext).pop('masivas'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.handCoins, size: 22),
+              title: const Text('Nuevo aporte'),
+              subtitle: const Text('Contribución para un destino concreto'),
+              onTap: () => Navigator.of(sheetContext).pop('aporte'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || opcion == null) return;
+    switch (opcion) {
+      case 'individual':
+        context.push('/contributions/new');
+        break;
+      case 'masivas':
+        await _openBulk();
+        break;
+      case 'aporte':
+        context.push('/contributions/aporte');
+        break;
+    }
+  }
+
   Future<void> _openBulk() async {
     final ContributionsProvider provider = context
         .read<ContributionsProvider>();
@@ -567,34 +620,6 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           PopupMenuButton<String>(
-                            tooltip: 'Opciones de cuota',
-                            onSelected: (String option) {
-                              switch (option) {
-                                case 'individual':
-                                  context.push('/contributions/new');
-                                  break;
-                                case 'masivas':
-                                  _openBulk();
-                                  break;
-                              }
-                            },
-                            itemBuilder: (BuildContext context) =>
-                                const <PopupMenuEntry<String>>[
-                                  PopupMenuItem<String>(
-                                    value: 'individual',
-                                    child: Text('Nueva cuota individual'),
-                                  ),
-                                  PopupMenuItem<String>(
-                                    value: 'masivas',
-                                    child: Text('Cuotas del mes'),
-                                  ),
-                                ],
-                            icon: const Icon(
-                              LucideIcons.moreVertical,
-                              size: 20,
-                            ),
-                          ),
-                          PopupMenuButton<String>(
                             tooltip: 'Excel y exportaciones',
                             enabled: !_exporting && !_importing,
                             onSelected: (String option) {
@@ -615,7 +640,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                                   ),
                                   PopupMenuItem<String>(
                                     value: 'xlsx',
-                                    child: Text('Exportar libro completo'),
+                                    child: Text('Exportar'),
                                   ),
                                 ],
                             icon: _exporting || _importing
@@ -632,8 +657,9 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                                   ),
                           ),
                           RoundAddButton(
-                            onPressed: () =>
-                                context.push('/contributions/aporte'),
+                            key: AppTourKeys.aportesAgregar,
+                            tooltip: 'Nueva cuota o aporte',
+                            onPressed: _openAddMenu,
                           ),
                         ],
                       )
@@ -642,6 +668,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: SegmentedTabs<_Tab>(
+                  key: AppTourKeys.aportesFiltros,
                   options: _Tab.values,
                   selected: _tab,
                   labelOf: _labelFor,

@@ -10,6 +10,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
 import '../../providers/invitation_provider.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
 import '../../core/navigation/volver.dart';
@@ -74,8 +75,11 @@ class _InviteScreenState extends State<InviteScreen> {
         child: Column(
           children: <Widget>[
             AppTopBar(
+              key: AppTourKeys.invitarTitulo,
               title: 'Invitar integrantes',
-              onBack: AppLayout.isDesktop(context) ? null : () => volver(context),
+              onBack: AppLayout.isDesktop(context)
+                  ? null
+                  : () => volver(context),
             ),
             Expanded(
               child: ListView(

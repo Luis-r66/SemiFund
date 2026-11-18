@@ -9,6 +9,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/semillero_membership.dart';
 import '../../providers/session_provider.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
@@ -86,6 +87,7 @@ class SemillerosScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
               child: Row(
+                key: AppTourKeys.semillerosTitulo,
                 children: <Widget>[
                   Expanded(
                     child: Column(

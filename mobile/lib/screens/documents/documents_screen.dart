@@ -17,6 +17,7 @@ import '../../providers/documents_provider.dart';
 import '../../services/documents_service.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
@@ -371,6 +372,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                         const SizedBox(height: 14),
                       ],
                       _UploadCard(
+                        key: AppTourKeys.documentosSubir,
                         busy: _subiendo,
                         onUpload: _subiendo ? null : _subir,
                       ),
@@ -415,7 +417,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 }
 
 class _UploadCard extends StatelessWidget {
-  const _UploadCard({required this.busy, required this.onUpload});
+  const _UploadCard({super.key, required this.busy, required this.onUpload});
 
   final bool busy;
   final VoidCallback? onUpload;

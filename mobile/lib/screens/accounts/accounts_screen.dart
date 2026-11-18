@@ -10,6 +10,7 @@ import '../../models/membership_account.dart';
 import '../../providers/accounts_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
@@ -55,6 +56,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           child: Column(
             children: <Widget>[
               AppTopBar(
+                key: AppTourKeys.cuentasTitulo,
                 title: 'Cuentas',
                 onBack: AppLayout.isDesktop(context)
                     ? null

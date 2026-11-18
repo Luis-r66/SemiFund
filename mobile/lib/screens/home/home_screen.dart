@@ -12,11 +12,11 @@ import '../../models/balance.dart';
 import '../../models/semillero_membership.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/session_provider.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/app_update_widgets.dart';
 import '../../widgets/balance_card.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/error_banner.dart';
-import '../../widgets/guided_intro.dart';
 import '../../widgets/loading_view.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/notification_bell.dart';
@@ -33,12 +33,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _loadedSemilleroId;
-  bool _introAbierta = false;
-
-  final GlobalKey _balanceKey = GlobalKey();
-  final GlobalKey _aportesKey = GlobalKey();
-  final GlobalKey _gastosKey = GlobalKey();
-  final GlobalKey _documentosKey = GlobalKey();
+  bool _introSolicitada = false;
 
   /// Abre un módulo y refresca el saldo al volver (puede haber cambiado).
   Future<void> _open(String path) async {
@@ -57,78 +52,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// La primera vez (o cuando el perfil lo pide) se muestra la introducción
-  /// guiada sobre esta misma pantalla. No se repite al volver a Inicio.
+  /// La primera vez (o cuando el perfil lo pide) se abre el recorrido completo.
+  /// La guía vive en `TourHost`, por encima del navegador, para poder cambiar
+  /// de pantalla; aquí solo se avisa cuando ya hay datos para señalar.
   void _quizasMostrarIntro(SessionProvider session) {
-    final bool quiere = session.introSolicitada || session.tutorialPendiente;
-    if (!quiere || _introAbierta) return;
+    if (_introSolicitada) return;
+    if (!session.tutorialPendiente && !session.introSolicitada) return;
 
-    _introAbierta = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    _introSolicitada = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      await GuidedIntro.mostrar(context, steps: _pasosIntro(session));
-      if (!mounted) return;
-      session.consumirIntroduccion();
-      await session.marcarTutorialVisto();
-      _introAbierta = false;
+      session.solicitarIntroduccion();
     });
-  }
-
-  List<GuidedStep> _pasosIntro(SessionProvider session) {
-    final bool tesorero = session.isTesorero;
-    final bool profesor = session.user?.esProfesor ?? false;
-
-    return <GuidedStep>[
-      const GuidedStep(
-        icon: LucideIcons.cloud,
-        title: 'Tu semillero, en orden',
-        body:
-            'Te muestro dónde está cada cosa. Puedes saltar la guía y verla '
-            'otra vez desde tu perfil.',
-      ),
-      GuidedStep(
-        icon: LucideIcons.wallet,
-        target: _balanceKey,
-        title: 'El saldo, siempre a la vista',
-        body:
-            'Aquí ves cuánto dinero tiene el semillero: lo aportado menos lo '
-            'gastado. Se actualiza con cada movimiento.',
-      ),
-      GuidedStep(
-        icon: LucideIcons.wallet,
-        target: _aportesKey,
-        title: tesorero ? 'Cuotas y aportes' : 'Tus cuotas',
-        body: tesorero
-            ? 'Asigna una cuota a varios integrantes a la vez y revisa los '
-                  'pagos que reportan con su comprobante.'
-            : 'Cuando la tesorería te asigne una cuota aparecerá aquí. Abre '
-                  'su detalle para reportar el pago con el comprobante.',
-      ),
-      GuidedStep(
-        icon: LucideIcons.receipt,
-        target: _gastosKey,
-        title: 'Cada gasto con su soporte',
-        body:
-            'Proveedor, NIT, factura y valor quedan guardados. Con esos datos '
-            'se llenan los documentos del profesor.',
-      ),
-      if (profesor)
-        GuidedStep(
-          icon: LucideIcons.fileText,
-          target: _documentosKey,
-          title: 'Documentos para la universidad',
-          body:
-              'Sube tu formato Word o Excel una sola vez. SemiFund lo llena '
-              'con los datos del semillero y tú lo descargas para enviarlo.',
-        ),
-      const GuidedStep(
-        icon: LucideIcons.check,
-        title: 'Listo para empezar',
-        body:
-            'Si quieres repetir este recorrido, entra a tu perfil y elige '
-            '"Ver introducción".',
-      ),
-    ];
   }
 
   @override
@@ -159,9 +94,6 @@ class _HomeScreenState extends State<HomeScreen> {
         active: active,
         snapshot: snapshot,
         onOpen: _open,
-        balanceKey: _balanceKey,
-        aportesKey: _aportesKey,
-        gastosKey: _gastosKey,
       );
     }
 
@@ -259,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         StaggeredEntrance(
                           index: 0,
                           child: BalanceCard(
-                            key: _balanceKey,
+                            key: AppTourKeys.inicioSaldo,
                             saldo: snapshot.balance.saldoDisponible,
                             updatedAt: snapshot.updatedAt,
                           ),
@@ -286,6 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: <Widget>[
                               const SectionLabel('Gestionar'),
                               _ManageGrid(
+                                key: AppTourKeys.inicioModulos,
                                 children: <Widget>[
                                   _ManageTile(
                                     icon: LucideIcons.users,
@@ -295,7 +228,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onTap: () => _open('/members'),
                                   ),
                                   _ManageTile(
-                                    key: _aportesKey,
                                     icon: LucideIcons.wallet,
                                     title: 'Aportes',
                                     subtitle: _aportesResumen(
@@ -305,7 +237,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onTap: () => _open('/contributions'),
                                   ),
                                   _ManageTile(
-                                    key: _gastosKey,
                                     icon: LucideIcons.receipt,
                                     title: 'Gastos',
                                     subtitle:
@@ -314,7 +245,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   if (session.user?.esProfesor == true)
                                     _ManageTile(
-                                      key: _documentosKey,
                                       icon: LucideIcons.fileText,
                                       title: 'Documentos',
                                       subtitle: 'Plantillas y actas',
@@ -382,9 +312,6 @@ class _DesktopHome extends StatelessWidget {
     required this.active,
     required this.snapshot,
     required this.onOpen,
-    required this.balanceKey,
-    required this.aportesKey,
-    required this.gastosKey,
   });
 
   final SessionProvider session;
@@ -392,9 +319,6 @@ class _DesktopHome extends StatelessWidget {
   final SemilleroMembership active;
   final HomeSnapshot? snapshot;
   final Future<void> Function(String path) onOpen;
-  final GlobalKey balanceKey;
-  final GlobalKey aportesKey;
-  final GlobalKey gastosKey;
 
   @override
   Widget build(BuildContext context) {
@@ -490,7 +414,7 @@ class _DesktopHome extends StatelessWidget {
                                 Expanded(
                                   flex: 3,
                                   child: BalanceCard(
-                                    key: balanceKey,
+                                    key: AppTourKeys.inicioSaldo,
                                     saldo: snapshot!.balance.saldoDisponible,
                                     updatedAt: snapshot!.updatedAt,
                                   ),
@@ -514,6 +438,7 @@ class _DesktopHome extends StatelessWidget {
                             children: <Widget>[
                               const SectionLabel('Resumen'),
                               Row(
+                                key: AppTourKeys.inicioModulos,
                                 children: <Widget>[
                                   Expanded(
                                     child: _StatCard(
@@ -526,7 +451,6 @@ class _DesktopHome extends StatelessWidget {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: _StatCard(
-                                      key: aportesKey,
                                       icon: LucideIcons.wallet,
                                       label: isTreasurer
                                           ? 'Aportes por cobrar'
@@ -539,7 +463,6 @@ class _DesktopHome extends StatelessWidget {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: _StatCard(
-                                      key: gastosKey,
                                       icon: LucideIcons.receipt,
                                       label: 'Gastos registrados',
                                       value: '${snapshot!.expensesCount}',
@@ -620,7 +543,6 @@ class _HeaderAction extends StatelessWidget {
 
 class _StatCard extends StatelessWidget {
   const _StatCard({
-    super.key,
     required this.icon,
     required this.label,
     required this.value,
@@ -777,7 +699,7 @@ class _TotalsCard extends StatelessWidget {
 }
 
 class _ManageGrid extends StatelessWidget {
-  const _ManageGrid({required this.children});
+  const _ManageGrid({super.key, required this.children});
 
   final List<Widget> children;
 
@@ -815,7 +737,6 @@ class _ManageGrid extends StatelessWidget {
 
 class _ManageTile extends StatelessWidget {
   const _ManageTile({
-    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,

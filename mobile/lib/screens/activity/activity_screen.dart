@@ -10,6 +10,7 @@ import '../../core/utils/formatters.dart';
 import '../../models/audit_entry.dart';
 import '../../services/dashboard_service.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/loading_view.dart';
@@ -71,6 +72,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
           child: Column(
             children: <Widget>[
               AppTopBar(
+                key: AppTourKeys.actividadTitulo,
                 title: 'Actividad',
                 onBack: AppLayout.isDesktop(context)
                     ? null

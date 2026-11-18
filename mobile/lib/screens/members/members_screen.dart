@@ -12,6 +12,7 @@ import '../../models/member.dart';
 import '../../providers/members_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/app_tour.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/form_controls.dart';
@@ -75,6 +76,8 @@ class _MembersScreenState extends State<MembersScreen> {
                     : () => volver(context),
                 trailing: isTreasurer
                     ? RoundAddButton(
+                        key: AppTourKeys.integrantesAgregar,
+                        tooltip: 'Nuevo integrante',
                         onPressed: () => context.push('/members/new'),
                       )
                     : null,
@@ -82,6 +85,7 @@ class _MembersScreenState extends State<MembersScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: SearchField(
+                  key: AppTourKeys.integrantesBuscar,
                   controller: _search,
                   hintText: 'Buscar integrante',
                 ),
