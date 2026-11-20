@@ -13,6 +13,7 @@ abstract class AppUpdateGateway {
   bool get consultaVencida;
   Future<AppRelease?> buscar({bool forzar = false});
   Future<void> abrirDescarga(AppRelease release);
+  Future<void> abrirPagina(AppRelease release);
 }
 
 /// Consulta la última release pública de SemiFund en GitHub y la compara con
@@ -128,5 +129,15 @@ class AppUpdateService implements AppUpdateGateway {
       Uri.parse(release.downloadUrl),
       mode: LaunchMode.externalApplication,
     );
+  }
+
+  /// Página de la release en GitHub. En web no se descarga el APK: se muestra
+  /// la release para que el usuario lea las novedades.
+  @override
+  Future<void> abrirPagina(AppRelease release) async {
+    final String url = release.pageUrl.isNotEmpty
+        ? release.pageUrl
+        : 'https://github.com/$repositorio/releases/latest';
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 }

@@ -66,6 +66,11 @@ function filtroCuotaExistente(mes) {
   };
 }
 
+// El índice único de cuotas puede rechazar dos peticiones simultáneas.
+function esCuotaDuplicada(error) {
+  return Boolean(error) && error.code === 11000;
+}
+
 function validarMonto(valor, saldo) {
   if (typeof valor !== 'number' || !Number.isFinite(valor)) return 'El monto debe ser un número';
   if (round(valor) <= 0) return 'El monto debe ser mayor a 0';
@@ -196,15 +201,25 @@ const create = asyncHandler(async (req, res) => {
     }
   }
 
-  const contribution = await Contribution.create({
-    integranteId,
-    monto,
-    mes,
-    concepto: concepto.trim(),
-    tipo,
-    montoPagado: 0,
-    semilleroId: req.semilleroId
-  });
+  let contribution;
+  try {
+    contribution = await Contribution.create({
+      integranteId,
+      monto,
+      mes,
+      concepto: concepto.trim(),
+      tipo,
+      montoPagado: 0,
+      semilleroId: req.semilleroId
+    });
+  } catch (error) {
+    if (esCuotaDuplicada(error)) {
+      return res.status(409).json({
+        error: 'Ya existe una cuota para ese integrante en ese mes'
+      });
+    }
+    throw error;
+  }
   await auditar(req, contribution, 'aporte.crear', `${tipo} · ${contribution.mes} · ${contribution.monto}`);
   if (member.userId && String(member.userId) !== String(req.userId)) {
     await notificar({
@@ -286,15 +301,25 @@ const bulkCreate = asyncHandler(async (req, res) => {
       });
       continue;
     }
-    await Contribution.create({
-      integranteId: member._id,
-      semilleroId: req.semilleroId,
-      monto: round(monto),
-      mes,
-      concepto: concepto.trim(),
-      tipo,
-      montoPagado: 0
-    });
+    try {
+      await Contribution.create({
+        integranteId: member._id,
+        semilleroId: req.semilleroId,
+        monto: round(monto),
+        mes,
+        concepto: concepto.trim(),
+        tipo,
+        montoPagado: 0
+      });
+    } catch (error) {
+      // Otra petición creó la misma cuota entre la consulta y el insert.
+      if (!esCuotaDuplicada(error)) throw error;
+      omitidas.push({
+        integranteId: member.id,
+        motivo: tipo === 'cuota' ? 'Ya tiene cuota para ese mes' : 'Ya tiene este aporte para ese mes'
+      });
+      continue;
+    }
     creadas++;
     if (member.userId && String(member.userId) !== String(req.userId)) {
       avisados.push(String(member.userId));

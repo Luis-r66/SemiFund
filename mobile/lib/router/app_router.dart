@@ -51,6 +51,7 @@ const List<String> _semilleroPrefixes = <String>[
 const Set<String> _treasurerRoutes = <String>{
   '/accounts',
   '/invite',
+  '/activity',
   '/members/new',
   '/contributions/new',
   '/contributions/aporte',

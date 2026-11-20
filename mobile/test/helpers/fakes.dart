@@ -11,6 +11,7 @@ class FakeAppUpdateGateway implements AppUpdateGateway {
   bool due = false;
   AppRelease? release;
   bool abrirLlamado = false;
+  bool paginaLlamada = false;
 
   @override
   Future<String> versionActual() async => version;
@@ -27,6 +28,11 @@ class FakeAppUpdateGateway implements AppUpdateGateway {
   @override
   Future<void> abrirDescarga(AppRelease release) async {
     abrirLlamado = true;
+  }
+
+  @override
+  Future<void> abrirPagina(AppRelease release) async {
+    paginaLlamada = true;
   }
 }
 

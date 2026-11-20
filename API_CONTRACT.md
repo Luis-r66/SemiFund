@@ -1,6 +1,6 @@
 # API Contract — Tesorería Semillero de Software
 
-> Versión 1.6.0. Fuente de verdad para la app Android. Todo es JSON salvo los
+> Versión 1.6.2. Fuente de verdad para la app Android. Todo es JSON salvo los
 > endpoints `multipart` de comprobantes y plantillas de documentos.
 > Base URL: `http://<HOST>:<PUERTO>/api` — local `http://10.0.2.2:3000/api` (emulador) o `http://<IP-LAN>:3000/api` (físico).
 
@@ -53,7 +53,7 @@
 Campos nuevos: `referencia`, `fechaReporte`, `reportadoPor`, `fechaRevision`, `revisadoPor`, `motivoRechazo`.
 La respuesta de `GET /api/contributions` agrega `esPropio` para indicar si el aporte pertenece al integrante de la sesión.
 El **integrante solo recibe sus propios registros**: el filtro se aplica en el servidor. El tesorero puede filtrar con `memberId`.
-La **cuota** es única por integrante y mes. Los **aportes** (viaje, materiales, etc.) pueden repetirse en el mismo mes y convivir con la cuota.
+La **cuota** es única por integrante y mes. Los **aportes** (viaje, materiales, etc.) pueden repetirse en el mismo mes y convivir con la cuota. La unicidad de la cuota la garantiza un índice parcial en Mongo, así que dos peticiones simultáneas reciben `409` en la segunda en lugar de crear un duplicado.
 
 ### Expense
 
@@ -254,10 +254,10 @@ POST   /api/documents/templates/:id/generate { mes?, inicio?, fin?, ciudades?, o
 ```
 POST   /api/auth/register  { nombres, apellidos, email, password } -> 201 { token, user } | 400 | 409 | 429
 POST   /api/auth/login     { email, password }                     -> 200 { token, user } | 401 | 429
-POST   /api/auth/logout    (Authorization)                         -> 200
+POST   /api/auth/logout    (Authorization)                         -> 200 | 401
 GET    /api/auth/me        (Authorization)                         -> 200 { id, nombre, nombres, apellidos, email, tipoUsuario, programa, semestre, semilleros[] }
 PATCH  /api/auth/me        (Authorization) { nombres?, apellidos?, tipoUsuario?, programa?, semestre? } -> 200 | 400
-PATCH  /api/auth/password  (Authorization) { currentPassword, newPassword } -> 200 { token, mensaje } | 400 | 401 | 429
+PATCH  /api/auth/password  (Authorization) { currentPassword, newPassword } -> 200 { token, mensaje } | 400 contraseña incorrecta | 401 sin sesión | 429
 POST   /api/auth/forgot-password { email }                         -> 200 mensaje genérico | 400 | 429 | 503
 POST   /api/auth/reset-password  { email, code, password }         -> 200 | 400 | 429
 ```
@@ -276,7 +276,8 @@ Recuperación:
 - `forgot-password` genera un código de 6 dígitos, lo envía por Brevo y responde genéricamente para no revelar si el correo existe.
 - El código vence en 15 minutos, es de un solo uso y admite máximo 5 intentos.
 - `reset-password` invalida las sesiones anteriores mediante `tokenVersion`.
-- `PATCH /auth/password` pide la contraseña actual, incrementa `tokenVersion` y devuelve un token nuevo.
+- `PATCH /auth/password` pide la contraseña actual, incrementa `tokenVersion` y devuelve un token nuevo. Si la contraseña actual es incorrecta responde **`400`**, no `401`: la sesión sigue viva y el cliente no debe cerrarla.
+- `POST /auth/logout` sube `tokenVersion` y revoca el token en el acto; como el JWT dura 7 días, eso cierra también las demás sesiones de la cuenta.
 - Rate limiting: `429` en login, registro, recuperación y cambio de contraseña.
 - Variables de entorno: `MAIL_MODE` (`console` en local, `brevo` en producción), `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME`.
 ### Semilleros (hub — requieren Authorization, no `X-Semillero-Id`)

@@ -77,7 +77,7 @@ npm run dev    # desarrollo (node --watch)
 npm start      # producción
 ```
 
-Verificar: `GET http://localhost:3000/health` → `{ "ok": true, "version": "1.6.0" }`.
+Verificar: `GET http://localhost:3000/health` → `{ "ok": true, "version": "1.6.2" }`.
 
 Para sincronizar los datos académicos de las cuentas con los integrantes existentes:
 
@@ -96,7 +96,8 @@ npm run sync:members                # aplicar
 | POST | `/auth/google` `{idToken}` | 200 `{token, user, requierePerfil}` | 400, 401, 403, 409, 429, 503 |
 | GET | `/auth/me` | 200 perfil + semilleros | 401 |
 | PATCH | `/auth/me` `{nombres?, apellidos?, tipoUsuario?, programa?, semestre?}` | 200 perfil | 400 |
-| PATCH | `/auth/password` `{currentPassword, newPassword}` | 200 `{token}` | 400, 401, 429 |
+| PATCH | `/auth/password` `{currentPassword, newPassword}` | 200 `{token}` | 400 contraseña incorrecta, 401 sin sesión, 429 |
+| POST | `/auth/logout` | 200 mensaje | 401 |
 | POST | `/auth/forgot-password` `{email}` | 200 mensaje genérico | 400, 429, 503 |
 | POST | `/auth/reset-password` `{email, code, password}` | 200 | 400, 429 |
 
@@ -106,6 +107,8 @@ npm run sync:members                # aplicar
 - `nombres`/`apellidos` son los campos nuevos; `nombre` sigue aceptándose por compatibilidad.
 - El código de recuperación tiene 6 dígitos, vence en 15 minutos, es de un solo uso y máximo 5 intentos.
 - `PATCH /auth/password` y `reset-password` invalidan sesiones anteriores con `tokenVersion`.
+- `POST /auth/logout` también sube `tokenVersion`: el token deja de servir de inmediato. Como el JWT dura 7 días y no se puede borrar, esto cierra además las sesiones abiertas en otros dispositivos con la misma cuenta.
+- Una contraseña actual incorrecta responde `400`, no `401`: la sesión sigue siendo válida y la app muestra el error en el formulario.
 
 ## Endpoints de tesorería (base `http://localhost:3000/api`)
 
@@ -151,6 +154,7 @@ npm run sync:members                # aplicar
 - El tesorero aprueba con `/pay` o con `/approve`, y rechaza con `/reject`. También puede registrar efectivo o consignación con `/payments` sin comprobante y adjuntarlo después.
 - Los abonos parciales se guardan en `abonos[]` y actualizan `montoPagado`; el saldo y el estado `parcial` se calculan en el modelo. El tesorero puede anular un abono aprobado.
 - Las cuotas masivas crean una cuota por integrante activo y omiten a quien ya tenga una para ese mes. Con `tipo: "aporte"` se omite a quien ya tenga el mismo aporte (`mes + concepto`), de modo que la operación se pueda repetir para integrantes nuevos.
+- La cuota única por integrante y mes está respaldada por un índice parcial en Mongo, no solo por la comprobación previa: dos peticiones simultáneas ya no pueden duplicarla. Si la base trae cuotas repetidas de versiones anteriores, `npm run check:duplicate-fees` las lista para revisarlas a mano (no borra nada).
 - El CSV `movimientos.csv` y el libro `libro.xlsx` incluyen aportes, gastos y la línea de saldo inicial. El correo del integrante sale de su cuenta; los integrantes manuales sin cuenta quedan con correo vacío.
 - El perfil académico de la cuenta se sincroniza con los integrantes vinculados. El tesorero no puede editar carrera/semestre de un integrante con cuenta.
 - La auditoría registra integrantes, aportes, abonos, gastos y ajustes de saldo inicial sin bloquear la operación principal.
@@ -195,7 +199,7 @@ Pruebas de las reglas puras:
 
 ```bash
 cd backend
-npm test    # 90 pruebas en 15 archivos
+npm test    # 92 pruebas en 16 archivos
 ```
 
 ## Documentos con plantillas propias
@@ -355,9 +359,12 @@ Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core
 - La versión instalada se muestra en **Perfil → Acerca de**. La app consulta
   `https://api.github.com/repos/Luis-r66/SemiFund/releases/latest` como máximo
   una vez al día al abrir y también con el botón **Buscar actualizaciones**.
-- Si hay una versión nueva, aparece un aviso en Inicio y en Perfil. **Descargar**
-  abre el APK en el navegador; Android pide confirmación para instalarlo, porque
-  fuera de Play Store el sistema no permite instalar sola.
+- Si hay una versión nueva, aparece un aviso en Inicio y en Perfil. En Android,
+  **Descargar** abre el APK en el navegador y el sistema pide confirmación para
+  instalarlo, porque fuera de Play Store no se puede instalar sola. En la web
+  el aviso no descarga el APK: **Ver** abre la página de la release en GitHub.
+- Las notas de la release se muestran como texto: el Markdown del cuerpo
+  (`##`, `**`, viñetas) se limpia antes de dibujarlo.
 - La introducción guiada aparece una vez por cuenta, cuando el inicio ya tiene
   datos, y señala con nubes los botones reales: saldo, aportes, gastos y
   documentos. Se puede saltar y repetir desde **Perfil → Ver introducción**.
@@ -370,20 +377,29 @@ Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core
   es un borrado lógico: el semillero y su historial dejan de estar disponibles,
   pero quedan registrados para auditoría.
 
-Para publicar una versión:
+Para publicar una versión hay dos caminos:
+
+**Automático (recomendado).** El workflow `.github/workflows/android-apk.yml`
+compila el APK en GitHub, lo renombra a `SemiFund.apk` y lo adjunta a la
+release. Se lanza al empujar un tag `vX.Y.Z` o a mano desde
+**Actions → APK Android → Run workflow** indicando el tag (la release debe
+existir).
+
+**Manual.**
 
 ```bash
 cd mobile
-# subir version: 1.6.1+13 en pubspec.yaml
+# subir version: 1.6.2+14 en pubspec.yaml
 flutter build apk --release
 # el adjunto debe llamarse SemiFund.apk para que la app lo encuentre primero
 cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/SemiFund.apk
-gh release create v1.6.1 build/app/outputs/flutter-apk/SemiFund.apk \
-  --title "SemiFund v1.6.1" --notes "Novedades"
+gh release create v1.6.2 build/app/outputs/flutter-apk/SemiFund.apk \
+  --title "SemiFund v1.6.2" --notes-file entrega/notas-v1.6.2.md
 ```
 
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
-app lo encuentre en la release.
+app lo encuentre en la release. El build release sigue firmado con la clave
+debug, así que el workflow no necesita secretos.
 
 
 ## Roles y administración
@@ -410,7 +426,7 @@ roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
 datos. Si el proyecto creciera, un admin global exigiría un campo aparte en
 `User` —nunca auto-registrable—, siembra por variable de entorno, validación
 contra la base en cada petición, auditoría de cada acción y segundo factor.
-Queda fuera de la v1.6.0.
+Queda fuera de la v1.6.2.
 
 ## Estructura por capas
 
@@ -445,10 +461,10 @@ API_CONTRACT.md (contrato para Android)
 Los dos manuales se publican como adjuntos del release y no viven en el
 repositorio:
 
-- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.2/SemiFund-Manual-de-usuario.pdf)
-- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.5.2/SemiFund-Manual-tecnico.pdf)
+- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.6.2/SemiFund-Manual-de-usuario.pdf)
+- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.6.2/SemiFund-Manual-tecnico.pdf)
 
-Ambos describen la versión 1.5.2 y usan capturas del semillero de prueba de las
+Ambos describen la versión 1.6.2 y usan capturas del semillero de prueba de las
 pruebas golden, no de cuentas reales.
 
 Las fuentes quedan fuera del repositorio (`entrega/manuales/` está ignorada por

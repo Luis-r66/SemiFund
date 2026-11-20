@@ -77,5 +77,19 @@ void main() {
     await info.descargar();
 
     expect(gateway.abrirLlamado, isTrue);
+    expect(gateway.paginaLlamada, isFalse);
+  });
+
+  test('ver novedades abre la página de la release', () async {
+    final FakeAppUpdateGateway gateway = FakeAppUpdateGateway(version: '1.3.0')
+      ..due = true
+      ..release = release;
+    final AppInfoProvider info = AppInfoProvider(gateway);
+    await info.iniciar();
+
+    await info.verNovedades();
+
+    expect(gateway.paginaLlamada, isTrue);
+    expect(gateway.abrirLlamado, isFalse);
   });
 }

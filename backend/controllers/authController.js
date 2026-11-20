@@ -224,7 +224,11 @@ const loginWithGoogle = asyncHandler(async (req, res) => {
 });
 
 // POST /api/auth/logout
+// Los JWT no se pueden borrar: se sube tokenVersion para que el token emitido
+// deje de servir en la siguiente petición. Eso cierra también las sesiones
+// abiertas en otros dispositivos con la misma cuenta.
 const logout = asyncHandler(async (req, res) => {
+  await User.updateOne({ _id: req.userId }, { $inc: { tokenVersion: 1 } });
   res.status(200).json({ mensaje: 'Sesión cerrada' });
 });
 

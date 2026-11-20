@@ -66,6 +66,13 @@ class AppInfoProvider extends ChangeNotifier {
     await _service.abrirDescarga(release);
   }
 
+  /// Abre la página de la release (web y "ver novedades").
+  Future<void> verNovedades() async {
+    final AppRelease? release = _release;
+    if (release == null) return;
+    await _service.abrirPagina(release);
+  }
+
   void descartar() {
     if (_dismissed) return;
     _dismissed = true;

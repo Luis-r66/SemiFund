@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/utils/notes_utils.dart';
 import '../models/app_release.dart';
 import '../providers/app_info_provider.dart';
 import 'buttons.dart';
@@ -18,6 +20,11 @@ class UpdateBanner extends StatelessWidget {
     final AppInfoProvider info = context.watch<AppInfoProvider>();
     if (!info.showBanner) return const SizedBox.shrink();
     final AppRelease release = info.release!;
+    final String detalle = kIsWeb
+        ? 'Novedades en GitHub'
+        : release.sizeLabel.isEmpty
+        ? 'Descarga el APK nuevo'
+        : '${release.sizeLabel} · descarga el APK nuevo';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -29,7 +36,11 @@ class UpdateBanner extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            const Icon(LucideIcons.download, size: 18, color: AppColors.paper),
+            Icon(
+              kIsWeb ? LucideIcons.sparkles : LucideIcons.download,
+              size: 18,
+              color: AppColors.paper,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -41,23 +52,22 @@ class UpdateBanner extends StatelessWidget {
                       color: AppColors.paper,
                     ),
                   ),
-                  if (release.sizeLabel.isNotEmpty)
-                    Text(
-                      '${release.sizeLabel} · descarga el APK nuevo',
-                      style: AppTextStyles.tiny.copyWith(
-                        color: AppColors.paper.withValues(alpha: 0.72),
-                      ),
+                  Text(
+                    detalle,
+                    style: AppTextStyles.tiny.copyWith(
+                      color: AppColors.paper.withValues(alpha: 0.72),
                     ),
+                  ),
                 ],
               ),
             ),
             TextButton(
-              onPressed: info.descargar,
+              onPressed: kIsWeb ? info.verNovedades : info.descargar,
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.paper,
                 textStyle: AppTextStyles.smallSemibold,
               ),
-              child: const Text('Descargar'),
+              child: Text(kIsWeb ? 'Ver' : 'Descargar'),
             ),
             IconButton(
               onPressed: info.descartar,
@@ -110,7 +120,12 @@ class UpdateSection extends StatelessWidget {
             children: <Widget>[
               _InfoRow(label: 'Versión', value: info.versionLabel),
               const Divider(),
-              _InfoRow(label: 'Canal', value: 'GitHub Releases · Android'),
+              _InfoRow(
+                label: 'Canal',
+                value: kIsWeb
+                    ? 'GitHub Releases · Web'
+                    : 'GitHub Releases · Android',
+              ),
             ],
           ),
         ),
@@ -164,7 +179,7 @@ class UpdateSection extends StatelessWidget {
                 if (release.notes.trim().isNotEmpty) ...<Widget>[
                   const SizedBox(height: 8),
                   Text(
-                    release.notes.trim(),
+                    notasEnTextoPlano(release.notes),
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.small.copyWith(
@@ -175,9 +190,13 @@ class UpdateSection extends StatelessWidget {
                 ],
                 const SizedBox(height: 14),
                 PrimaryButton(
-                  label: 'Descargar ${release.version}',
-                  icon: LucideIcons.download,
-                  onPressed: info.descargar,
+                  label: kIsWeb
+                      ? 'Ver novedades en GitHub'
+                      : 'Descargar ${release.version}',
+                  icon: kIsWeb
+                      ? LucideIcons.externalLink
+                      : LucideIcons.download,
+                  onPressed: kIsWeb ? info.verNovedades : info.descargar,
                 ),
               ],
             ),

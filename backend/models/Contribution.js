@@ -74,6 +74,19 @@ contributionSchema.index({ integranteId: 1, estado: 1 });
 contributionSchema.index({ semilleroId: 1, integranteId: 1, mes: 1, tipo: 1 });
 // Listado paginado y conteo de cuotas por cobrar del inicio.
 contributionSchema.index({ semilleroId: 1, estado: 1, _id: -1 });
+// Defensa en profundidad: dos peticiones simultáneas podían crear la misma
+// cuota porque la comprobación previa no es atómica. El índice es parcial
+// porque los aportes sí pueden repetirse en el mismo mes. Los registros
+// anteriores a la 1.5.2 no tienen `tipo` y quedan fuera; para eso está
+// scripts/revisarCuotasDuplicadas.js.
+contributionSchema.index(
+  { semilleroId: 1, integranteId: 1, mes: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { tipo: 'cuota' },
+    name: 'cuota_unica_por_integrante_mes'
+  }
+);
 
 contributionSchema.method('toJSON', function () {
   const obj = this.toObject();
