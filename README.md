@@ -365,6 +365,9 @@ Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core
   el aviso no descarga el APK: **Ver** abre la página de la release en GitHub.
 - Las notas de la release se muestran como texto: el Markdown del cuerpo
   (`##`, `**`, viñetas) se limpia antes de dibujarlo.
+- La 1.6.3 es la primera versión firmada con la clave propia. Como Android exige
+  la misma firma para actualizar, quien tenga la 1.6.2 instalada debe desinstalarla
+  e instalar la 1.6.3 una sola vez; después las actualizaciones son normales.
 - La introducción guiada aparece una vez por cuenta, cuando el inicio ya tiene
   datos, y señala con nubes los botones reales: saldo, aportes, gastos y
   documentos. Se puede saltar y repetir desde **Perfil → Ver introducción**.
@@ -380,26 +383,65 @@ Sin `--dart-define`, debug usa `10.0.2.2` y release usa Render. Revisa `lib/core
 Para publicar una versión hay dos caminos:
 
 **Automático (recomendado).** El workflow `.github/workflows/android-apk.yml`
-compila el APK en GitHub, lo renombra a `SemiFund.apk` y lo adjunta a la
-release. Se lanza al empujar un tag `vX.Y.Z` o a mano desde
+compila el APK en GitHub, lo firma con la clave de release, verifica que el
+certificado no sea el de depuración, lo renombra a `SemiFund.apk` y lo adjunta a
+la release. Se lanza al empujar un tag `vX.Y.Z` o a mano desde
 **Actions → APK Android → Run workflow** indicando el tag (la release debe
 existir).
+
+### Firma de release
+
+El keystore **no está en el repositorio**: es la identidad permanente de la app y,
+si se pierde, no se pueden publicar actualizaciones que instalen encima. Vive en
+una carpeta fuera del proyecto y se respalda junto con su contraseña.
+
+En el equipo local, `mobile/android/key.properties` (ignorado por git) apunta al
+archivo:
+
+```properties
+storeFile=C:/Users/L/Documents/SemiFund-firma/semifund-release.jks
+storePassword=…
+keyAlias=semifund
+keyPassword=…
+```
+
+Sin ese archivo, `flutter build apk --release` compila firmado en debug para
+poder probar; en CI el build **falla** si falta la firma.
+
+En GitHub los secretos son `ANDROID_KEYSTORE_BASE64` (el `.jks` en base64),
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD` y `ANDROID_KEY_ALIAS`. El
+workflow los usa solo durante la compilación; el keystore nunca queda en el
+repositorio.
+
+Para crear la clave desde cero (solo la primera vez):
+
+```bash
+keytool -genkeypair -storetype PKCS12 -keystore semifund-release.jks \
+  -alias semifund -keyalg RSA -keysize 4096 -validity 10000 \
+  -dname "CN=..., O=SemiFund, C=CO"
+```
 
 **Manual.**
 
 ```bash
 cd mobile
-# subir version: 1.6.2+14 en pubspec.yaml
+# subir version: 1.6.3+15 en pubspec.yaml
 flutter build apk --release
 # el adjunto debe llamarse SemiFund.apk para que la app lo encuentre primero
 cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/SemiFund.apk
-gh release create v1.6.2 build/app/outputs/flutter-apk/SemiFund.apk \
-  --title "SemiFund v1.6.2" --notes-file entrega/notas-v1.6.2.md
+gh release create v1.6.3 build/app/outputs/flutter-apk/SemiFund.apk \
+  --title "SemiFund v1.6.3" --notes-file entrega/notas-v1.6.3.md
 ```
 
 El APK adjunto debe llamarse `SemiFund.apk` (o terminar en `.apk`) para que la
-app lo encuentre en la release. El build release sigue firmado con la clave
-debug, así que el workflow no necesita secretos.
+app lo encuentre en la release. Para comprobar la firma de un APK:
+
+```bash
+apksigner verify --print-certs SemiFund.apk
+```
+
+El SHA-256 del certificado debe ser siempre el mismo entre versiones; si cambia,
+Android rechaza la instalación sobre la anterior y hay que desinstalar.
 
 
 ## Roles y administración
@@ -426,7 +468,7 @@ roles por semillero nadie ve las finanzas de otro, y el soporte excepcional
 datos. Si el proyecto creciera, un admin global exigiría un campo aparte en
 `User` —nunca auto-registrable—, siembra por variable de entorno, validación
 contra la base en cada petición, auditoría de cada acción y segundo factor.
-Queda fuera de la v1.6.2.
+Sigue fuera del alcance en la 1.6.3.
 
 ## Estructura por capas
 
@@ -461,10 +503,10 @@ API_CONTRACT.md (contrato para Android)
 Los dos manuales se publican como adjuntos del release y no viven en el
 repositorio:
 
-- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.6.2/SemiFund-Manual-de-usuario.pdf)
-- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.6.2/SemiFund-Manual-tecnico.pdf)
+- **Manual de usuario:** [SemiFund-Manual-de-usuario.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.6.3/SemiFund-Manual-de-usuario.pdf)
+- **Manual técnico:** [SemiFund-Manual-tecnico.pdf](https://github.com/Luis-r66/SemiFund/releases/download/v1.6.3/SemiFund-Manual-tecnico.pdf)
 
-Ambos describen la versión 1.6.2 y usan capturas del semillero de prueba de las
+Ambos describen la versión 1.6.3 y usan capturas del semillero de prueba de las
 pruebas golden, no de cuentas reales.
 
 Las fuentes quedan fuera del repositorio (`entrega/manuales/` está ignorada por

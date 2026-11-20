@@ -1,10 +1,16 @@
 name: APK Android
 
-# Compila el APK y lo adjunta a la release de GitHub con el nombre
-# SemiFund.apk, que es el que busca la app para actualizarse.
+# Compila el APK, lo firma con la clave de release y lo adjunta a la release
+# de GitHub con el nombre SemiFund.apk, que es el que busca la app.
 #
 # Se puede lanzar a mano (Actions > APK Android > Run workflow) indicando el
 # tag, o automáticamente al empujar un tag vX.Y.Z.
+#
+# Secretos requeridos (Settings > Secrets and variables > Actions):
+#   ANDROID_KEYSTORE_BASE64   .jks en base64
+#   ANDROID_KEYSTORE_PASSWORD contraseña del almacén
+#   ANDROID_KEY_PASSWORD      contraseña de la clave
+#   ANDROID_KEY_ALIAS         alias (semifund)
 on:
   push:
     tags:
@@ -12,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag de la release (ej. v1.6.2); debe existir"
+        description: "Tag de la release (ej. v1.6.3); debe existir"
         required: true
         type: string
 
@@ -40,11 +46,48 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      # El build release usa la firma debug (no hay keystore propio), así que
-      # no hacen falta secretos para compilar en CI.
+      # El keystore y sus contraseñas no viven en el repositorio: se reconstruyen
+      # desde los secretos antes de compilar. Sin ellos el build falla.
+      - name: Reconstruir la firma de release
+        working-directory: mobile/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Falta el secreto ANDROID_KEYSTORE_BASE64."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > semifund-release.jks
+          cat > key.properties <<EOF
+          storeFile=semifund-release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          test -s semifund-release.jks
+
       - name: Compilar APK
         working-directory: mobile
         run: flutter build apk --release
+
+      # Una firma debug compila igual, pero no podría actualizar a los usuarios
+      # que ya tienen la clave real. Se verifica antes de publicar.
+      - name: Verificar firma y versión
+        working-directory: mobile
+        run: |
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          APKSIGNER=$(find "$SDK/build-tools" -name apksigner | sort -V | tail -1)
+          AAPT=$(find "$SDK/build-tools" -name aapt | sort -V | tail -1)
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          "$APKSIGNER" verify --print-certs "$APK" | tee "$RUNNER_TEMP/certs.txt"
+          if grep -q "CN=Android Debug" "$RUNNER_TEMP/certs.txt"; then
+            echo "::error::El APK salió firmado con la clave de depuración."
+            exit 1
+          fi
+          "$AAPT" dump badging "$APK" | grep -E "^package: name=.*versionCode" || true
 
       - name: Renombrar a SemiFund.apk
         working-directory: mobile
